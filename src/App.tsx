@@ -227,7 +227,8 @@ export default function App() {
     setIsGenerating(true);
 
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${geminiApiKey}`, {
+      // Use stable Gemini 1.5 Flash model
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -237,12 +238,20 @@ export default function App() {
       });
 
       const data = await response.json();
-      const botText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
+      
+      // Better error handling for API responses
+      if (data.error) {
+        const errorMsg = data.error.message || "API error occurred";
+        setChatHistory(prev => [...prev, { role: 'model', text: `⚠️ API Error: ${errorMsg}` }]);
+        return;
+      }
+      
+      const botText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response. Check your API key.";
       
       setChatHistory(prev => [...prev, { role: 'model', text: botText }]);
     } catch (error) {
       console.error("Gemini Error:", error);
-      setChatHistory(prev => [...prev, { role: 'model', text: "Error connecting to Gemini. Check your API key." }]);
+      setChatHistory(prev => [...prev, { role: 'model', text: "Error connecting to Gemini. Check your API key and try again." }]);
     } finally {
       setIsGenerating(false);
     }
