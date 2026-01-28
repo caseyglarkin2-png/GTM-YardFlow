@@ -83,6 +83,10 @@ import type { TimePeriod } from './types/analytics';
 
 // --- Sprint 34 Hooks ---
 import { useHubSpot } from './hooks/useHubSpot';
+import { useCommandPalette } from './hooks/useCommandPalette';
+
+// --- Sprint 34 Components ---
+import { CommandPalette } from './components/CommandPalette';
 
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
@@ -181,6 +185,10 @@ export default function App() {
   // HubSpot OAuth (Sprint 34 - replaces fake state)
   const hubspot = useHubSpot();
   const hubspotConnectionStatus = hubspot.status;
+  
+  // Command Palette (Sprint 34)
+  const commandPalette = useCommandPalette();
+  
   // Initialize from conversation manager's persisted history
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>(() => {
     const persisted = conversationManager.getHistory();
@@ -489,6 +497,64 @@ export default function App() {
       <PWAInstallPrompt />
       <PWAUpdateNotification />
       <OfflineBanner />
+      
+      {/* Command Palette (Ctrl+K / Cmd+K) */}
+      <CommandPalette
+        isOpen={commandPalette.isOpen}
+        onClose={commandPalette.close}
+        commands={[
+          {
+            id: 'nav-hitlist',
+            name: 'Go to Hitlist',
+            description: 'View and manage prospects',
+            category: 'Navigation',
+            action: () => { setActiveTab('prospects'); commandPalette.close(); },
+          },
+          {
+            id: 'nav-dashboard',
+            name: 'Go to Dashboard',
+            description: 'View analytics and KPIs',
+            category: 'Navigation',
+            action: () => { setActiveTab('dashboard'); commandPalette.close(); },
+          },
+          {
+            id: 'nav-assistant',
+            name: 'Go to AI Assistant',
+            description: 'Chat with YardFlow Brain',
+            category: 'Navigation',
+            action: () => { setActiveTab('assistant'); commandPalette.close(); },
+          },
+          {
+            id: 'nav-roi',
+            name: 'Go to ROI Calculator',
+            description: 'Calculate ROI for prospects',
+            category: 'Navigation',
+            action: () => { setActiveTab('roi'); commandPalette.close(); },
+          },
+          {
+            id: 'nav-integrations',
+            name: 'Go to Integrations',
+            description: 'Manage connected apps',
+            category: 'Navigation',
+            action: () => { setActiveTab('integrations'); commandPalette.close(); },
+          },
+          {
+            id: 'action-import',
+            name: 'Import Prospects',
+            description: 'Import from CSV or LinkedIn',
+            category: 'Actions',
+            action: () => { setShowImportWizard(true); commandPalette.close(); },
+          },
+          {
+            id: 'action-settings',
+            name: 'Open Settings',
+            description: 'Configure your preferences',
+            category: 'Actions',
+            action: () => { setShowSettings(true); commandPalette.close(); },
+          },
+        ]}
+        recentCommands={commandPalette.recentCommands}
+      />
       
       {/* Screen reader live region for announcements */}
       <div 
