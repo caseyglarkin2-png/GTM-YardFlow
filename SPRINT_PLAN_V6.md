@@ -1,24 +1,19 @@
 # YardFlow GTM Hub - Sprint Plan V6 (Technical Debt + Analytics)
 
+> **⚠️ SUPERSEDED:** This plan has been superseded by [SPRINT_PLAN_V7_UI_UX.md](./SPRINT_PLAN_V7_UI_UX.md) which addresses UI/UX integration issues discovered during testing.
+
 ## Status Summary
 | Metric | Value |
 |--------|-------|
-| **Tests** | 790 passing |
-| **Build** | ✅ Passes (180KB main + vendor chunks) |
+| **Tests** | 1825 passing |
+| **Build** | ✅ Passes (260KB main bundle) |
 | **Deploy** | gtm-yard-flow.vercel.app |
-| **IDE Errors** | 98 (TypeScript strict mode in tests - runtime OK) |
-| **Sprints 0-27** | ✅ Complete (archived) |
-| **Sprint 28** | 🔄 In Progress (T28.1 ✅, T28.2 partial) |
-
-## Priority: Technical Debt Before Features
-
-The codebase has accumulated technical debt that should be addressed before continuing Sprint 28:
-1. **Bundle splitting** - ✅ DONE (was 758KB, now chunked properly)
-2. **IDE TypeScript errors** - 98 errors in test files (tests pass, but poor DX)
-3. **Mock type safety** - Test mocks don't match interface signatures
-4. **Test file organization** - Missing proper tsconfig for test files
+| **Sprints 0-33** | ✅ Complete |
+| **Next** | Sprint 34-42 (UI/UX Integration) - see V7 plan |
 
 ---
+
+## ARCHIVED CONTENT BELOW (Sprints 28-33 Complete)
 
 ## Sprint 28A: Technical Debt Remediation
 **Goal:** Fix all IDE errors, improve type safety, clean developer experience.
