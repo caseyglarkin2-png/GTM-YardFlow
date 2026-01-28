@@ -157,7 +157,7 @@ export function HubSpotSettings({
   const isConnected = connectionStatus === 'connected';
 
   return (
-    <div className={`bg-white rounded-lg shadow-md border border-gray-200 ${className}`}>
+    <div className={`bg-white rounded-lg shadow-md border border-gray-200 ${className}`} data-testid="hubspot-settings">
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
@@ -217,6 +217,7 @@ export function HubSpotSettings({
                 <button
                   onClick={onDisconnect}
                   className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 transition-colors"
+                  data-testid="hubspot-disconnect"
                 >
                   Disconnect HubSpot
                 </button>
@@ -225,6 +226,7 @@ export function HubSpotSettings({
                   onClick={onConnect}
                   disabled={connectionStatus === 'connecting'}
                   className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-md hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  data-testid="hubspot-connect"
                 >
                   {connectionStatus === 'connecting' ? 'Connecting...' : 'Connect to HubSpot'}
                 </button>

@@ -214,8 +214,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="command-palette-title"
+      data-testid="command-palette-overlay"
     >
-      <div className="w-full max-w-xl bg-white rounded-lg shadow-2xl overflow-hidden">
+      <div className="w-full max-w-xl bg-white rounded-lg shadow-2xl overflow-hidden" data-testid="command-palette">
         {/* Search Input */}
         <div className="flex items-center px-4 py-3 border-b border-gray-200">
           <span className="text-gray-400 mr-3">🔍</span>
@@ -229,6 +230,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             className="flex-1 text-gray-900 placeholder-gray-400 bg-transparent focus:outline-none text-lg"
             aria-label="Command palette search"
             id="command-palette-title"
+            data-testid="command-palette-input"
           />
           <kbd className="hidden sm:inline-block px-2 py-1 text-xs text-gray-400 bg-gray-100 rounded">
             ESC

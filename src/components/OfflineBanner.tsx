@@ -34,6 +34,7 @@ export function OfflineBanner({ className = '' }: OfflineBannerProps): React.Rea
       <div
         className={`fixed top-0 left-0 right-0 bg-green-500 text-white text-center py-2 text-sm z-50 ${className}`}
         role="status"
+        data-testid="offline-banner-online"
       >
         ✓ Back online
       </div>
@@ -44,6 +45,7 @@ export function OfflineBanner({ className = '' }: OfflineBannerProps): React.Rea
     <div
       className={`fixed top-0 left-0 right-0 bg-yellow-500 text-yellow-900 text-center py-2 text-sm z-50 ${className}`}
       role="alert"
+      data-testid="offline-banner"
     >
       <span className="mr-2">📡</span>
       You're offline. Changes will sync when you reconnect.
