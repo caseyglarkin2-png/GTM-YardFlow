@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   Users, 
   MessageSquare, 
@@ -12,8 +12,22 @@ import {
   BarChart2,
   AlertCircle,
   Bot,
-  Loader
+  Loader,
+  Download,
+  Trash2,
+  Sparkles,
+  RefreshCw,
+  Menu,
+  X,
+  ChevronDown,
+  Clock,
+  Activity
 } from 'lucide-react';
+import { ConversationManagerSingleton } from './services/ConversationManager';
+import { buildSystemPrompt } from './services/SystemPromptBuilder';
+import { generateTemplate, refineTemplate } from './services/TemplateGenerator';
+import { getActivityTracker } from './services/ActivityTracker';
+import type { Activity as ActivityType } from './services/ActivityTracker';
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
@@ -47,121 +61,104 @@ const db = app ? getFirestore(app) : null;
 const appId = import.meta.env.VITE_FIREBASE_APP_ID || 'default-app-id';
 
 // --- Types ---
-interface Prospect {
-  id: string;
-  name: string;
-  title: string;
-  company: string;
-  tier: string;
-  score: number;
-  isOps: boolean;
-  isExec: boolean;
-  status: 'new' | 'drafted' | 'contacted' | 'meeting_booked';
-  notes?: string;
-  lastEditedBy?: string;
-}
+import { Prospect, MessageTemplate, ChatMessage } from './types';
+import { HITLIST_PROSPECTS } from './data/hitlistData';
 
-interface MessageTemplate {
-  id: string;
-  label: string;
-  subject: string;
-  body: string;
-  type: 'intro' | 'codev' | 'technical' | 'short_dm';
-}
+// Initialize singletons
+const conversationManager = ConversationManagerSingleton.getInstance();
+const activityTracker = getActivityTracker();
 
-interface ChatMessage {
-  role: 'user' | 'model';
-  text: string;
-}
-
-// --- The "Brain" Context (Extracted from your Docs) ---
-const BRAIN_CONTEXT = `
-You are the YardFlow Strategic Assistant for the Manifest 2026 conference.
-**Your Mission:** Help the team book meetings and fill the Co-Development Program.
-
-**Core Philosophy:** - Move from "Yard Management" (Passive Visibility) to "Yard Network Systems" (Active Engineering).
-- Visibility without agency is just an "observation deck for chaos".
-
-**Key Concepts:**
-1. **Operational Reynolds Number:** A metric applying fluid mechanics to yard operations. Reduces friction in high-volume nodes. Use this when talking to Ops Leaders.
-2. **Earnings Stability:** The shift from reactive logistics to deterministic outcomes. Use this when talking to Executives (C-Suite/VPs).
-3. **Co-Development Program:** We are looking for 2-3 enterprise partners to take a "Voting Seat" on the roadmap for 2026. Reference "Primo Brands" as a successful case study (expanded from 24 to 260 facilities).
-
-**Targeting Logic:**
-- **Tier 1:** High volume, strategic fits (e.g., PPL, GXO, StockX, Unilever). Pitch the "Voting Seat" and Co-Dev.
-- **Tier 2:** Standard outreach. Pitch "Fluidity" and "New Architecture".
-- **Ops Leaders:** Care about the "Black Hole data problem" and daily friction.
-- **Execs:** Care about "Growth levers" and "Financial impact".
-
-**Constraints:**
-- Manifest App DMs have a strict **250 character limit**.
-- Tone: Professional, slightly technical, confident, challenger-sale style.
-`;
-
-// --- Seed Data ---
-const INITIAL_PROSPECTS: Prospect[] = [
-  { id: '1', name: 'Sheetal Shah', title: 'VP Supply Chain & CPO', company: 'PPL Electric', tier: 'Tier 1', score: 37, isOps: true, isExec: true, status: 'new' },
-  { id: '2', name: 'Jeff Adams', title: 'VP Strategic Sourcing', company: 'Apothecary Products', tier: 'Tier 2', score: 34, isOps: true, isExec: true, status: 'new' },
-  { id: '3', name: 'Jamie Saucedo', title: 'VP Business Operations', company: 'GXO', tier: 'Tier 1', score: 157, isOps: true, isExec: true, status: 'new' },
-  { id: '4', name: 'Alexis Takvorian', title: 'VP Global Transportation', company: 'StockX', tier: 'Tier 1', score: 125, isOps: true, isExec: true, status: 'new' },
-  { id: '5', name: 'Andrew Sylling', title: 'Head of Procurement', company: 'Unilever', tier: 'Tier 1', score: 91, isOps: false, isExec: true, status: 'new' },
-  { id: '6', name: 'Krenar Komoni', title: 'CEO & Founder', company: 'Tive', tier: 'Tier 2', score: 12, isOps: false, isExec: true, status: 'new' },
-  { id: '7', name: 'Terry Frizelle', title: 'Head of Logistics Procurement', company: 'Dell Technologies', tier: 'Tier 1', score: 34, isOps: true, isExec: true, status: 'new' },
-  { id: '8', name: 'Randy Pappal', title: 'VP Purchasing', company: 'Gentex Corporation', tier: 'Tier 2', score: 34, isOps: true, isExec: true, status: 'new' },
-];
-
-// --- Templates ---
+// --- Templates with Network Effects Messaging ---
 const TEMPLATES = (prospect: Prospect, senderName: string): MessageTemplate[] => [
   {
     id: 'dm_codev',
-    label: 'App DM: Co-Dev Invite (Short)',
+    label: 'App DM: Co-Dev Network Effects',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, launching YardFlow Co-Dev program. 2-3 enterprise partners get voting seats on roadmap. Given your role at ${prospect.company}, I'd love to share our "Reynolds #" research. Open to coffee? -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, YardFlow Co-Dev: 2-3 partners get voting seats. Primo Brands saw $1M+ contribution margin across 25 facilities—now rolling to 260. Would love to share the network effects math for ${prospect.company}. Coffee? -${senderName}`
   },
   {
     id: 'dm_exec',
-    label: 'App DM: Exec Strategy (Short)',
+    label: 'App DM: Exec - Headcount Neutral',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, shifting yard strategy from visibility to "Earnings Stability" by engineering the nodes themselves. I'd love to share how this impacts ${prospect.company} before sessions start. Chat? -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, Primo Brands took on additional volume while staying headcount neutral in dock ops. Curious how ${prospect.company} handles yard-to-dock bottlenecks today? 10 min at Manifest? -${senderName}`
   },
   {
     id: 'dm_ops',
-    label: 'App DM: Ops Fluidity (Short)',
+    label: 'App DM: Ops - Dock Optimization',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, releasing new research on "Operational Reynolds #"—applying fluid mechanics to yard ops. Specific to high-volume sites like ${prospect.company}. Open to compare notes vs legacy YMS? -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, we found bottom-quartile facilities waste 5 min/shipment on dock assignments alone. System-driven assignment is the fix. Want to compare notes on ${prospect.company}'s yard flow? -${senderName}`
+  },
+  {
+    id: 'dm_carrier',
+    label: 'App DM: Carrier Benchmarking',
+    type: 'short_dm',
+    subject: 'Manifest Connect',
+    body: `Hi ${prospect.name.split(' ')[0]}, 40% of carriers have 10% of drivers underperforming in yard (slow check-in, slow BOL). We're benchmarking this across networks. Relevant for ${prospect.company}? Quick chat at Manifest? -${senderName}`
   },
   {
     id: 'codev_invite',
-    label: 'Email: Co-Development Invitation (Long)',
+    label: 'Email: Co-Development Invitation',
     type: 'codev',
-    subject: `Manifest: Design Partner seat for ${prospect.company}?`,
-    body: `Hi ${prospect.name.split(' ')[0]},\n\nI saw you're attending Manifest and wanted to flag something specific given your role at ${prospect.company}.\n\nWe're launching the YardFlow Co-Development Program—moving beyond standard "yard management" to a true Yard Network System. We're actively looking for 2-3 enterprise partners to take a voting seat at the table and shape the roadmap for 2026.\n\nSince you're dealing with high-volume complexity, I'd love to show you what "Operational Reynolds Number" metrics look like for a facility of your size.\n\nDo you have 10 mins at the show?\n\nBest,\n${senderName}`
+    subject: `Manifest: Network Effects Design Partner for ${prospect.company}?`,
+    body: `Hi ${prospect.name.split(' ')[0]},
+
+I saw you're attending Manifest and wanted to flag something specific for ${prospect.company}.
+
+We're launching the YardFlow Co-Development Program—2-3 enterprise partners get a voting seat on the 2026 roadmap.
+
+**The proof point:** Primo Brands (fka Nestlé Waters) is rolling YardFlow from 25 to 260 facilities. The ~25 running sites already added $1M+ in contribution margin—while staying headcount neutral in dock operations.
+
+**The network effects thesis:**
+- Standard data model across all yards = carrier benchmarking + bottleneck identification
+- Real-time visibility = trailer pool optimization + dwell time alerts
+- Standard protocols = faster driver navigation at every facility
+
+Given ${prospect.company}'s scale, I'd love to walk through what this math looks like for your network.
+
+10 minutes at the show?
+
+Best,
+${senderName}`
   }
 ];
 
 export default function App() {
   const [user, setUser] = useState<unknown>(null);
   const [activeTab, setActiveTab] = useState<'prospects' | 'stats' | 'assistant'>('prospects');
-  const [prospects, setProspects] = useState<Prospect[]>(INITIAL_PROSPECTS);
+  const [prospects, setProspects] = useState<Prospect[]>(HITLIST_PROSPECTS);
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
   const [currentUser, setCurrentUser] = useState<'Jake' | 'Me'>('Me');
   const [filter, setFilter] = useState('');
-  const [tierFilter, setTierFilter] = useState<'All' | 'Tier 1' | 'Tier 2'>('All');
+  const [tierFilter, setTierFilter] = useState<'All' | 'Tier 1' | 'Tier 2' | 'Tier 3'>('All');
   const [generatedMessage, setGeneratedMessage] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('dm_codev');
   const [showCopied, setShowCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false);
+  
+  // Mobile State
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  
+  // Activity State
+  const [recentActivities, setRecentActivities] = useState<ActivityType[]>(() => 
+    activityTracker.getRecent(15)
+  );
   
   // AI State
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [chatInput, setChatInput] = useState('');
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
-    { role: 'model', text: "I'm the YardFlow Brain. I've been loaded with the Manifest strategy docs, RFQ decks, and the Hitlist logic. Ask me to draft emails, analyze prospects, or explain 'Reynolds Number'." }
-  ]);
+  // Initialize from conversation manager's persisted history
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>(() => {
+    const persisted = conversationManager.getHistory();
+    if (persisted.length > 0) {
+      return persisted.map(m => ({ role: m.role, text: m.content }));
+    }
+    return [{ role: 'model', text: "I'm the YardFlow Brain. Loaded with Manifest strategy, Primo Brands case study ($1M+ margin from 25 facilities), and Network Effects framework. Ask me to draft messages, analyze prospects, or explain our value prop." }];
+  });
   const [isGenerating, setIsGenerating] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -212,8 +209,35 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  // --- Gemini API Call ---
-  const handleSendMessage = async () => {
+  // Update conversation manager when prospect changes
+  useEffect(() => {
+    if (selectedProspect) {
+      conversationManager.setProspectContext({
+        name: selectedProspect.name,
+        title: selectedProspect.title,
+        company: selectedProspect.company,
+        tier: selectedProspect.tier,
+        score: selectedProspect.score,
+        isOps: selectedProspect.isOps,
+        isExec: selectedProspect.isExec,
+        status: selectedProspect.status
+      });
+    } else {
+      conversationManager.setProspectContext(null);
+    }
+  }, [selectedProspect]);
+
+  // Calculate stats for context
+  const stats = useMemo(() => {
+    const total = prospects.length;
+    const contacted = prospects.filter(p => p.status === 'contacted' || p.status === 'meeting_booked').length;
+    const booked = prospects.filter(p => p.status === 'meeting_booked').length;
+    const tier1 = prospects.filter(p => p.tier === 'Tier 1').length;
+    return { total, contacted, booked, tier1 };
+  }, [prospects]);
+
+  // --- Gemini API Call with Full Context ---
+  const handleSendMessage = useCallback(async () => {
     if (!chatInput.trim()) return;
     if (!geminiApiKey) {
       setChatHistory(prev => [...prev, { role: 'user', text: chatInput }, { role: 'model', text: "⚠️ Please enter your Gemini API Key in Settings (gear icon) to enable the Brain." }]);
@@ -221,19 +245,48 @@ export default function App() {
       return;
     }
 
-    const newMsg: ChatMessage = { role: 'user', text: chatInput };
+    const userMessage = chatInput;
+    const newMsg: ChatMessage = { role: 'user', text: userMessage };
     setChatHistory(prev => [...prev, newMsg]);
     setChatInput('');
     setIsGenerating(true);
 
+    // Add to conversation manager for persistence
+    conversationManager.addMessage({
+      role: 'user',
+      content: userMessage,
+      timestamp: Date.now()
+    });
+
     try {
-      // Use stable Gemini 1.5 Flash model
+      // Build dynamic system prompt with context
+      const prospectContext = selectedProspect ? {
+        name: selectedProspect.name,
+        title: selectedProspect.title,
+        company: selectedProspect.company,
+        tier: selectedProspect.tier,
+        score: selectedProspect.score,
+        isOps: selectedProspect.isOps,
+        isExec: selectedProspect.isExec,
+        status: selectedProspect.status
+      } : null;
+
+      const systemPrompt = buildSystemPrompt({
+        prospect: prospectContext,
+        stats: stats,
+        recentActions: conversationManager.getRecentActions()
+      });
+
+      // Build conversation history for Gemini
+      const contents = conversationManager.buildGeminiContents();
+
+      // Use stable Gemini 1.5 Flash model with full conversation history
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: chatInput }] }],
-          systemInstruction: { parts: [{ text: BRAIN_CONTEXT }] }
+          contents: contents,
+          systemInstruction: { parts: [{ text: systemPrompt }] }
         })
       });
 
@@ -248,6 +301,13 @@ export default function App() {
       
       const botText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response. Check your API key.";
       
+      // Add to conversation manager for persistence
+      conversationManager.addMessage({
+        role: 'model',
+        content: botText,
+        timestamp: Date.now()
+      });
+      
       setChatHistory(prev => [...prev, { role: 'model', text: botText }]);
     } catch (error) {
       console.error("Gemini Error:", error);
@@ -255,7 +315,30 @@ export default function App() {
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [chatInput, geminiApiKey, selectedProspect, stats]);
+
+  // Clear chat history
+  const handleClearHistory = useCallback(() => {
+    conversationManager.clearHistory();
+    setChatHistory([{ role: 'model', text: "I'm the YardFlow Brain. I've been loaded with the Manifest strategy docs, RFQ decks, and the Hitlist logic. Ask me to draft emails, analyze prospects, or explain 'Reynolds Number'." }]);
+  }, []);
+
+  // Export chat history
+  const handleExportChat = useCallback((format: 'md' | 'json') => {
+    const content = format === 'md' 
+      ? conversationManager.exportAsMarkdown()
+      : conversationManager.exportAsJSON();
+    
+    const blob = new Blob([content], { type: format === 'md' ? 'text/markdown' : 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `yardflow-chat-${new Date().toISOString().split('T')[0]}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -269,8 +352,29 @@ export default function App() {
   // --- Logic ---
   const handleStatusUpdate = async (newStatus: Prospect['status']) => {
     if (!selectedProspect) return;
+    const oldStatus = selectedProspect.status;
     setProspects(prev => prev.map(p => p.id === selectedProspect.id ? { ...p, status: newStatus } : p));
     setSelectedProspect({ ...selectedProspect, status: newStatus });
+    
+    // Track action for AI context
+    conversationManager.addRecentAction({
+      type: 'status_change',
+      prospectId: selectedProspect.id,
+      prospectName: selectedProspect.name,
+      fromStatus: oldStatus,
+      toStatus: newStatus,
+      timestamp: Date.now()
+    });
+    
+    // Track activity for collaboration feed
+    activityTracker.track({
+      type: 'status_change',
+      user: currentUser,
+      prospectId: selectedProspect.id,
+      prospectName: selectedProspect.name,
+      details: `Changed status from ${oldStatus} to ${newStatus}`
+    });
+    setRecentActivities(activityTracker.getRecent(15));
     
     if (!user || !db) return;
     try {
@@ -335,36 +439,131 @@ export default function App() {
     }
   };
 
-  // Stats Logic
-  const stats = useMemo(() => {
-    const total = prospects.length;
-    const contacted = prospects.filter(p => p.status === 'contacted' || p.status === 'meeting_booked').length;
-    const booked = prospects.filter(p => p.status === 'meeting_booked').length;
-    const tier1 = prospects.filter(p => p.tier === 'Tier 1').length;
-    return { total, contacted, booked, tier1 };
-  }, [prospects]);
+  // Screen reader announcements
+  const [announcement, setAnnouncement] = useState('');
+  const announce = useCallback((message: string) => {
+    setAnnouncement(message);
+    setTimeout(() => setAnnouncement(''), 1000);
+  }, []);
 
-  if (loading) return <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-400">Loading War Room...</div>;
+  if (loading) return (
+    <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-400" role="status" aria-label="Loading application">
+      <Loader className="h-6 w-6 animate-spin mr-2" aria-hidden="true" />
+      Loading War Room...
+    </div>
+  );
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden relative">
+      {/* Screen reader live region for announcements */}
+      <div 
+        role="status" 
+        aria-live="polite" 
+        aria-atomic="true" 
+        className="sr-only"
+      >
+        {announcement}
+      </div>
+      
+      {/* Skip link for keyboard users */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-blue-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
       
       {/* Settings Modal */}
       {showSettings && (
-        <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-96">
-            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-              <Settings className="h-5 w-5 mr-2 text-slate-500" />
+        <div 
+          className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="settings-title"
+        >
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h3 id="settings-title" className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+              <Settings className="h-5 w-5 mr-2 text-slate-500" aria-hidden="true" />
               Settings
             </h3>
-            <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Gemini API Key</label>
-            <input 
-              type="password" 
-              placeholder="Paste AI Studio Key here..."
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-4 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              value={geminiApiKey}
-              onChange={(e) => saveApiKey(e.target.value)}
-            />
+            
+            {/* API Key Section */}
+            <div className="mb-6">
+              <label htmlFor="gemini-api-key" className="block text-xs font-semibold text-slate-500 uppercase mb-2">Gemini API Key</label>
+              <input 
+                id="gemini-api-key" 
+                type="password" 
+                placeholder="Paste AI Studio Key here..."
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                value={geminiApiKey}
+                onChange={(e) => saveApiKey(e.target.value)}
+              />
+            </div>
+            
+            {/* Data Management Section */}
+            <div className="border-t border-slate-200 pt-4 mb-4">
+              <h4 className="text-xs font-semibold text-slate-500 uppercase mb-3">Data Management</h4>
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    const data = {
+                      prospects: prospects,
+                      exportDate: new Date().toISOString(),
+                      version: '1.0.0'
+                    };
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `yardflow-prospects-${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Download className="h-4 w-4 text-slate-500" />
+                    Export Prospects (JSON)
+                  </span>
+                  <span className="text-xs text-slate-400">{prospects.length} records</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const headers = ['Name', 'Company', 'Title', 'Tier', 'Status', 'Score'];
+                    const csvRows = [
+                      headers.join(','),
+                      ...prospects.map(p => [
+                        `"${p.name}"`,
+                        `"${p.company}"`,
+                        `"${p.title}"`,
+                        p.tier,
+                        p.status,
+                        p.score
+                      ].join(','))
+                    ];
+                    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `yardflow-prospects-${new Date().toISOString().split('T')[0]}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Download className="h-4 w-4 text-slate-500" />
+                    Export Prospects (CSV)
+                  </span>
+                  <span className="text-xs text-slate-400">Spreadsheet format</span>
+                </button>
+              </div>
+            </div>
+            
             <div className="flex justify-end">
               <button 
                 onClick={() => setShowSettings(false)}
@@ -377,56 +576,153 @@ export default function App() {
         </div>
       )}
 
-      {/* Sidebar */}
-      <div className="w-80 bg-white border-r border-slate-200 flex flex-col z-10 shadow-sm">
+      {/* Mobile Header - visible only on mobile */}
+      <div className="fixed top-0 left-0 right-0 z-30 bg-white border-b border-slate-200 p-3 flex items-center justify-between lg:hidden">
+        <button
+          onClick={() => setIsMobileSidebarOpen(true)}
+          className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+          aria-label="Open navigation menu"
+        >
+          <Menu className="h-6 w-6 text-slate-700" aria-hidden="true" />
+        </button>
+        <div className="flex items-center space-x-2">
+          <div className="h-7 w-7 bg-blue-600 rounded-lg flex items-center justify-center" aria-hidden="true">
+            <Zap className="h-4 w-4 text-white" />
+          </div>
+          <span className="font-bold text-base text-slate-800">YardFlow <span className="text-blue-600">Hub</span></span>
+        </div>
+        <button 
+          onClick={() => setShowSettings(true)} 
+          className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+          aria-label="Open settings"
+        >
+          <Settings className="h-5 w-5 text-slate-600" aria-hidden="true" />
+        </button>
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {isMobileSidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setIsMobileSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar - hidden on mobile, shown on lg+ */}
+      <div className={`
+        fixed lg:relative inset-y-0 left-0 z-50
+        w-80 bg-white border-r border-slate-200 flex flex-col shadow-lg lg:shadow-sm
+        transform transition-transform duration-300 ease-in-out
+        ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        pt-0 lg:pt-0
+      `}>
+        {/* Mobile close button */}
+        <div className="lg:hidden flex items-center justify-between p-4 border-b border-slate-100">
+          <div className="flex items-center space-x-2">
+            <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center" aria-hidden="true">
+              <Zap className="h-5 w-5 text-white" />
+            </div>
+            <h1 className="font-bold text-lg tracking-tight text-slate-800">YardFlow <span className="text-blue-600">Hub</span></h1>
+          </div>
+          <button 
+            onClick={() => setIsMobileSidebarOpen(false)} 
+            className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+            aria-label="Close navigation menu"
+          >
+            <X className="h-5 w-5 text-slate-600" aria-hidden="true" />
+          </button>
+        </div>
+        
         <div className="p-4 border-b border-slate-100">
-          <div className="flex items-center justify-between mb-4">
+          {/* Desktop header - hidden on mobile */}
+          <div className="hidden lg:flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center" aria-hidden="true">
                 <Zap className="h-5 w-5 text-white" />
               </div>
               <h1 className="font-bold text-lg tracking-tight text-slate-800">YardFlow <span className="text-blue-600">Hub</span></h1>
             </div>
-            <button onClick={() => setShowSettings(true)} className="text-slate-400 hover:text-slate-600 transition-colors">
-              <Settings className="h-5 w-5" />
+            <button 
+              onClick={() => setShowSettings(true)} 
+              className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-lg hover:bg-slate-100"
+              aria-label="Open settings"
+            >
+              <Settings className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
           
-          <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg mb-4">
-             <button onClick={() => setActiveTab('prospects')} className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'prospects' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}>
-               <Users className="h-3 w-3 mr-1" /> Targets
+          {/* Tab Navigation - A11y: role="tablist" */}
+          <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg mb-4" role="tablist" aria-label="Main navigation">
+             <button 
+               onClick={() => { setActiveTab('prospects'); announce('Targets tab selected'); }} 
+               role="tab"
+               aria-selected={activeTab === 'prospects'}
+               aria-controls="panel-prospects"
+               id="tab-prospects"
+               className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'prospects' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
+             >
+               <Users className="h-3 w-3 mr-1" aria-hidden="true" /> Targets
              </button>
-             <button onClick={() => setActiveTab('stats')} className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'stats' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}>
-               <BarChart2 className="h-3 w-3 mr-1" /> Stats
+             <button 
+               onClick={() => { setActiveTab('stats'); announce('Stats tab selected'); }} 
+               role="tab"
+               aria-selected={activeTab === 'stats'}
+               aria-controls="panel-stats"
+               id="tab-stats"
+               className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'stats' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
+             >
+               <BarChart2 className="h-3 w-3 mr-1" aria-hidden="true" /> Stats
              </button>
-             <button onClick={() => setActiveTab('assistant')} className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'assistant' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}>
-               <Bot className="h-3 w-3 mr-1" /> Brain
+             <button 
+               onClick={() => { setActiveTab('assistant'); announce('AI Brain tab selected'); }} 
+               role="tab"
+               aria-selected={activeTab === 'assistant'}
+               aria-controls="panel-assistant"
+               id="tab-assistant"
+               className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'assistant' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
+             >
+               <Bot className="h-3 w-3 mr-1" aria-hidden="true" /> Brain
              </button>
           </div>
 
           {activeTab === 'prospects' && (
             <>
-              <div className="flex items-center space-x-2 bg-slate-50 p-1 rounded-lg border border-slate-200 mb-4">
-                <span className="text-[10px] uppercase font-bold text-slate-400 pl-2">Sender:</span>
-                <button onClick={() => setCurrentUser('Me')} className={`px-3 py-1 text-xs font-bold rounded ${currentUser === 'Me' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}>Me</button>
-                <button onClick={() => setCurrentUser('Jake')} className={`px-3 py-1 text-xs font-bold rounded ${currentUser === 'Jake' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}>Jake</button>
+              <div className="flex items-center space-x-2 bg-slate-50 p-1 rounded-lg border border-slate-200 mb-4" role="group" aria-label="Sender selection">
+                <span className="text-[10px] uppercase font-bold text-slate-400 pl-2" id="sender-label">Sender:</span>
+                <button 
+                  onClick={() => setCurrentUser('Me')} 
+                  aria-pressed={currentUser === 'Me'}
+                  className={`px-3 py-1 text-xs font-bold rounded ${currentUser === 'Me' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Me
+                </button>
+                <button 
+                  onClick={() => setCurrentUser('Jake')} 
+                  aria-pressed={currentUser === 'Jake'}
+                  className={`px-3 py-1 text-xs font-bold rounded ${currentUser === 'Jake' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Jake
+                </button>
               </div>
 
               <div className="relative mb-2">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
                 <input 
                   type="text" 
                   placeholder="Search prospects..." 
+                  aria-label="Search prospects by name or company"
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
                 />
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                {(['All', 'Tier 1', 'Tier 2'] as const).map((t) => (
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide" role="group" aria-label="Filter by tier">
+                {(['All', 'Tier 1', 'Tier 2', 'Tier 3'] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTierFilter(t)}
+                    aria-pressed={tierFilter === t}
                     className={`text-xs px-3 py-1 rounded-full whitespace-nowrap border ${
                       tierFilter === t 
                         ? 'bg-blue-50 border-blue-200 text-blue-700 font-medium' 
@@ -441,7 +737,8 @@ export default function App() {
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        {/* Prospect list panel */}
+        <div className="flex-1 overflow-y-auto" role="tabpanel" id="panel-prospects" aria-labelledby="tab-prospects">
           {activeTab === 'stats' ? (
             <div className="p-6 space-y-6">
               <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-md">
@@ -472,6 +769,50 @@ export default function App() {
                   {stats.tier1} High Value Targets in pipeline. Focus here for maximum Co-Dev conversion.
                 </div>
               </div>
+
+              {/* Activity Feed */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-slate-500" />
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Recent Activity</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400">{recentActivities.length} actions</span>
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {recentActivities.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400">
+                      No recent activity. Status changes will appear here.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-50">
+                      {recentActivities.map((activity) => (
+                        <div key={activity.id} className="px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-start gap-2">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                              activity.user === 'Me' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                            }`}>
+                              {activity.user === 'Me' ? 'ME' : 'JK'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-slate-700 truncate">
+                                <span className="font-medium">{activity.user}</span>
+                                {' → '}
+                                <span className="font-medium text-slate-800">{activity.prospectName}</span>
+                              </p>
+                              <p className="text-[10px] text-slate-500 truncate">{activity.details}</p>
+                            </div>
+                            <span className="text-[10px] text-slate-400 flex-shrink-0 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           ) : activeTab === 'assistant' ? (
              <div className="p-4 text-center text-slate-500 text-sm">
@@ -482,12 +823,24 @@ export default function App() {
                <p className="text-xs text-slate-400">Context loaded: RFQ Deck, Hitlist Logic, Manifest Outreach Doc</p>
              </div>
           ) : (
-            <>
+            <ul role="listbox" aria-label="Prospect list" className="divide-y divide-slate-100">
               {filteredProspects.map(prospect => (
-                <div 
+                <li 
                   key={prospect.id}
-                  onClick={() => setSelectedProspect(prospect)}
-                  className={`p-4 border-b border-slate-100 cursor-pointer transition-colors group relative ${
+                  role="option"
+                  aria-selected={selectedProspect?.id === prospect.id}
+                  onClick={() => { 
+                    setSelectedProspect(prospect); 
+                    setIsMobileSidebarOpen(false);
+                  }}
+                  onKeyDown={(e) => { 
+                    if (e.key === 'Enter') {
+                      setSelectedProspect(prospect);
+                      setIsMobileSidebarOpen(false);
+                    }
+                  }}
+                  tabIndex={0}
+                  className={`p-4 cursor-pointer transition-colors group relative focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 ${
                     selectedProspect?.id === prospect.id ? 'bg-blue-50/50' : 'hover:bg-slate-50'
                   }`}
                 >
@@ -502,25 +855,25 @@ export default function App() {
                   <p className="text-xs text-slate-500 truncate mb-2">{prospect.title}</p>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center text-xs font-medium text-slate-700">
-                      <Briefcase className="h-3 w-3 mr-1 text-slate-400" />
+                      <Briefcase className="h-3 w-3 mr-1 text-slate-400" aria-hidden="true" />
                       {prospect.company}
                     </div>
                     {prospect.tier === 'Tier 1' && (
-                      <span className="flex h-2 w-2 rounded-full bg-orange-500 ring-2 ring-orange-100" title="Tier 1" />
+                      <span className="flex h-2 w-2 rounded-full bg-orange-500 ring-2 ring-orange-100" title="Tier 1" aria-label="Tier 1 priority target" />
                     )}
                   </div>
                   
                   {prospect.lastEditedBy && prospect.lastEditedBy !== currentUser && prospect.status !== 'new' && (
-                    <div className="absolute top-2 right-2 h-2 w-2 bg-blue-500 rounded-full animate-pulse" title={`Updated by ${prospect.lastEditedBy}`} />
+                    <div className="absolute top-2 right-2 h-2 w-2 bg-blue-500 rounded-full animate-pulse" title={`Updated by ${prospect.lastEditedBy}`} aria-label={`Updated by ${prospect.lastEditedBy}`} />
                   )}
-                </div>
+                </li>
               ))}
               {filteredProspects.length === 0 && (
-                <div className="p-8 text-center text-slate-400 text-sm">
+                <li className="p-8 text-center text-slate-400 text-sm">
                   No prospects found.
-                </div>
+                </li>
               )}
-            </>
+            </ul>
           )}
         </div>
         
@@ -532,13 +885,13 @@ export default function App() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden relative">
+      <main id="main-content" className="flex-1 flex flex-col bg-slate-50 overflow-hidden relative pt-14 lg:pt-0" role="main">
         {activeTab === 'assistant' ? (
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {chatHistory.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-2xl p-4 text-sm whitespace-pre-wrap ${
+                  <div className={`max-w-[85%] lg:max-w-[80%] rounded-2xl p-3 lg:p-4 text-sm whitespace-pre-wrap ${
                     msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white border border-slate-200 text-slate-700 rounded-bl-none shadow-sm'
                   }`}>
                     {msg.text}
@@ -556,11 +909,42 @@ export default function App() {
               <div ref={chatEndRef} />
             </div>
             <div className="p-4 bg-white border-t border-slate-200">
+               {/* Chat controls: Export and Clear */}
+               {chatHistory.length > 1 && (
+                 <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
+                   <div className="flex items-center gap-2">
+                     <button
+                       onClick={() => handleExportChat('md')}
+                       className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                       title="Export as Markdown"
+                     >
+                       <Download className="h-3 w-3" />
+                       Export .md
+                     </button>
+                     <button
+                       onClick={() => handleExportChat('json')}
+                       className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                       title="Export as JSON"
+                     >
+                       <Download className="h-3 w-3" />
+                       Export .json
+                     </button>
+                   </div>
+                   <button
+                     onClick={handleClearHistory}
+                     className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                     title="Clear chat history"
+                   >
+                     <Trash2 className="h-3 w-3" />
+                     <span className="hidden sm:inline">Clear</span>
+                   </button>
+                 </div>
+               )}
                <div className="relative">
                  <input 
                    type="text" 
-                   className="w-full bg-slate-50 border border-slate-200 rounded-full pl-4 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                   placeholder="Ask the brain: 'Write a DM for a VP of Ops at Target'..."
+                   className="w-full bg-slate-50 border border-slate-200 rounded-full pl-4 pr-14 py-3 text-sm lg:text-base focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                   placeholder="Ask the brain..."
                    value={chatInput}
                    onChange={(e) => setChatInput(e.target.value)}
                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
@@ -569,31 +953,48 @@ export default function App() {
                  <button 
                    onClick={handleSendMessage}
                    disabled={isGenerating}
-                   className="absolute right-2 top-2 bg-blue-600 text-white p-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50"
+                   className="absolute right-2 top-1.5 bg-blue-600 text-white p-2 lg:p-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 min-w-[40px] min-h-[40px] lg:min-w-[32px] lg:min-h-[32px] flex items-center justify-center"
+                   aria-label="Send message"
                  >
-                   <Send className="h-4 w-4" />
+                   <Send className="h-5 w-5 lg:h-4 lg:w-4" />
                  </button>
                </div>
             </div>
           </div>
         ) : !selectedProspect ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-400 px-4">
             <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mb-4">
               <Users className="h-8 w-8 text-slate-400" />
             </div>
-            <p className="text-lg font-medium text-slate-600">Select a target to start outreach</p>
-            <p className="text-sm mt-2 max-w-xs text-center">Choose from the hitlist on the left to generate a personalized Manifest message.</p>
+            <p className="text-lg font-medium text-slate-600 text-center">Select a target to start outreach</p>
+            <p className="text-sm mt-2 max-w-xs text-center">Choose from the hitlist to generate a personalized Manifest message.</p>
+            <button 
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="mt-4 lg:hidden bg-blue-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
+            >
+              <Users className="h-4 w-4" />
+              View Prospects
+            </button>
           </div>
         ) : (
           <>
             {/* Header */}
-            <div className="bg-white px-8 py-6 border-b border-slate-200 shadow-sm flex justify-between items-start">
+            <div className="bg-white px-4 lg:px-8 py-4 lg:py-6 border-b border-slate-200 shadow-sm">
+              {/* Mobile back button */}
+              <button 
+                onClick={() => setSelectedProspect(null)}
+                className="lg:hidden mb-3 text-blue-600 text-sm font-medium flex items-center gap-1"
+              >
+                <ChevronDown className="h-4 w-4 rotate-90" />
+                Back to list
+              </button>
+              <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
               <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h2 className="text-2xl font-bold text-slate-800">{selectedProspect.name}</h2>
+                <div className="flex flex-wrap items-center gap-2 lg:gap-3 mb-2">
+                  <h2 className="text-xl lg:text-2xl font-bold text-slate-800">{selectedProspect.name}</h2>
                   {selectedProspect.tier === 'Tier 1' && (
-                    <span className="bg-orange-100 text-orange-700 text-xs font-bold px-2 py-1 rounded border border-orange-200">
-                      TIER 1 TARGET
+                    <span className="bg-orange-100 text-orange-700 text-[10px] lg:text-xs font-bold px-2 py-1 rounded border border-orange-200">
+                      TIER 1
                     </span>
                   )}
                   {selectedProspect.isOps && (
@@ -634,7 +1035,7 @@ export default function App() {
                 </div>
               </div>
               
-              <div className="flex flex-col items-end space-y-2">
+              <div className="hidden lg:flex flex-col items-end space-y-2">
                 <div className="text-xs text-right text-slate-400">Co-Dev Potential</div>
                  {selectedProspect.tier === 'Tier 1' ? (
                    <div className="flex items-center text-green-600 font-semibold text-sm bg-green-50 px-3 py-1.5 rounded-full border border-green-200">
@@ -647,15 +1048,16 @@ export default function App() {
                    </div>
                  )}
               </div>
+              </div>
             </div>
 
             {/* Generator Area */}
-            <div className="flex-1 overflow-y-auto p-8">
-              <div className="grid grid-cols-12 gap-8 h-full">
+            <div className="flex-1 overflow-y-auto p-4 lg:p-8">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
                 
                 {/* Template Selection */}
-                <div className="col-span-4 space-y-4">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Manifest App DMs (Max 250)</h3>
+                <div className="lg:col-span-4 space-y-3 lg:space-y-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 lg:mb-4">Manifest App DMs (Max 250)</h3>
                   {currentTemplates.filter(t => t.type === 'short_dm').map(tmpl => (
                     <button
                       key={tmpl.id}
@@ -699,13 +1101,70 @@ export default function App() {
                 </div>
 
                 {/* Editor */}
-                <div className="col-span-8 flex flex-col h-full">
+                <div className="lg:col-span-8 flex flex-col min-h-[400px] lg:h-full">
                   <div className={`bg-white rounded-xl shadow-sm border flex flex-col flex-1 overflow-hidden transition-colors ${isOverLimit ? 'border-red-300 ring-2 ring-red-100' : 'border-slate-200'}`}>
-                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                    <div className="p-3 lg:p-4 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                       <span className="text-xs font-medium text-slate-500">
                         Draft Preview • <span className={isOverLimit ? 'text-red-600 font-bold' : 'text-slate-400'}>{charCount}/250 chars</span>
                       </span>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                         {/* AI Generate Button */}
+                         <button 
+                           onClick={async () => {
+                             if (!geminiApiKey || !selectedProspect) return;
+                             setIsGeneratingTemplate(true);
+                             try {
+                               const style = selectedProspect.isExec ? 'exec_focused' : 'ops_focused';
+                               const result = await generateTemplate({
+                                 prospect: selectedProspect,
+                                 style: selectedProspect.tier === 'Tier 1' ? 'codev' : style,
+                                 senderName: currentUser === 'Me' ? 'The YardFlow Team' : 'Jake'
+                               }, geminiApiKey);
+                               setGeneratedMessage(result.body);
+                             } catch (e) {
+                               console.error('Generation failed:', e);
+                             } finally {
+                               setIsGeneratingTemplate(false);
+                             }
+                           }}
+                           disabled={!geminiApiKey || isGeneratingTemplate}
+                           className="flex items-center text-xs text-purple-600 hover:text-purple-700 disabled:text-slate-300 px-2 py-1.5 rounded hover:bg-purple-50 transition-colors min-h-[36px]"
+                           title={!geminiApiKey ? 'Add Gemini API key in Settings' : 'Generate with AI'}
+                         >
+                           {isGeneratingTemplate ? (
+                             <Loader className="h-3 w-3 mr-1 animate-spin" />
+                           ) : (
+                             <Sparkles className="h-3 w-3 mr-1" />
+                           )}
+                           <span className="hidden sm:inline">AI Generate</span>
+                           <span className="sm:hidden">AI</span>
+                         </button>
+                         {/* Refine Button */}
+                         <button 
+                           onClick={async () => {
+                             if (!geminiApiKey || !selectedProspect || !generatedMessage) return;
+                             setIsGeneratingTemplate(true);
+                             try {
+                               const refined = await refineTemplate(
+                                 generatedMessage,
+                                 'Make it more concise and punchy. Ensure under 250 chars.',
+                                 selectedProspect,
+                                 geminiApiKey
+                               );
+                               setGeneratedMessage(refined);
+                             } catch (e) {
+                               console.error('Refinement failed:', e);
+                             } finally {
+                               setIsGeneratingTemplate(false);
+                             }
+                           }}
+                           disabled={!geminiApiKey || isGeneratingTemplate || !generatedMessage}
+                           className="flex items-center text-xs text-blue-600 hover:text-blue-700 disabled:text-slate-300 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                           title="Refine with AI"
+                         >
+                           <RefreshCw className="h-3 w-3 mr-1" />
+                           Refine
+                         </button>
                          <button 
                            onClick={() => setGeneratedMessage(`Hi ${selectedProspect.name.split(' ')[0]},\n\n`)}
                            className="text-xs text-slate-400 hover:text-blue-600"
@@ -719,7 +1178,7 @@ export default function App() {
                       className="flex-1 p-6 text-sm text-slate-700 leading-relaxed focus:outline-none resize-none font-mono bg-white"
                       value={generatedMessage}
                       onChange={(e) => setGeneratedMessage(e.target.value)}
-                      placeholder="Select a template..."
+                      placeholder="Select a template or click 'AI Generate' to create a personalized message..."
                     />
                     
                     <div className="h-1 w-full bg-slate-100">
@@ -782,7 +1241,7 @@ export default function App() {
             </div>
           </>
         )}
-      </div>
+      </main>
     </div>
   );
 }
