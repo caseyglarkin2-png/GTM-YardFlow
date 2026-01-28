@@ -81,6 +81,9 @@ import { PWAUpdateNotification } from './components/PWAUpdateNotification';
 import { OfflineBanner } from './components/OfflineBanner';
 import type { TimePeriod } from './types/analytics';
 
+// --- Sprint 34 Hooks ---
+import { useHubSpot } from './hooks/useHubSpot';
+
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
 const activityTracker = getActivityTracker();
@@ -175,8 +178,9 @@ export default function App() {
   // Import State (Sprint 29)
   const [showImportWizard, setShowImportWizard] = useState(false);
   
-  // HubSpot State (Sprint 26)
-  const [hubspotConnectionStatus, setHubspotConnectionStatus] = useState<'connected' | 'disconnected' | 'error' | 'connecting'>('disconnected');
+  // HubSpot OAuth (Sprint 34 - replaces fake state)
+  const hubspot = useHubSpot();
+  const hubspotConnectionStatus = hubspot.status;
   // Initialize from conversation manager's persisted history
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>(() => {
     const persisted = conversationManager.getHistory();
@@ -911,15 +915,35 @@ export default function App() {
                 </div>
                 <div className="p-4">
                   <button
-                    onClick={() => setHubspotConnectionStatus(hubspotConnectionStatus === 'connected' ? 'disconnected' : 'connecting')}
-                    className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
+                    onClick={() => hubspotConnectionStatus === 'connected' ? hubspot.disconnect() : hubspot.connect()}
+                    disabled={hubspotConnectionStatus === 'connecting'}
+                    data-testid="hubspot-connect-button"
+                    className={`w-full py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       hubspotConnectionStatus === 'connected' 
                         ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                         : 'bg-orange-600 text-white hover:bg-orange-700'
                     }`}
                   >
-                    {hubspotConnectionStatus === 'connected' ? 'Manage Connection' : 'Connect HubSpot'}
+                    {hubspotConnectionStatus === 'connecting' ? 'Connecting...' : 
+                     hubspotConnectionStatus === 'connected' ? 'Disconnect HubSpot' : 'Connect HubSpot'}
                   </button>
+                  {hubspot.error && (
+                    <div className="mt-2 text-sm text-red-600 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      {hubspot.error}
+                      <button 
+                        onClick={hubspot.retry}
+                        className="text-blue-600 hover:underline ml-auto"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  )}
+                  {hubspot.isConnected && hubspot.portalId && (
+                    <div className="mt-2 text-xs text-slate-500">
+                      Portal ID: {hubspot.portalId}
+                    </div>
+                  )}
                 </div>
               </div>
 

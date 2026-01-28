@@ -181,7 +181,7 @@ export function useHubSpot(options: UseHubSpotOptions = {}): UseHubSpotReturn {
     setError(null);
 
     try {
-      const tokens = await service.handleCallback(
+      await service.handleCallback(
         callbackParams.code,
         callbackParams.state
       );
@@ -263,7 +263,7 @@ export function useHubSpot(options: UseHubSpotOptions = {}): UseHubSpotReturn {
                 
                 // Handle callback
                 service.handleCallback(code, state)
-                  .then((tokens) => {
+                  .then(() => {
                     const newPortalId = 'portal-' + Date.now().toString(36);
                     storePortalId(newPortalId);
                     setPortalId(newPortalId);
