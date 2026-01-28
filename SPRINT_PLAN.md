@@ -5,6 +5,26 @@ YardFlow Hub is a React/TypeScript SPA for the Manifest 2026 conference GTM stra
 
 **Tech Stack:** Vite + React 18 + TypeScript + Tailwind CSS + Firebase (Auth/Firestore) + Gemini AI
 
+**Current Status:** ✅ Deployed at https://gtm-yard-flow.vercel.app
+
+---
+
+## Priority Matrix
+
+| Sprint | Goal | Impact | Effort | Priority |
+|--------|------|--------|--------|----------|
+| Sprint 0-9 | Foundation & Core Features | High | High | ✅ Complete |
+| Sprint 10 | AI Memory & Context | High | Medium | 🔴 Critical |
+| Sprint 11 | Dynamic Templates | High | Medium | 🔴 Critical |
+| Sprint 12 | Testing Infrastructure | High | High | 🟡 Important |
+| Sprint 13 | Accessibility | High | Medium | 🔴 Critical |
+| Sprint 14 | Mobile Responsiveness | Medium | High | 🟡 Important |
+| Sprint 15 | Data Export/Import | Medium | Medium | 🟢 Nice-to-have |
+| Sprint 16 | Advanced Analytics | Medium | Medium | 🟢 Nice-to-have |
+| Sprint 17 | Collaboration Features | High | High | 🟡 Important |
+
+**Recommended Order:** 10 → 11 → 13 → 12 → 14 → 17 → 15 → 16
+
 ---
 
 ## Sprint 0: Project Foundation & Infrastructure
@@ -609,3 +629,697 @@ YardFlow Hub is a React/TypeScript SPA for the Manifest 2026 conference GTM stra
 - [ ] App runs locally (`npm run dev`)
 - [ ] New features are demonstrable
 - [ ] No regressions in existing features
+---
+
+## Sprint 10: Enhanced AI Brain with Conversation Memory
+**Goal:** Transform the Brain from a stateless assistant to a context-aware partner with memory.
+
+**Demo Deliverable:** AI assistant that remembers conversation context, references selected prospects, and provides contextually relevant responses.
+
+### Tasks
+
+#### T10.1: Create Conversation Context Manager
+- **Description:** Service class to manage conversation state and context building
+- **Acceptance Criteria:**
+  - New file: `src/services/ConversationManager.ts`
+  - Class with methods: `addMessage()`, `getHistory()`, `clearHistory()`, `buildContext()`
+  - Stores: messages array, prospect context, user preferences
+  - Exports singleton instance
+- **Validation:** Unit test: add messages → getHistory returns them in order
+
+#### T10.2: Implement Rolling Context Window
+- **Description:** Limit conversation history to prevent token overflow
+- **Acceptance Criteria:**
+  - Maximum 30 messages in context (configurable)
+  - Older messages summarized by AI when limit reached
+  - Summary injected as first message: "Previous conversation summary: ..."
+  - Token count estimation: ~4 chars per token, max 8000 tokens for context
+- **Validation:** Send 35 messages → first 5 summarized; API call succeeds
+
+#### T10.3: Build Dynamic System Prompt Generator
+- **Description:** Generate context-aware system prompts based on current state
+- **Acceptance Criteria:**
+  - New function: `buildSystemPrompt(options: { prospect?, stats?, recentActions? })`
+  - Includes base `BRAIN_CONTEXT`
+  - Appends: selected prospect details, current stats, recent status changes
+  - Format: structured sections with clear headers
+- **Validation:** Call with prospect → prompt includes prospect JSON
+
+#### T10.4: Inject Prospect Context into AI Calls
+- **Description:** Automatically include selected prospect in AI requests
+- **Acceptance Criteria:**
+  - If `selectedProspect`, add to system prompt: "Currently viewing: {prospect details}"
+  - Include: all prospect fields, current status, tier implications
+  - Add instruction: "Reference this prospect when drafting messages or giving advice"
+- **Validation:** Select prospect → ask "What should I say?" → response mentions prospect name
+
+#### T10.5: Pass Conversation History to Gemini API
+- **Description:** Include full conversation in API requests for context
+- **Acceptance Criteria:**
+  - API request includes `contents` array with all previous messages
+  - Each message formatted as `{ role: 'user' | 'model', parts: [{ text }] }`
+  - Maximum 20 messages to prevent token overflow
+  - System instruction remains separate from conversation history
+- **Validation:** Ask "What did I just ask?" → AI recalls previous question
+
+#### T10.6: Add Recent Activity Context
+- **Description:** Include recent user actions in AI context
+- **Acceptance Criteria:**
+  - Track last 5 status changes: `{ prospectId, from, to, timestamp }`
+  - Include in system prompt: "Recent actions: ..."
+  - Helps AI understand user workflow
+- **Validation:** Change 3 statuses → ask AI "What have I done today?" → lists changes
+
+#### T10.7: Implement Chat History Persistence
+- **Description:** Save and restore chat history across sessions
+- **Acceptance Criteria:**
+  - Save to localStorage on each new message
+  - Key: `yardflow_chat_history`
+  - Load on component mount
+  - "Clear Chat" button in Brain tab header
+- **Validation:** Send messages → refresh → messages persist; clear → messages gone
+
+#### T10.8: Add Conversation Export
+- **Description:** Export chat history as markdown or JSON
+- **Acceptance Criteria:**
+  - "Export Chat" button with Download icon
+  - Formats: `.md` (human-readable) or `.json` (machine-readable)
+  - Filename includes timestamp: `yardflow-chat-2026-01-27.md`
+  - Triggers browser download
+- **Validation:** Click export → file downloads; content matches chat
+
+---
+
+## Sprint 11: AI-Powered Dynamic Template Generation
+**Goal:** Replace static templates with AI-generated, prospect-specific messages.
+
+**Demo Deliverable:** Click "Generate with AI" → receive personalized, contextual message drafts for any prospect.
+
+### Tasks
+
+#### T11.1: Create Template Generation Service
+- **Description:** Service for generating templates via Gemini API
+- **Acceptance Criteria:**
+  - New file: `src/services/TemplateGenerator.ts`
+  - Function: `generateTemplate(prospect, templateType, constraints)`
+  - Returns: `Promise<MessageTemplate>`
+  - Handles errors gracefully
+- **Validation:** Call with prospect → returns valid template
+
+#### T11.2: Define Template Generation Prompts
+- **Description:** Create specialized prompts for each template type
+- **Acceptance Criteria:**
+  - Prompt for short DM (250 char limit enforced in prompt)
+  - Prompt for Co-Dev invitation email
+  - Prompt for Ops-focused message
+  - Prompt for Exec-focused message
+  - Each prompt references BRAIN_CONTEXT
+- **Validation:** Review prompts → each mentions constraints
+
+#### T11.3: Add "Generate with AI" Button to Template UI
+- **Description:** Button to request AI-generated template
+- **Acceptance Criteria:**
+  - Button with Sparkles icon next to template selector
+  - Disabled if no API key or no prospect selected
+  - Loading state with spinner during generation
+  - Error toast if generation fails
+- **Validation:** Click → loading → template appears in editor
+
+#### T11.4: Implement Template Regeneration
+- **Description:** Allow regenerating template with feedback
+- **Acceptance Criteria:**
+  - "Regenerate" button with RefreshCw icon
+  - Optional feedback input: "Make it more casual"
+  - Feedback appended to generation prompt
+  - Previous attempt shown for comparison
+- **Validation:** Generate → provide feedback → new version differs
+
+#### T11.5: Add Template Variation Generator
+- **Description:** Generate multiple template variations at once
+- **Acceptance Criteria:**
+  - "Generate 3 Variations" option
+  - Parallel API calls with different temperature settings (0.7, 0.9, 1.1)
+  - Display as tabs: "Version A", "Version B", "Version C"
+  - User selects preferred version
+- **Validation:** Click → 3 variations appear; selection updates editor
+
+#### T11.6: Implement Template Caching
+- **Description:** Cache generated templates to reduce API calls
+- **Acceptance Criteria:**
+  - Cache key: `${prospectId}_${templateType}_${timestamp}`
+  - Cache expires after 1 hour
+  - Stored in localStorage
+  - "Use cached" indicator on template button
+- **Validation:** Generate → close → reopen → cached version available
+
+#### T11.7: Add Template Quality Scoring
+- **Description:** AI self-evaluation of generated templates
+- **Acceptance Criteria:**
+  - After generation, request AI score (1-10) with reasoning
+  - Display score badge on template
+  - Criteria: tone match, length compliance, personalization depth
+  - Auto-regenerate if score < 6
+- **Validation:** Generate low-quality template → auto-regenerates
+
+#### T11.8: Preserve Static Templates as Fallback
+- **Description:** Keep original templates as non-AI options
+- **Acceptance Criteria:**
+  - Toggle: "AI Templates" vs "Classic Templates"
+  - Classic templates always available without API key
+  - User preference saved to localStorage
+- **Validation:** Disable AI toggle → static templates shown
+
+---
+
+## Sprint 12: Testing Infrastructure
+**Goal:** Establish comprehensive testing with unit, integration, and e2e coverage.
+
+**Demo Deliverable:** `npm test` runs full test suite with >70% coverage; CI blocks PRs with failing tests.
+
+### Tasks
+
+#### T12.1: Setup Vitest for Unit Testing
+- **Description:** Configure Vitest with React Testing Library
+- **Acceptance Criteria:**
+  - Install: `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`
+  - `vitest.config.ts` with jsdom environment
+  - Add npm script: `"test": "vitest"`, `"test:ui": "vitest --ui"`
+  - Sample test passes: `expect(true).toBe(true)`
+- **Validation:** `npm test` runs without errors
+
+#### T12.2: Create Test Utilities and Mocks
+- **Description:** Shared test utilities and mock factories
+- **Acceptance Criteria:**
+  - `src/__tests__/utils/renderWithProviders.tsx` - custom render with context
+  - `src/__tests__/mocks/prospects.ts` - mock prospect data
+  - `src/__tests__/mocks/firebase.ts` - Firebase mock
+  - `src/__tests__/mocks/gemini.ts` - Gemini API mock
+- **Validation:** Mocks import without errors; types are correct
+
+#### T12.3: Write Unit Tests for Utility Functions
+- **Description:** Test pure functions and helpers
+- **Acceptance Criteria:**
+  - Test `getStatusColor`: all status values return correct classes
+  - Test `TEMPLATES`: returns correct number of templates
+  - Test `filteredProspects` logic: filters and sorts correctly
+  - Test `stats` calculation: correct counts
+  - Minimum 90% coverage for utility functions
+- **Validation:** `npm test -- --coverage` shows >90% for utils
+
+#### T12.4: Write Component Unit Tests
+- **Description:** Test React components in isolation
+- **Acceptance Criteria:**
+  - Test prospect list item: renders name, company, badges
+  - Test status toggle: clicking updates status
+  - Test search input: filters list
+  - Test template selector: clicking changes selected
+  - Test character counter: shows correct count, changes color
+- **Validation:** All component tests pass
+
+#### T12.5: Setup Playwright for E2E Testing
+- **Description:** Configure Playwright for end-to-end tests
+- **Acceptance Criteria:**
+  - Install: `@playwright/test`
+  - `playwright.config.ts` configured for local dev server
+  - Add npm script: `"test:e2e": "playwright test"`
+  - GitHub Actions workflow for E2E tests
+- **Validation:** `npm run test:e2e` runs sample test
+
+#### T12.6: Write E2E Test: Prospect Selection Flow
+- **Description:** Test selecting prospect and viewing details
+- **Acceptance Criteria:**
+  - Navigate to app
+  - Click on prospect in list
+  - Verify detail panel shows prospect info
+  - Verify template is loaded
+  - Test runs in < 10 seconds
+- **Validation:** E2E test passes in CI
+
+#### T12.7: Write E2E Test: Status Update Flow
+- **Description:** Test updating prospect status
+- **Acceptance Criteria:**
+  - Select prospect
+  - Click "Sent" status button
+  - Verify status badge updates in list
+  - Verify stats tab reflects change
+- **Validation:** E2E test passes
+
+#### T12.8: Write E2E Test: AI Chat Flow
+- **Description:** Test AI assistant interaction (mocked API)
+- **Acceptance Criteria:**
+  - Navigate to Brain tab
+  - Enter message in chat
+  - Verify message appears in history
+  - Mock API response
+  - Verify bot response appears
+- **Validation:** E2E test passes with mocked Gemini
+
+#### T12.9: Add Test Coverage Reporting
+- **Description:** Generate and track coverage reports
+- **Acceptance Criteria:**
+  - Coverage report generated in `coverage/` directory
+  - HTML report viewable locally
+  - Coverage badge in README
+  - Minimum thresholds: 70% statements, 60% branches
+- **Validation:** `npm test -- --coverage` generates report
+
+#### T12.10: Add Pre-commit Test Hook
+- **Description:** Run tests before allowing commits
+- **Acceptance Criteria:**
+  - Install: `husky`, `lint-staged`
+  - Pre-commit hook runs `npm test -- --run`
+  - Failed tests block commit
+  - Optional skip with `--no-verify`
+- **Validation:** Commit with failing test → blocked
+
+---
+
+## Sprint 13: Accessibility (A11y) Implementation
+**Goal:** Ensure WCAG 2.1 AA compliance with full keyboard and screen reader support.
+
+**Demo Deliverable:** Full keyboard navigation; zero axe violations; screen reader announces all actions.
+
+### Tasks
+
+#### T13.1: Add ARIA Labels to Interactive Elements
+- **Description:** Label all buttons, inputs, and controls
+- **Acceptance Criteria:**
+  - All `<button>` elements have `aria-label` or visible text
+  - All `<input>` elements have associated `<label>` or `aria-labelledby`
+  - Icons-only buttons have `aria-label` describing action
+  - Tab navigation and status toggle have `role="tablist"` and `role="tab"`
+- **Validation:** axe DevTools shows 0 ARIA violations
+
+#### T13.2: Implement Keyboard Navigation for Prospect List
+- **Description:** Navigate list with arrow keys
+- **Acceptance Criteria:**
+  - `↓` key moves to next prospect
+  - `↑` key moves to previous prospect
+  - `Enter` key selects focused prospect
+  - `Home` jumps to first, `End` to last
+  - Focus ring visible on focused item
+- **Validation:** Tab to list → arrow keys navigate → Enter selects
+
+#### T13.3: Implement Keyboard Navigation for Tabs
+- **Description:** Tab navigation per WAI-ARIA pattern
+- **Acceptance Criteria:**
+  - `Tab` moves focus to tab list, then to content
+  - `←` and `→` arrows switch between tabs
+  - `Space` or `Enter` activates focused tab
+  - `aria-selected="true"` on active tab
+- **Validation:** Keyboard-only navigation works correctly
+
+#### T13.4: Add Focus Management for Modal
+- **Description:** Trap focus in settings modal
+- **Acceptance Criteria:**
+  - Focus moves to modal when opened
+  - `Tab` cycles through modal elements only (focus trap)
+  - `Escape` closes modal
+  - Focus returns to trigger button on close
+- **Validation:** Open modal → Tab → focus stays in modal
+
+#### T13.5: Add Screen Reader Announcements
+- **Description:** Live region announcements for dynamic content
+- **Acceptance Criteria:**
+  - `aria-live="polite"` region for status updates
+  - Announce: status changes, copy success, message sent
+  - Announce: AI response received
+  - Announce: error messages
+- **Validation:** VoiceOver/NVDA announces changes
+
+#### T13.6: Ensure Color Contrast Compliance
+- **Description:** All text meets WCAG contrast ratios
+- **Acceptance Criteria:**
+  - Normal text: 4.5:1 minimum
+  - Large text (18px+): 3:1 minimum
+  - UI components: 3:1 against adjacent colors
+  - Fix any low-contrast text in status badges
+- **Validation:** axe DevTools shows 0 contrast violations
+
+#### T13.7: Add Skip Links
+- **Description:** Skip navigation for keyboard users
+- **Acceptance Criteria:**
+  - "Skip to main content" link at top of page
+  - Visible on focus only
+  - Jumps to main content area
+  - "Skip to prospect list" option
+- **Validation:** Tab on page load → skip link appears
+
+#### T13.8: Add Reduced Motion Support
+- **Description:** Respect user's motion preferences
+- **Acceptance Criteria:**
+  - Check `prefers-reduced-motion` media query
+  - Disable animations when preferred
+  - Keep essential state transitions
+  - No auto-scrolling in reduced motion mode
+- **Validation:** Enable reduced motion in OS → no animations
+
+#### T13.9: Write Accessibility Tests
+- **Description:** Automated a11y testing in test suite
+- **Acceptance Criteria:**
+  - Install: `@axe-core/react` or `vitest-axe`
+  - Add a11y test to each component test file
+  - Zero violations for all components
+  - Add to CI pipeline
+- **Validation:** `npm test` includes a11y checks
+
+---
+
+## Sprint 14: Mobile Responsiveness
+**Goal:** Fully responsive design optimized for mobile and tablet devices.
+
+**Demo Deliverable:** App fully usable on iPhone and Android; sidebar collapses; touch gestures work.
+
+### Tasks
+
+#### T14.1: Implement Mobile-First Layout System
+- **Description:** Restructure layout with responsive breakpoints
+- **Acceptance Criteria:**
+  - Mobile (<768px): single column, stacked layout
+  - Tablet (768-1024px): sidebar as overlay, main content full
+  - Desktop (>1024px): current side-by-side layout
+  - Use Tailwind responsive prefixes: `md:`, `lg:`
+- **Validation:** Resize browser → layout adapts smoothly
+
+#### T14.2: Create Collapsible Mobile Sidebar
+- **Description:** Hamburger menu for mobile navigation
+- **Acceptance Criteria:**
+  - Hamburger icon (Menu) visible on mobile only
+  - Tap opens sidebar as full-height overlay
+  - Backdrop blur behind sidebar
+  - Swipe left or tap backdrop to close
+  - Selected prospect closes sidebar
+- **Validation:** Mobile viewport → hamburger works → sidebar slides
+
+#### T14.3: Implement Bottom Sheet for Prospect Detail
+- **Description:** Mobile-optimized detail view
+- **Acceptance Criteria:**
+  - On mobile, detail panel slides up from bottom
+  - Drag handle at top for gestures
+  - Snap points: 50% (half), 90% (full)
+  - Drag down to dismiss
+  - Uses CSS or framer-motion for animation
+- **Validation:** Select prospect on mobile → bottom sheet appears
+
+#### T14.4: Optimize Touch Targets
+- **Description:** Ensure all interactive elements are touch-friendly
+- **Acceptance Criteria:**
+  - Minimum tap target: 44x44px
+  - Add padding to small buttons
+  - Increase spacing between list items
+  - Status toggle buttons enlarged on mobile
+- **Validation:** No tap target < 44px on mobile
+
+#### T14.5: Add Pull-to-Refresh
+- **Description:** Mobile gesture to refresh data
+- **Acceptance Criteria:**
+  - Pull down on prospect list triggers refresh
+  - Loading spinner during refresh
+  - Re-fetches from Firestore if connected
+  - Works without Firebase (just resets local state)
+- **Validation:** Pull down → spinner → data refreshes
+
+#### T14.6: Optimize Chat Interface for Mobile
+- **Description:** Mobile-optimized AI chat experience
+- **Acceptance Criteria:**
+  - Chat input sticks to bottom (above keyboard)
+  - Messages scroll correctly with virtual keyboard
+  - Send button larger on mobile
+  - Auto-resize textarea for longer inputs
+- **Validation:** Type on mobile → keyboard doesn't obscure input
+
+#### T14.7: Add Mobile Navigation Gestures
+- **Description:** Swipe gestures for tab switching
+- **Acceptance Criteria:**
+  - Swipe left/right on main content switches tabs
+  - Visual indicator shows current tab
+  - Gesture disabled when scrolling
+  - Uses touch events, no external dependency
+- **Validation:** Swipe left → switches to next tab
+
+#### T14.8: Test on Real Devices
+- **Description:** Manual testing on iOS and Android
+- **Acceptance Criteria:**
+  - Test on iPhone 14 (Safari)
+  - Test on Android (Chrome)
+  - Document any device-specific issues
+  - Fix critical issues before sprint completion
+- **Validation:** App fully usable on both platforms
+
+---
+
+## Sprint 15: Data Management & Export
+**Goal:** Import/export functionality for data portability and backup.
+
+**Demo Deliverable:** Export prospects as JSON/CSV; import from file; auto-backup with restore.
+
+### Tasks
+
+#### T15.1: Implement Prospect Data Export
+- **Description:** Export prospects as JSON or CSV
+- **Acceptance Criteria:**
+  - Export button in settings or sidebar footer
+  - Formats: JSON (full data) and CSV (tabular)
+  - Filename: `yardflow-prospects-{date}.{ext}`
+  - Includes all prospect fields and status
+- **Validation:** Click export → file downloads → data is correct
+
+#### T15.2: Implement Prospect Data Import
+- **Description:** Import prospects from JSON file
+- **Acceptance Criteria:**
+  - Import button in settings
+  - File picker accepts `.json` files
+  - Validates data structure before import
+  - Merge or replace options
+  - Error handling for invalid files
+- **Validation:** Import valid JSON → prospects appear
+
+#### T15.3: Add Data Validation Layer
+- **Description:** Validate all data before saving
+- **Acceptance Criteria:**
+  - Create Zod schemas for all types: `ProspectSchema`, etc.
+  - Validate on import, on Firestore write, on state update
+  - Return detailed error messages
+  - Invalid data rejected with explanation
+- **Validation:** Import invalid data → error message shown
+
+#### T15.4: Implement Backup to Local Storage
+- **Description:** Automatic local backup of all data
+- **Acceptance Criteria:**
+  - Auto-save to localStorage every 60 seconds
+  - Key: `yardflow_backup_{timestamp}`
+  - Keep last 5 backups, delete older
+  - "Restore from backup" option in settings
+- **Validation:** Make changes → check localStorage → backup exists
+
+#### T15.5: Add Data Reset Functionality
+- **Description:** Reset all data to initial state
+- **Acceptance Criteria:**
+  - "Reset to Defaults" button in settings
+  - Confirmation modal: "This will erase all changes"
+  - Resets: prospects, chat history, settings
+  - Does NOT reset API key
+- **Validation:** Reset → all data returns to initial state
+
+#### T15.6: Implement Notes Field for Prospects
+- **Description:** Add editable notes to each prospect
+- **Acceptance Criteria:**
+  - Textarea in prospect detail panel
+  - Auto-saves to state and Firestore
+  - Character limit: 500 chars
+  - Timestamp shows last edited
+- **Validation:** Add note → refresh → note persists
+
+#### T15.7: Add Bulk Actions
+- **Description:** Perform actions on multiple prospects
+- **Acceptance Criteria:**
+  - Checkbox on each list item
+  - "Select All" checkbox in header
+  - Bulk actions: "Mark as Contacted", "Export Selected"
+  - Action confirmation modal
+- **Validation:** Select 3 → mark as contacted → all 3 update
+
+---
+
+## Sprint 16: Advanced Analytics & Insights
+**Goal:** Rich analytics dashboard with conversion tracking and AI-powered insights.
+
+**Demo Deliverable:** Funnel visualization; tier comparison; AI-generated strategy recommendations.
+
+### Tasks
+
+#### T16.1: Track Prospect Funnel Metrics
+- **Description:** Calculate conversion rates between statuses
+- **Acceptance Criteria:**
+  - Track: New → Drafted → Contacted → Booked
+  - Calculate: conversion rate at each stage
+  - Store: timestamp of each status change
+  - Compute: average time between stages
+- **Validation:** Change statuses → funnel metrics update
+
+#### T16.2: Create Funnel Visualization
+- **Description:** Visual funnel chart in stats tab
+- **Acceptance Criteria:**
+  - Horizontal funnel showing stage counts
+  - Percentages between stages
+  - Color gradient: gray → yellow → green → purple
+  - Responsive width based on counts
+- **Validation:** Visual inspection → funnel proportions correct
+
+#### T16.3: Add Tier Performance Comparison
+- **Description:** Compare Tier 1 vs Tier 2 performance
+- **Acceptance Criteria:**
+  - Side-by-side cards: Tier 1 stats vs Tier 2 stats
+  - Metrics: response rate, meeting rate, avg time to book
+  - Highlight better performing tier
+- **Validation:** Stats reflect actual tier distribution
+
+#### T16.4: Implement Outreach Velocity Chart
+- **Description:** Track outreach pace over time
+- **Acceptance Criteria:**
+  - Line chart: messages sent per day
+  - Data stored in localStorage with timestamps
+  - Show last 7 days
+  - Lightweight chart (SVG, no D3)
+- **Validation:** Send messages over days → chart shows trend
+
+#### T16.5: Add AI-Powered Insights
+- **Description:** AI generates strategic insights from data
+- **Acceptance Criteria:**
+  - "Get AI Insights" button in stats tab
+  - Sends current stats to Gemini
+  - Prompt: "Analyze this outreach data and suggest optimizations"
+  - Displays insights in collapsible card
+- **Validation:** Click → AI provides actionable insights
+
+#### T16.6: Create Sender Performance Comparison
+- **Description:** Compare "Me" vs "Jake" effectiveness
+- **Acceptance Criteria:**
+  - Track which sender was used for each outreach
+  - Compare: messages sent, meetings booked per sender
+  - Show in stats tab as bar comparison
+- **Validation:** Use both senders → comparison reflects data
+
+#### T16.7: Add Goal Setting & Progress
+- **Description:** Set and track meeting booking goals
+- **Acceptance Criteria:**
+  - Goal input: "Target: X meetings"
+  - Progress ring/bar showing current vs goal
+  - Celebrate animation when goal met
+  - Goal persisted to localStorage
+- **Validation:** Set goal → book meetings → progress updates
+
+---
+
+## Sprint 17: Collaboration Features
+**Goal:** Real-time collaboration with presence indicators and activity feeds.
+
+**Demo Deliverable:** See when teammates are viewing prospects; activity feed shows real-time updates.
+
+### Tasks
+
+#### T17.1: Implement Real-Time Presence Indicators
+- **Description:** Show which prospects are being viewed by team members
+- **Acceptance Criteria:**
+  - Firestore path: `presence/{appId}/{prospectId}`
+  - Document contains: userId, timestamp, user name
+  - Update on prospect selection, remove on deselect
+  - Show avatar/indicator on list items being viewed
+- **Validation:** Two browsers → select same prospect → both see indicator
+
+#### T17.2: Add "Currently Editing" Badge
+- **Description:** Show when another user is editing a prospect
+- **Acceptance Criteria:**
+  - Badge with pulsing animation on list item
+  - Tooltip: "Jake is viewing this"
+  - Clears after 30 seconds of inactivity
+  - Updates in real-time via Firestore listener
+- **Validation:** User A selects → User B sees badge
+
+#### T17.3: Implement Prospect Comments
+- **Description:** Add comments/notes visible to all users
+- **Acceptance Criteria:**
+  - Comment section in prospect detail
+  - Each comment: text, author, timestamp
+  - Stored in Firestore: `prospects/{id}/comments`
+  - Real-time updates via onSnapshot
+- **Validation:** Add comment → appears for other users
+
+#### T17.4: Add Comment Mentions
+- **Description:** @mention team members in comments
+- **Acceptance Criteria:**
+  - Type `@` to trigger user dropdown
+  - Select user to insert mention
+  - Mentions styled distinctly
+  - Future: notification system hook
+- **Validation:** Type @Jake → dropdown appears → selection works
+
+#### T17.5: Create Activity Feed
+- **Description:** Stream of recent team actions
+- **Acceptance Criteria:**
+  - Collapsible panel in sidebar (on Stats or separate tab)
+  - Shows: "{User} updated {Prospect} to {Status}"
+  - Last 20 activities
+  - Stored in Firestore: `activity/{appId}/log`
+- **Validation:** Change status → activity appears in feed
+
+#### T17.6: Implement Optimistic Locking
+- **Description:** Prevent conflicting edits
+- **Acceptance Criteria:**
+  - Each Firestore doc has `version` field
+  - On update, check `version` matches
+  - If conflict: show merge dialog
+  - Options: "Keep mine", "Keep theirs", "Merge"
+- **Validation:** Simultaneous edits → conflict detected → dialog shown
+
+#### T17.7: Add Team Assignment
+- **Description:** Assign prospects to team members
+- **Acceptance Criteria:**
+  - "Assigned to" dropdown in prospect detail
+  - Options: Me, Jake, Unassigned
+  - Filter by assignment in list
+  - Visual indicator on assigned items
+- **Validation:** Assign to Jake → filter by Jake → prospect appears
+
+#### T17.8: Implement Notification System
+- **Description:** In-app notifications for mentions and updates
+- **Acceptance Criteria:**
+  - Bell icon in header with badge count
+  - Notifications: mentions, assignments, status changes by others
+  - Mark as read functionality
+  - Click navigates to relevant prospect
+- **Validation:** Get mentioned → notification appears → click navigates
+
+---
+
+## Dependencies for Future Sprints
+
+```json
+{
+  "dependencies": {
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/user-event": "^14.0.0",
+    "jsdom": "^23.0.0",
+    "@playwright/test": "^1.40.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.0.0",
+    "@axe-core/react": "^4.8.0"
+  }
+}
+```
+
+---
+
+## Definition of Done (All Tasks)
+- [ ] Code compiles with zero TypeScript errors
+- [ ] Feature works as described in acceptance criteria
+- [ ] No console errors or warnings
+- [ ] Code follows existing patterns and conventions
+- [ ] Changes are atomic and committable
+- [ ] Appropriate tests written (unit/integration/e2e)
+- [ ] Accessibility requirements met
