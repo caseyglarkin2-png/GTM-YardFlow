@@ -169,7 +169,7 @@ describe('Performance Benchmarks', () => {
   describe('EmailSequenceService Performance', () => {
     it('should create sequences quickly', () => {
       const result = benchmark(() => {
-        createSequence('Test Sequence', 'Test description', 'owner-1');
+        createSequence('Test Sequence', { description: 'Test description' });
       }, 100);
       
       // Sequence creation should be under 0.5ms
@@ -177,14 +177,15 @@ describe('Performance Benchmarks', () => {
     });
     
     it('should add steps efficiently', () => {
-      let sequence = createSequence('Test', 'Desc', 'owner');
+      let sequence = createSequence('Test', { description: 'Desc' });
       
       const result = benchmark(() => {
         sequence = addStep(sequence, {
-          type: 'email',
+          type: 'initial',
           subject: 'Test Subject',
           body: 'Test body content',
           delayDays: 1,
+          condition: 'always',
         });
       }, 100);
       
@@ -193,15 +194,17 @@ describe('Performance Benchmarks', () => {
     });
     
     it('should validate sequences with many steps quickly', () => {
-      let sequence = createSequence('Large Sequence', 'Test', 'owner');
+      let sequence = createSequence('Large Sequence', { description: 'Test' });
       
       // Add 20 steps
+      const stepTypes: Array<'initial' | 'follow_up_1' | 'follow_up_2' | 'break_up'> = ['initial', 'follow_up_1', 'follow_up_2', 'break_up'];
       for (let i = 0; i < 20; i++) {
         sequence = addStep(sequence, {
-          type: i % 3 === 0 ? 'task' : 'email',
+          type: stepTypes[i % stepTypes.length],
           subject: `Step ${i}`,
           body: `Body for step ${i}`,
           delayDays: i,
+          condition: i === 0 ? 'always' : 'no_reply',
         });
       }
       

@@ -154,6 +154,7 @@ describe('EmailSequenceService', () => {
         subject: 'Test',
         body: 'Test',
         delayDays: 0,
+        condition: 'always',
       });
       
       expect(updated.updatedAt).toBeDefined();
@@ -167,6 +168,7 @@ describe('EmailSequenceService', () => {
         subject: 'Original',
         body: 'Original body',
         delayDays: 0,
+        condition: 'always',
       });
       
       const stepId = sequence.steps[0].id;
@@ -182,12 +184,14 @@ describe('EmailSequenceService', () => {
         subject: 'Step 1',
         body: 'Body 1',
         delayDays: 0,
+        condition: 'always',
       });
       sequence = addStep(sequence, {
         type: 'follow_up_1',
         subject: 'Step 2',
         body: 'Body 2',
         delayDays: 3,
+        condition: 'no_reply',
       });
       
       const stepId = sequence.steps[0].id;
@@ -204,12 +208,14 @@ describe('EmailSequenceService', () => {
         subject: 'Step 1',
         body: 'Body',
         delayDays: 0,
+        condition: 'always',
       });
       sequence = addStep(sequence, {
         type: 'follow_up_1',
         subject: 'Step 2',
         body: 'Body',
         delayDays: 3,
+        condition: 'no_reply',
       });
       
       const stepId = sequence.steps[0].id;
@@ -227,18 +233,21 @@ describe('EmailSequenceService', () => {
         subject: 'Step A',
         body: 'Body',
         delayDays: 0,
+        condition: 'always',
       });
       sequence = addStep(sequence, {
         type: 'follow_up_1',
         subject: 'Step B',
         body: 'Body',
         delayDays: 3,
+        condition: 'no_reply',
       });
       sequence = addStep(sequence, {
         type: 'follow_up_2',
         subject: 'Step C',
         body: 'Body',
         delayDays: 5,
+        condition: 'no_reply',
       });
       
       sequence = reorderSteps(sequence, 0, 2);
@@ -285,6 +294,7 @@ describe('EmailSequenceService', () => {
         subject: '',
         body: 'Body',
         delayDays: 0,
+        condition: 'always',
       });
       
       const errors = validateSequence(sequence);
@@ -298,6 +308,7 @@ describe('EmailSequenceService', () => {
         subject: 'Subject',
         body: '',
         delayDays: 0,
+        condition: 'always',
       });
       
       const errors = validateSequence(sequence);
@@ -390,6 +401,7 @@ describe('EmailSequenceService', () => {
         subject: 'Test',
         body: 'Body',
         delayDays: 0,
+        condition: 'always',
         variants: [
           { id: 'v1', body: 'Variant A', weight: 50 },
           { id: 'v2', body: 'Variant B', weight: 50 },
@@ -409,18 +421,21 @@ describe('EmailSequenceService', () => {
         subject: 'Step 1',
         body: 'Body',
         delayDays: 0,
+        condition: 'always',
       });
       sequence = addStep(sequence, {
         type: 'follow_up_1',
         subject: 'Step 2',
         body: 'Body',
         delayDays: 3,
+        condition: 'no_reply',
       });
       sequence = addStep(sequence, {
         type: 'follow_up_2',
         subject: 'Step 3',
         body: 'Body',
         delayDays: 6,
+        condition: 'no_reply',
       });
       
       const stats = getSequenceStats(sequence);

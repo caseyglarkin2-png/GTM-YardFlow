@@ -1,0 +1,195 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==========================================================================
+    // Helper Functions
+    // ==========================================================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Get user's tenant membership
+    function getTenantUser(tenantId) {
+      return get(/databases/$(database)/documents/tenants/$(tenantId)/users/$(request.auth.uid));
+    }
+    
+    // Check if user is a member of the tenant
+    function isTenantMember(tenantId) {
+      return isAuthenticated() && exists(/databases/$(database)/documents/tenants/$(tenantId)/users/$(request.auth.uid));
+    }
+    
+    // Check if user has specific role in tenant
+    function hasRole(tenantId, role) {
+      return isTenantMember(tenantId) && getTenantUser(tenantId).data.role == role;
+    }
+    
+    // Check if user has admin or owner role
+    function isAdmin(tenantId) {
+      return isTenantMember(tenantId) && getTenantUser(tenantId).data.role in ['owner', 'admin'];
+    }
+    
+    // Check if user has write access (not viewer)
+    function canWrite(tenantId) {
+      return isTenantMember(tenantId) && getTenantUser(tenantId).data.role in ['owner', 'admin', 'member'];
+    }
+    
+    // Validate timestamp is recent (within 5 minutes)
+    function isRecentTimestamp(ts) {
+      return ts == request.time || (ts is timestamp && ts <= request.time && ts >= request.time - duration.value(5, 'm'));
+    }
+    
+    // ==========================================================================
+    // Tenant Collection
+    // ==========================================================================
+    
+    match /tenants/{tenantId} {
+      // Anyone authenticated can read tenant info if they're a member
+      allow read: if isTenantMember(tenantId);
+      
+      // Only admins can update tenant settings
+      allow update: if isAdmin(tenantId);
+      
+      // Only owners can delete tenant
+      allow delete: if hasRole(tenantId, 'owner');
+      
+      // Creating tenants requires special flow (via Cloud Function)
+      allow create: if false;
+      
+      // ==========================================================================
+      // Tenant Users
+      // ==========================================================================
+      
+      match /users/{userId} {
+        // Members can read all users in their tenant
+        allow read: if isTenantMember(tenantId);
+        
+        // Users can update their own profile
+        allow update: if isAuthenticated() && request.auth.uid == userId
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status']);
+        
+        // Admins can manage users
+        allow create, update: if isAdmin(tenantId);
+        
+        // Owners can delete users, but not themselves
+        allow delete: if hasRole(tenantId, 'owner') && request.auth.uid != userId;
+      }
+      
+      // ==========================================================================
+      // Prospects
+      // ==========================================================================
+      
+      match /prospects/{prospectId} {
+        // Members can read all prospects
+        allow read: if isTenantMember(tenantId);
+        
+        // Members with write access can create/update prospects
+        allow create: if canWrite(tenantId)
+          && request.resource.data.createdBy == request.auth.uid;
+        
+        allow update: if canWrite(tenantId)
+          && request.resource.data.updatedBy == request.auth.uid
+          && request.resource.data.syncVersion == resource.data.syncVersion + 1;
+        
+        // Admins can delete prospects
+        allow delete: if isAdmin(tenantId);
+      }
+      
+      // ==========================================================================
+      // Companies
+      // ==========================================================================
+      
+      match /companies/{companyId} {
+        allow read: if isTenantMember(tenantId);
+        allow create: if canWrite(tenantId);
+        allow update: if canWrite(tenantId);
+        allow delete: if isAdmin(tenantId);
+      }
+      
+      // ==========================================================================
+      // Activities
+      // ==========================================================================
+      
+      match /activities/{activityId} {
+        // All members can read activities
+        allow read: if isTenantMember(tenantId);
+        
+        // Members can create activities (must set correct userId)
+        allow create: if canWrite(tenantId)
+          && request.resource.data.userId == request.auth.uid;
+        
+        // Activities are immutable (no updates or deletes)
+        allow update, delete: if false;
+      }
+      
+      // ==========================================================================
+      // Email Sequences (Enrollments)
+      // ==========================================================================
+      
+      match /sequences/{enrollmentId} {
+        allow read: if isTenantMember(tenantId);
+        
+        allow create: if canWrite(tenantId)
+          && request.resource.data.createdBy == request.auth.uid;
+        
+        allow update: if canWrite(tenantId);
+        
+        allow delete: if isAdmin(tenantId);
+      }
+      
+      // ==========================================================================
+      // Presence (Real-time user presence)
+      // ==========================================================================
+      
+      match /presence/{presenceId} {
+        // All members can read presence
+        allow read: if isTenantMember(tenantId);
+        
+        // Users can only create/update their own presence
+        allow create, update: if isTenantMember(tenantId)
+          && request.resource.data.userId == request.auth.uid;
+        
+        // Users can delete their own presence
+        allow delete: if isAuthenticated() 
+          && (resource.data.userId == request.auth.uid || isAdmin(tenantId));
+      }
+      
+      // ==========================================================================
+      // Offline Queue (Per-user pending operations)
+      // ==========================================================================
+      
+      match /offlineQueue/{queueId} {
+        // Users can manage their own queue
+        allow read, write: if isTenantMember(tenantId)
+          && resource.data.userId == request.auth.uid;
+      }
+      
+      // ==========================================================================
+      // Sync Metadata
+      // ==========================================================================
+      
+      match /syncMeta/{docId} {
+        allow read: if isTenantMember(tenantId);
+        allow write: if isAdmin(tenantId);
+      }
+    }
+    
+    // ==========================================================================
+    // User-level Collections (cross-tenant)
+    // ==========================================================================
+    
+    match /userProfiles/{userId} {
+      // Users can read/write only their own profile
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    match /userTenants/{userId} {
+      // Users can read their own tenant memberships
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      // Only Cloud Functions can write here
+      allow write: if false;
+    }
+  }
+}

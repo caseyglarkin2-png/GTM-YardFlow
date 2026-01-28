@@ -3,11 +3,16 @@
  * Sprint 26 - T26.5
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createSyncEngine } from '../../services/HubSpotSyncEngine';
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import { createSyncEngine, type ProspectRepository } from '../../services/HubSpotSyncEngine';
 import type { HubSpotClient } from '../../services/HubSpotClient';
 import type { FieldMapper, ProspectFields } from '../../services/HubSpotFieldMapper';
 import type { HubSpotContact } from '../../types/hubspot';
+
+// Mock type that preserves mock methods while satisfying the interface
+type MockedProspectRepository = {
+  [K in keyof ProspectRepository]: Mock<ProspectRepository[K]>;
+};
 
 // Mock localStorage
 const localStorageMock = {
@@ -22,14 +27,7 @@ vi.stubGlobal('localStorage', localStorageMock);
 describe('HubSpot Sync Engine - T26.5', () => {
   let mockClient: HubSpotClient;
   let mockFieldMapper: FieldMapper;
-  let mockProspectRepo: {
-    getAll: ReturnType<typeof vi.fn>;
-    getById: ReturnType<typeof vi.fn>;
-    getByHubSpotId: ReturnType<typeof vi.fn>;
-    getModifiedSince: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
-  };
+  let mockProspectRepo: MockedProspectRepository;
 
   const sampleProspect: ProspectFields = {
     id: 'yf-123',
@@ -103,7 +101,7 @@ describe('HubSpot Sync Engine - T26.5', () => {
       getModifiedSince: vi.fn().mockResolvedValue([]),
       update: vi.fn().mockResolvedValue(undefined),
       create: vi.fn().mockResolvedValue(sampleProspect),
-    };
+    } as MockedProspectRepository;
   });
 
   describe('syncAll', () => {

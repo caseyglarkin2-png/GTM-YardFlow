@@ -2,16 +2,23 @@
 
 ## Status
 - **Sprints 0-25:** ✅ Complete (archived in SPRINT_PLAN_ARCHIVE_V4.md)
-- **Tests:** 548 passing | **Build:** 758KB | **Deploy:** gtm-yard-flow.vercel.app
-- **Sprint 26:** T26.1 ✅ | T26.2 ✅ | T26.3 ✅ | T26.4 ✅ | T26.5 ✅ | T26.6 ✅ | T26.7 ✅ | T26.8 ✅
+- **Tests:** 790 passing | **Build:** 180KB main + vendor chunks | **Deploy:** gtm-yard-flow.vercel.app
+- **Sprint 26:** ✅ Complete (HubSpot CRM Integration)
+- **Sprint 27:** ✅ Complete (Real-time Firestore Collaboration)
+- **Sprint 28:** 🔄 Active (see SPRINT_PLAN_V6.md for detailed breakdown)
+  - T28.1 ✅ Analytics Aggregator (28 tests)
+  - T28.2 🔄 Chart Components (created, need tests)
+  - T28A 🔄 Technical Debt Remediation (in progress)
+
+**📋 See [SPRINT_PLAN_V6.md](SPRINT_PLAN_V6.md) for current detailed sprint plan with atomic tasks.**
 
 ## Current Sprint Backlog (26-33)
 
 | Sprint | Name | Difficulty | Value | Status |
 |--------|------|------------|-------|--------|
-| **26** | HubSpot CRM Integration | 🔴 Hard | 🔥 Critical | 🎯 Active |
-| **27** | Real-time Firestore Sync | 🔴 Hard | 🔥 Critical | ⏳ Queued |
-| **28** | Analytics Dashboard | 🟡 Medium | 🔥 High | ⏳ Queued |
+| **26** | HubSpot CRM Integration | 🔴 Hard | 🔥 Critical | ✅ Complete |
+| **27** | Real-time Firestore Sync | 🔴 Hard | 🔥 Critical | ✅ Complete |
+| **28** | Analytics Dashboard | 🟡 Medium | 🔥 High | 🎯 Active |
 | **29** | LinkedIn Sales Navigator Import | 🟡 Medium | 🔥 High | ⏳ Queued |
 | **30** | Advanced Search & Filters | 🟢 Easy | 🟡 Medium | ⏳ Queued |
 | **31** | Bulk Operations | 🟢 Easy | 🟡 Medium | ⏳ Queued |

@@ -231,7 +231,7 @@ describe('HubSpot Activity Logger - T26.7', () => {
     it('should retry failed activities', async () => {
       vi.mocked(mockClient.createNote)
         .mockRejectedValueOnce(new Error('Temporary error'))
-        .mockResolvedValue({ id: 'note-retry', type: 'NOTE', properties: {}, createdAt: '', updatedAt: '' });
+        .mockResolvedValue({ id: 'note-retry', type: 'NOTE', properties: { hs_timestamp: new Date().toISOString() }, createdAt: '', updatedAt: '' });
 
       const activity: ActivityLogEntry = {
         id: 'act-retry',

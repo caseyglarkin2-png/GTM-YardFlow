@@ -41,7 +41,7 @@ interface SyncEngineConfig {
 /**
  * Prospect repository interface
  */
-interface ProspectRepository {
+export interface ProspectRepository {
   getAll(): Promise<ProspectFields[]>;
   getById(id: string): Promise<ProspectFields | null>;
   getByHubSpotId(hubspotId: string): Promise<ProspectFields | null>;

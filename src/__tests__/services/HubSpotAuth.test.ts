@@ -370,8 +370,8 @@ describe('HubSpot Auth Service - T26.2', () => {
       const verifier = verifierCall?.[1];
       
       expect(verifier).toBeDefined();
-      expect(verifier.length).toBeGreaterThanOrEqual(43);
-      expect(verifier.length).toBeLessThanOrEqual(128);
+      expect(verifier!.length).toBeGreaterThanOrEqual(43);
+      expect(verifier!.length).toBeLessThanOrEqual(128);
     });
 
     it('should include code challenge in auth URL', async () => {

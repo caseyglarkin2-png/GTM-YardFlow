@@ -401,13 +401,13 @@ export const CADENCE_TEMPLATES = {
     name: 'Tier 1 Multi-Touch Cadence',
     description: 'Warm up with LinkedIn activity before direct outreach',
     steps: [
-      { order: 0, channel: 'linkedin_connection' as const, action: 'view_profile', delayDays: 0, messageTemplate: '' },
-      { order: 1, channel: 'linkedin_connection' as const, action: 'like_post', delayDays: 1, messageTemplate: '' },
-      { order: 2, channel: 'linkedin_connection' as const, action: 'send_connection', delayDays: 2, messageTemplate: 'Hi {{firstName}}, impressed by {{company}}\'s growth. Would love to connect!' },
-      { order: 3, channel: 'email' as const, action: 'send_email', delayDays: 4, messageTemplate: '' },
-      { order: 4, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 6, skipIfReplied: true, messageTemplate: '{{firstName}}, following up on my email...' },
-      { order: 5, channel: 'email' as const, action: 'send_email', delayDays: 9, skipIfReplied: true, messageTemplate: '' },
-      { order: 6, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 12, skipIfReplied: true, messageTemplate: '' },
+      { order: 0, channel: 'linkedin_connection' as const, action: 'view_profile', delayDays: 0, messageTemplate: '', skipIfReplied: false, skipIfConnected: false },
+      { order: 1, channel: 'linkedin_connection' as const, action: 'like_post', delayDays: 1, messageTemplate: '', skipIfReplied: false, skipIfConnected: false },
+      { order: 2, channel: 'linkedin_connection' as const, action: 'send_connection', delayDays: 2, messageTemplate: 'Hi {{firstName}}, impressed by {{company}}\'s growth. Would love to connect!', skipIfReplied: false, skipIfConnected: false },
+      { order: 3, channel: 'email' as const, action: 'send_email', delayDays: 4, messageTemplate: '', skipIfReplied: false, skipIfConnected: false },
+      { order: 4, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 6, skipIfReplied: true, skipIfConnected: false, messageTemplate: '{{firstName}}, following up on my email...' },
+      { order: 5, channel: 'email' as const, action: 'send_email', delayDays: 9, skipIfReplied: true, skipIfConnected: false, messageTemplate: '' },
+      { order: 6, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 12, skipIfReplied: true, skipIfConnected: false, messageTemplate: '' },
     ],
   },
   
@@ -415,9 +415,9 @@ export const CADENCE_TEMPLATES = {
     name: 'Quick Connect Cadence',
     description: 'Fast LinkedIn connection and follow-up sequence',
     steps: [
-      { order: 0, channel: 'linkedin_connection' as const, action: 'send_connection', delayDays: 0, messageTemplate: 'Hi {{firstName}}, saw we\'re both in {{industry}}. Let\'s connect!' },
-      { order: 1, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 2, skipIfConnected: false, messageTemplate: 'Thanks for connecting! Quick question about yard operations at {{company}}...' },
-      { order: 2, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 5, skipIfReplied: true, messageTemplate: '' },
+      { order: 0, channel: 'linkedin_connection' as const, action: 'send_connection', delayDays: 0, messageTemplate: 'Hi {{firstName}}, saw we\'re both in {{industry}}. Let\'s connect!', skipIfReplied: false, skipIfConnected: false },
+      { order: 1, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 2, skipIfConnected: false, skipIfReplied: false, messageTemplate: 'Thanks for connecting! Quick question about yard operations at {{company}}...' },
+      { order: 2, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 5, skipIfReplied: true, skipIfConnected: false, messageTemplate: '' },
     ],
   },
 };

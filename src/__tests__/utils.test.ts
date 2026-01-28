@@ -119,7 +119,7 @@ describe('Search Filtering', () => {
   })
 
   it('should return all when search is empty', () => {
-    const searchTerm = ''
+    const searchTerm: string = ''
     const filtered = prospects.filter(
       p => 
         searchTerm === '' ||

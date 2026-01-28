@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { parseCsv, getHeaders, validateCsvStructure, countRows } from '../../services/CsvParserService';
-import { autoDetectMapping, applyMapping, splitName as splitNameMapper } from '../../services/ColumnMapperService';
+import { autoDetectMapping, applyMapping } from '../../services/ColumnMapperService';
 import { applyFilters, countMatches, getFilterSummary, isEmptyFilter, getSegmentStats } from '../../services/SegmentationService';
 import { exportToHubSpot, splitName, validateForExport, toHubSpotContact } from '../../services/HubSpotExporter';
 import type { EnrichedPerson, SegmentFilter } from '../../types/marketing';

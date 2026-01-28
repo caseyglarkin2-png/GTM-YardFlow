@@ -1,8 +1,9 @@
 /// <reference types="vitest" />
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
+  // @ts-expect-error - vitest/vite version mismatch in types, works at runtime
   plugins: [react()],
   test: {
     globals: true,

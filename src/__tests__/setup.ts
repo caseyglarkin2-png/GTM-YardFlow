@@ -1,4 +1,6 @@
+/// <reference types="vitest/globals" />
 import '@testing-library/jest-dom'
+import { vi, beforeAll, afterAll } from 'vitest'
 
 // Mock Firebase
 vi.mock('firebase/app', () => ({

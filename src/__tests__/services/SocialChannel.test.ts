@@ -371,8 +371,8 @@ describe('SocialChannelService', () => {
   describe('createCadence', () => {
     it('should create cadence with steps', () => {
       const steps = [
-        { order: 0, channel: 'linkedin_connection' as const, action: 'send_connection', delayDays: 0, messageTemplate: 'Hi!' },
-        { order: 1, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 2, messageTemplate: 'Follow up', skipIfReplied: true },
+        { order: 0, channel: 'linkedin_connection' as const, action: 'send_connection', delayDays: 0, messageTemplate: 'Hi!', skipIfReplied: false, skipIfConnected: false },
+        { order: 1, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 2, messageTemplate: 'Follow up', skipIfReplied: true, skipIfConnected: false },
       ];
       
       const cadence = createCadence('Test Cadence', steps);
@@ -385,8 +385,8 @@ describe('SocialChannelService', () => {
 
     it('should assign unique IDs to steps', () => {
       const steps = [
-        { order: 0, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 0 },
-        { order: 1, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 2 },
+        { order: 0, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 0, skipIfReplied: false, skipIfConnected: false },
+        { order: 1, channel: 'linkedin_dm' as const, action: 'send_dm', delayDays: 2, skipIfReplied: false, skipIfConnected: false },
       ];
       
       const cadence = createCadence('Test', steps);
