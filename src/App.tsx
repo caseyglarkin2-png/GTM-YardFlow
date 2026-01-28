@@ -85,10 +85,12 @@ import type { TimePeriod } from './types/analytics';
 import { useHubSpot } from './hooks/useHubSpot';
 import { useCommandPalette } from './hooks/useCommandPalette';
 import { useOfflineQueue } from './hooks/useOfflineQueue';
+import { usePresence, usePresenceViewTracker } from './hooks/usePresence';
 
 // --- Sprint 34 Components ---
 import { CommandPalette } from './components/CommandPalette';
 import { SyncStatus } from './components/SyncStatus';
+import { PresenceIndicator } from './components/PresenceIndicator';
 
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
@@ -193,6 +195,24 @@ export default function App() {
   
   // Offline Queue Status (Sprint 34)
   const offlineQueue = useOfflineQueue();
+  
+  // Presence (Sprint 34 - T34.4)
+  const firebaseUser = user as { uid?: string; displayName?: string; email?: string; photoURL?: string } | null;
+  const presence = usePresence({
+    tenantId: appId,
+    userId: firebaseUser?.uid || 'anonymous',
+    displayName: currentUser === 'Me' ? 'You' : currentUser,
+    email: firebaseUser?.email,
+    avatarUrl: firebaseUser?.photoURL,
+    enabled: !!firebaseUser?.uid,
+  });
+  
+  // Track current view for presence
+  usePresenceViewTracker(
+    presence.service,
+    activeTab,
+    selectedProspect?.id
+  );
   
   // Initialize from conversation manager's persisted history
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>(() => {
@@ -1341,6 +1361,14 @@ export default function App() {
                       OPS LEADER
                     </span>
                   )}
+                  {/* Presence Indicator - shows who else is viewing this prospect */}
+                  <PresenceIndicator
+                    presenceService={presence.service}
+                    filterDocId={selectedProspect.id}
+                    size="sm"
+                    showCount={false}
+                    data-testid="presence-indicator"
+                  />
                 </div>
                 <p className="text-slate-600 flex items-center">
                   <span className="font-medium mr-2">{selectedProspect.title}</span> 

@@ -16,6 +16,7 @@ export interface PresenceIndicatorProps {
   filterView?: string;
   filterDocId?: string;
   className?: string;
+  'data-testid'?: string;
 }
 
 const SIZE_CLASSES = {
@@ -100,6 +101,7 @@ export function PresenceIndicator({
   filterView,
   filterDocId,
   className = '',
+  'data-testid': dataTestId,
 }: PresenceIndicatorProps) {
   const [users, setUsers] = useState<UserPresence[]>([]);
 
@@ -130,7 +132,7 @@ export function PresenceIndicator({
   const overflowCount = users.length - maxAvatars;
 
   return (
-    <div className={`flex items-center ${className}`}>
+    <div className={`flex items-center ${className}`} data-testid={dataTestId}>
       <div className="flex -space-x-2">
         {visibleUsers.map(user => (
           <UserAvatar key={user.userId} user={user} size={size} />
