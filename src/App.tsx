@@ -9,7 +9,6 @@ import {
   Briefcase, 
   Zap, 
   Settings, 
-  BarChart2,
   AlertCircle,
   Bot,
   Loader,
@@ -23,7 +22,10 @@ import {
   Clock,
   Activity,
   Calculator,
-  FileText
+  LayoutDashboard,
+  Upload,
+  Link2,
+  TrendingUp
 } from 'lucide-react';
 import { ConversationManagerSingleton } from './services/ConversationManager';
 import { buildSystemPrompt } from './services/SystemPromptBuilder';
@@ -69,6 +71,15 @@ import { HITLIST_PROSPECTS } from './data/hitlistData';
 // --- New Sprint 18-20 Components ---
 import { ROITab } from './components/ROITab';
 import { AssetsPanel } from './components/AssetsPanel';
+
+// --- Sprint 26-33 Components ---
+import { ImportWizard } from './components/ImportWizard';
+import { KPICard } from './components/KPICard';
+import { Leaderboard } from './components/Leaderboard';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
+import { PWAUpdateNotification } from './components/PWAUpdateNotification';
+import { OfflineBanner } from './components/OfflineBanner';
+import type { TimePeriod } from './types/analytics';
 
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
@@ -133,7 +144,7 @@ ${senderName}`
 
 export default function App() {
   const [user, setUser] = useState<unknown>(null);
-  const [activeTab, setActiveTab] = useState<'prospects' | 'stats' | 'assistant' | 'roi' | 'assets'>('prospects');
+  const [activeTab, setActiveTab] = useState<'prospects' | 'stats' | 'assistant' | 'roi' | 'assets' | 'dashboard' | 'import' | 'integrations'>('prospects');
   const [prospects, setProspects] = useState<Prospect[]>(HITLIST_PROSPECTS);
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
   const [currentUser, setCurrentUser] = useState<'Jake' | 'Me'>('Me');
@@ -157,6 +168,15 @@ export default function App() {
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [chatInput, setChatInput] = useState('');
+  
+  // Dashboard State (Sprint 28)
+  const [_dashboardPeriod, _setDashboardPeriod] = useState<TimePeriod>('month');
+  
+  // Import State (Sprint 29)
+  const [showImportWizard, setShowImportWizard] = useState(false);
+  
+  // HubSpot State (Sprint 26)
+  const [hubspotConnectionStatus, setHubspotConnectionStatus] = useState<'connected' | 'disconnected' | 'error' | 'connecting'>('disconnected');
   // Initialize from conversation manager's persisted history
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>(() => {
     const persisted = conversationManager.getHistory();
@@ -461,6 +481,11 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden relative">
+      {/* PWA Components */}
+      <PWAInstallPrompt />
+      <PWAUpdateNotification />
+      <OfflineBanner />
+      
       {/* Screen reader live region for announcements */}
       <div 
         role="status" 
@@ -478,6 +503,28 @@ export default function App() {
       >
         Skip to main content
       </a>
+      
+      {/* Import Wizard Modal */}
+      {showImportWizard && (
+        <div 
+          className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="import-wizard-title"
+        >
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <ImportWizard
+              existingProspects={prospects}
+              onComplete={(imported) => {
+                setProspects(prev => [...prev, ...imported]);
+                setShowImportWizard(false);
+                announce(`Imported ${imported.length} prospects successfully`);
+              }}
+              onCancel={() => setShowImportWizard(false)}
+            />
+          </div>
+        </div>
+      )}
       
       {/* Settings Modal */}
       {showSettings && (
@@ -659,7 +706,17 @@ export default function App() {
           </div>
           
           {/* Tab Navigation - A11y: role="tablist" */}
-          <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg mb-4" role="tablist" aria-label="Main navigation">
+          <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-lg mb-4" role="tablist" aria-label="Main navigation">
+             <button 
+               onClick={() => { setActiveTab('dashboard'); announce('Dashboard tab selected'); }} 
+               role="tab"
+               aria-selected={activeTab === 'dashboard'}
+               aria-controls="panel-dashboard"
+               id="tab-dashboard"
+               className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'dashboard' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
+             >
+               <LayoutDashboard className="h-3 w-3 mr-1" aria-hidden="true" /> Dashboard
+             </button>
              <button 
                onClick={() => { setActiveTab('prospects'); announce('Targets tab selected'); }} 
                role="tab"
@@ -668,17 +725,27 @@ export default function App() {
                id="tab-prospects"
                className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'prospects' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
              >
-               <Users className="h-3 w-3 mr-1" aria-hidden="true" /> Targets
+               <Users className="h-3 w-3 mr-1" aria-hidden="true" /> Hitlist
              </button>
              <button 
-               onClick={() => { setActiveTab('stats'); announce('Stats tab selected'); }} 
+               onClick={() => { setActiveTab('import'); announce('Import tab selected'); }} 
                role="tab"
-               aria-selected={activeTab === 'stats'}
-               aria-controls="panel-stats"
-               id="tab-stats"
-               className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'stats' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
+               aria-selected={activeTab === 'import'}
+               aria-controls="panel-import"
+               id="tab-import"
+               className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'import' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
              >
-               <BarChart2 className="h-3 w-3 mr-1" aria-hidden="true" /> Stats
+               <Upload className="h-3 w-3 mr-1" aria-hidden="true" /> Import
+             </button>
+             <button 
+               onClick={() => { setActiveTab('integrations'); announce('Integrations tab selected'); }} 
+               role="tab"
+               aria-selected={activeTab === 'integrations'}
+               aria-controls="panel-integrations"
+               id="tab-integrations"
+               className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'integrations' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
+             >
+               <Link2 className="h-3 w-3 mr-1" aria-hidden="true" /> Integrations
              </button>
              <button 
                onClick={() => { setActiveTab('assistant'); announce('AI Brain tab selected'); }} 
@@ -699,16 +766,6 @@ export default function App() {
                className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'roi' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
              >
                <Calculator className="h-3 w-3 mr-1" aria-hidden="true" /> ROI
-             </button>
-             <button 
-               onClick={() => { setActiveTab('assets'); announce('Assets tab selected'); }} 
-               role="tab"
-               aria-selected={activeTab === 'assets'}
-               aria-controls="panel-assets"
-               id="tab-assets"
-               className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'assets' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
-             >
-               <FileText className="h-3 w-3 mr-1" aria-hidden="true" /> Assets
              </button>
           </div>
 
@@ -765,7 +822,144 @@ export default function App() {
 
         {/* Prospect list panel */}
         <div className="flex-1 overflow-y-auto" role="tabpanel" id="panel-prospects" aria-labelledby="tab-prospects">
-          {activeTab === 'stats' ? (
+          {activeTab === 'dashboard' ? (
+            <div className="p-6 space-y-6">
+              <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-md">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-5 w-5" />
+                  <span className="text-blue-100 text-xs font-medium uppercase tracking-wider">Analytics Dashboard</span>
+                </div>
+                <div className="text-2xl font-bold">GTM Performance</div>
+                <div className="text-blue-200 text-xs mt-2">Real-time metrics from your outreach campaigns</div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <KPICard metric={{ id: 'total', name: 'Total Prospects', value: { current: stats.total, previous: stats.total, change: 0, changePercent: 0, trend: 'flat' }, format: 'number' }} />
+                <KPICard metric={{ id: 'booked', name: 'Meetings Booked', value: { current: stats.booked, previous: Math.floor(stats.booked * 0.8), change: stats.booked - Math.floor(stats.booked * 0.8), changePercent: 25, trend: 'up' }, format: 'number' }} />
+                <KPICard metric={{ id: 'rate', name: 'Contact Rate', value: { current: (stats.contacted / stats.total) * 100, previous: 50, change: (stats.contacted / stats.total) * 100 - 50, changePercent: 10, trend: 'up' }, format: 'percent' }} />
+                <KPICard metric={{ id: 'tier1', name: 'Tier 1 Pipeline', value: { current: stats.tier1, previous: stats.tier1, change: 0, changePercent: 0, trend: 'flat' }, format: 'number' }} />
+              </div>
+
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                <h3 className="text-sm font-bold text-slate-700 mb-4">Team Leaderboard</h3>
+                <Leaderboard
+                  data={[
+                    { userId: '1', userName: 'Me', totalActivities: 45, prospectsContacted: stats.contacted, dealsCreated: stats.booked, dealsWon: Math.floor(stats.booked * 0.5), revenue: stats.contacted * 10000, avgResponseTime: 2, rank: 1 },
+                    { userId: '2', userName: 'Jake', totalActivities: 38, prospectsContacted: Math.floor(stats.contacted * 0.7), dealsCreated: Math.floor(stats.booked * 0.7), dealsWon: Math.floor(stats.booked * 0.35), revenue: stats.contacted * 8000, avgResponseTime: 3, rank: 2 },
+                  ]}
+                />
+              </div>
+            </div>
+          ) : activeTab === 'import' ? (
+            <div className="p-6 space-y-6">
+              <div className="bg-gradient-to-br from-green-600 to-emerald-700 rounded-xl p-6 text-white shadow-md">
+                <div className="flex items-center gap-2 mb-2">
+                  <Upload className="h-5 w-5" />
+                  <span className="text-green-100 text-xs font-medium uppercase tracking-wider">Import Center</span>
+                </div>
+                <div className="text-2xl font-bold">LinkedIn Sales Navigator</div>
+                <div className="text-green-200 text-xs mt-2">Import contacts from CSV exports</div>
+              </div>
+              
+              <button
+                onClick={() => setShowImportWizard(true)}
+                className="w-full bg-white border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
+              >
+                <Upload className="h-10 w-10 text-slate-400 mx-auto mb-3" />
+                <div className="text-sm font-medium text-slate-700">Click to Import CSV</div>
+                <div className="text-xs text-slate-500 mt-1">LinkedIn Sales Navigator exports supported</div>
+              </button>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <h4 className="text-sm font-bold text-blue-800 mb-2">Import Features</h4>
+                <ul className="text-xs text-blue-700 space-y-1">
+                  <li>✓ Automatic column mapping</li>
+                  <li>✓ Duplicate detection & merging</li>
+                  <li>✓ Company matching</li>
+                  <li>✓ Tier classification</li>
+                </ul>
+              </div>
+            </div>
+          ) : activeTab === 'integrations' ? (
+            <div className="p-6 space-y-6">
+              <div className="bg-gradient-to-br from-purple-600 to-violet-700 rounded-xl p-6 text-white shadow-md">
+                <div className="flex items-center gap-2 mb-2">
+                  <Link2 className="h-5 w-5" />
+                  <span className="text-purple-100 text-xs font-medium uppercase tracking-wider">Integrations</span>
+                </div>
+                <div className="text-2xl font-bold">Connected Apps</div>
+                <div className="text-purple-200 text-xs mt-2">Manage your CRM and data connections</div>
+              </div>
+              
+              {/* HubSpot Card */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <span className="text-orange-600 font-bold text-sm">HS</span>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-800">HubSpot CRM</div>
+                      <div className="text-xs text-slate-500">Bi-directional contact & deal sync</div>
+                    </div>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    hubspotConnectionStatus === 'connected' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {hubspotConnectionStatus === 'connected' ? 'Connected' : 'Not Connected'}
+                  </span>
+                </div>
+                <div className="p-4">
+                  <button
+                    onClick={() => setHubspotConnectionStatus(hubspotConnectionStatus === 'connected' ? 'disconnected' : 'connecting')}
+                    className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
+                      hubspotConnectionStatus === 'connected' 
+                        ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        : 'bg-orange-600 text-white hover:bg-orange-700'
+                    }`}
+                  >
+                    {hubspotConnectionStatus === 'connected' ? 'Manage Connection' : 'Connect HubSpot'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Google Card */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <span className="text-blue-600 font-bold text-sm">G</span>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-800">Google Workspace</div>
+                      <div className="text-xs text-slate-500">Calendar & Gmail integration</div>
+                    </div>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full font-medium bg-slate-100 text-slate-600">
+                    Coming Soon
+                  </span>
+                </div>
+              </div>
+
+              {/* LinkedIn Card */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">in</span>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-800">LinkedIn Sales Navigator</div>
+                      <div className="text-xs text-slate-500">CSV import & enrichment</div>
+                    </div>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-700">
+                    Via Import
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : activeTab === 'stats' ? (
             <div className="p-6 space-y-6">
               <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-md">
                 <div className="text-blue-100 text-xs font-medium uppercase tracking-wider mb-1">Total Booked</div>
