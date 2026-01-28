@@ -84,9 +84,11 @@ import type { TimePeriod } from './types/analytics';
 // --- Sprint 34 Hooks ---
 import { useHubSpot } from './hooks/useHubSpot';
 import { useCommandPalette } from './hooks/useCommandPalette';
+import { useOfflineQueue } from './hooks/useOfflineQueue';
 
 // --- Sprint 34 Components ---
 import { CommandPalette } from './components/CommandPalette';
+import { SyncStatus } from './components/SyncStatus';
 
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
@@ -188,6 +190,9 @@ export default function App() {
   
   // Command Palette (Sprint 34)
   const commandPalette = useCommandPalette();
+  
+  // Offline Queue Status (Sprint 34)
+  const offlineQueue = useOfflineQueue();
   
   // Initialize from conversation manager's persisted history
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>(() => {
@@ -766,13 +771,21 @@ export default function App() {
               </div>
               <h1 className="font-bold text-lg tracking-tight text-slate-800">YardFlow <span className="text-blue-600">Hub</span></h1>
             </div>
-            <button 
-              onClick={() => setShowSettings(true)} 
-              className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-lg hover:bg-slate-100"
-              aria-label="Open settings"
-            >
-              <Settings className="h-5 w-5" aria-hidden="true" />
-            </button>
+            <div className="flex items-center gap-2">
+              <SyncStatus 
+                status={offlineQueue.status} 
+                pendingCount={offlineQueue.pendingCount}
+                onRetry={offlineQueue.retry}
+                showDetails={false}
+              />
+              <button 
+                onClick={() => setShowSettings(true)} 
+                className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-lg hover:bg-slate-100"
+                aria-label="Open settings"
+              >
+                <Settings className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
           </div>
           
           {/* Tab Navigation - A11y: role="tablist" */}
