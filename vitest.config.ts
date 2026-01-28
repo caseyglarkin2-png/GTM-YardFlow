@@ -5,6 +5,11 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   // @ts-expect-error - vitest/vite version mismatch in types, works at runtime
   plugins: [react()],
+  resolve: {
+    alias: {
+      'virtual:pwa-register': '/workspaces/GTM-YardFlow/src/__tests__/mocks/pwa-register.ts',
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',
