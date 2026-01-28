@@ -203,7 +203,7 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
   onContinue,
   onBack,
 }) => {
-  const { contacts, columnMap, errors, metadata } = parseResult;
+  const { contacts, columnMap, errors } = parseResult;
 
   return (
     <div className="space-y-6">
@@ -233,13 +233,6 @@ const PreviewStep: React.FC<PreviewStepProps> = ({
           </div>
         )}
       </div>
-
-      {/* Metadata */}
-      {metadata?.exportDate && (
-        <p className="text-sm text-gray-500">
-          Exported: {new Date(metadata.exportDate).toLocaleDateString()}
-        </p>
-      )}
 
       {/* Column Mapping Preview */}
       <div className="border rounded-lg overflow-hidden">
@@ -673,12 +666,15 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
       phone: contact.phone || '',
       company: contact.company || '',
       title: contact.title || '',
-      linkedinUrl: contact.linkedinUrl || '',
+      linkedinUrl: contact.linkedInUrl || '',
       industry: contact.industry || companyMatch?.company.industry || '',
       location: contact.location || '',
       source: 'linkedin',
       status: 'new',
       tier: '3',
+      score: 0,
+      isOps: false,
+      isExec: false,
       tags: ['linkedin-import'],
       notes: contact.notes || '',
       createdAt: now,
@@ -860,8 +856,6 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
       if (resolution?.action === 'skip') toSkip++;
       else if (resolution?.action === 'merge') toMerge++;
     }
-
-    const toImport = total - toSkip - toMerge + toMerge; // Merged still count as imports
 
     return { total, toImport: total - toSkip, toMerge, toSkip };
   }, [parseResult, duplicates, resolutions]);

@@ -5,8 +5,6 @@
  * Stores import metadata in localStorage for recovery and audit.
  */
 
-import type { Prospect } from '../types';
-
 // ============================================
 // Types
 // ============================================
@@ -79,7 +77,6 @@ export class ImportHistoryService {
   private config: ImportHistoryConfig;
   private state: ImportHistoryState;
   private onDelete?: (prospectIds: string[]) => Promise<void>;
-  private onRestore?: (prospects: Prospect[]) => Promise<void>;
 
   constructor(config: Partial<ImportHistoryConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -91,10 +88,8 @@ export class ImportHistoryService {
    */
   setCallbacks(callbacks: {
     onDelete?: (prospectIds: string[]) => Promise<void>;
-    onRestore?: (prospects: Prospect[]) => Promise<void>;
   }): void {
     this.onDelete = callbacks.onDelete;
-    this.onRestore = callbacks.onRestore;
   }
 
   /**

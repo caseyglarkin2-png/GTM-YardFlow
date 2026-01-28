@@ -18,6 +18,16 @@ export interface Prospect {
   qualified?: boolean;
   country?: string;
   revenue?: string;
+  // Extended fields for import/sync
+  email?: string;
+  phone?: string;
+  linkedinUrl?: string;
+  source?: string;
+  tags?: string[];
+  industry?: string;
+  location?: string;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 export interface MessageTemplate {
@@ -39,6 +49,20 @@ export interface CompanyInfo {
   attendees?: number;
   execOpsCount?: number;
   recommendedTargets?: string[];
+}
+
+/**
+ * Company entity for import/matching
+ */
+export interface Company {
+  id: string;
+  name: string;
+  domain?: string;
+  normalizedName?: string;
+  industry?: string;
+  employees?: number;
+  tier?: string;
+  linkedinUrl?: string;
 }
 
 export type TierFilter = 'All' | 'Tier 1' | 'Tier 2' | 'Tier 3';

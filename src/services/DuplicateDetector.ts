@@ -8,7 +8,6 @@
 import type { Prospect } from '../types';
 import { 
   normalizeCompanyName, 
-  extractDomain, 
   levenshteinDistance,
   jaroWinklerSimilarity,
 } from './CompanyMatcher';
