@@ -15,7 +15,7 @@ vi.mock('../../services/OfflineQueue', () => ({
 
 describe('useOfflineQueue', () => {
   const mockQueue = {
-    getPendingCount: vi.fn(),
+    getQueueSize: vi.fn(),
     processQueue: vi.fn(),
     destroy: vi.fn(),
     enqueue: vi.fn(),
@@ -32,7 +32,7 @@ describe('useOfflineQueue', () => {
       return mockQueue;
     });
     
-    mockQueue.getPendingCount.mockResolvedValue(0);
+    mockQueue.getQueueSize.mockResolvedValue(0);
     mockQueue.processQueue.mockResolvedValue(undefined);
     
     // Mock navigator.onLine
@@ -49,7 +49,7 @@ describe('useOfflineQueue', () => {
 
   describe('initialization', () => {
     it('should initialize with synced status when no pending items', async () => {
-      mockQueue.getPendingCount.mockResolvedValue(0);
+      mockQueue.getQueueSize.mockResolvedValue(0);
 
       const { result } = renderHook(() => useOfflineQueue());
 
@@ -63,7 +63,7 @@ describe('useOfflineQueue', () => {
     });
 
     it('should set pending status when items in queue', async () => {
-      mockQueue.getPendingCount.mockResolvedValue(5);
+      mockQueue.getQueueSize.mockResolvedValue(5);
 
       const { result } = renderHook(() => useOfflineQueue());
 
@@ -151,7 +151,7 @@ describe('useOfflineQueue', () => {
   describe('syncNow', () => {
     it('should process queue and update status', async () => {
       mockQueue.processQueue.mockResolvedValue(undefined);
-      mockQueue.getPendingCount.mockResolvedValue(0);
+      mockQueue.getQueueSize.mockResolvedValue(0);
 
       const { result } = renderHook(() => useOfflineQueue());
 
@@ -200,7 +200,7 @@ describe('useOfflineQueue', () => {
   describe('retry', () => {
     it('should call syncNow', async () => {
       mockQueue.processQueue.mockResolvedValue(undefined);
-      mockQueue.getPendingCount.mockResolvedValue(0);
+      mockQueue.getQueueSize.mockResolvedValue(0);
 
       const { result } = renderHook(() => useOfflineQueue());
 

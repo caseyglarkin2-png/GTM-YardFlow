@@ -74,7 +74,7 @@ export function useOfflineQueue(config?: OfflineQueueConfig): UseOfflineQueueRet
     queueRef.current = queue;
 
     // Get initial pending count
-    queue.getPendingCount().then(count => {
+    queue.getQueueSize().then((count: number) => {
       setPendingCount(count);
       if (count > 0) {
         setStatus('pending');
@@ -117,7 +117,7 @@ export function useOfflineQueue(config?: OfflineQueueConfig): UseOfflineQueueRet
     setStatus('syncing');
     try {
       await queueRef.current.processQueue();
-      const count = await queueRef.current.getPendingCount();
+      const count = await queueRef.current.getQueueSize();
       setPendingCount(count);
       setStatus(count > 0 ? 'pending' : 'synced');
       setLastSyncTime(new Date());
