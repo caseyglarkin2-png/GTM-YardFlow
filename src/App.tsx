@@ -21,7 +21,9 @@ import {
   X,
   ChevronDown,
   Clock,
-  Activity
+  Activity,
+  Calculator,
+  FileText
 } from 'lucide-react';
 import { ConversationManagerSingleton } from './services/ConversationManager';
 import { buildSystemPrompt } from './services/SystemPromptBuilder';
@@ -63,6 +65,10 @@ const appId = import.meta.env.VITE_FIREBASE_APP_ID || 'default-app-id';
 // --- Types ---
 import { Prospect, MessageTemplate, ChatMessage } from './types';
 import { HITLIST_PROSPECTS } from './data/hitlistData';
+
+// --- New Sprint 18-20 Components ---
+import { ROITab } from './components/ROITab';
+import { AssetsPanel } from './components/AssetsPanel';
 
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
@@ -127,7 +133,7 @@ ${senderName}`
 
 export default function App() {
   const [user, setUser] = useState<unknown>(null);
-  const [activeTab, setActiveTab] = useState<'prospects' | 'stats' | 'assistant'>('prospects');
+  const [activeTab, setActiveTab] = useState<'prospects' | 'stats' | 'assistant' | 'roi' | 'assets'>('prospects');
   const [prospects, setProspects] = useState<Prospect[]>(HITLIST_PROSPECTS);
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
   const [currentUser, setCurrentUser] = useState<'Jake' | 'Me'>('Me');
@@ -684,6 +690,26 @@ export default function App() {
              >
                <Bot className="h-3 w-3 mr-1" aria-hidden="true" /> Brain
              </button>
+             <button 
+               onClick={() => { setActiveTab('roi'); announce('ROI Calculator tab selected'); }} 
+               role="tab"
+               aria-selected={activeTab === 'roi'}
+               aria-controls="panel-roi"
+               id="tab-roi"
+               className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'roi' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
+             >
+               <Calculator className="h-3 w-3 mr-1" aria-hidden="true" /> ROI
+             </button>
+             <button 
+               onClick={() => { setActiveTab('assets'); announce('Assets tab selected'); }} 
+               role="tab"
+               aria-selected={activeTab === 'assets'}
+               aria-controls="panel-assets"
+               id="tab-assets"
+               className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'assets' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
+             >
+               <FileText className="h-3 w-3 mr-1" aria-hidden="true" /> Assets
+             </button>
           </div>
 
           {activeTab === 'prospects' && (
@@ -960,6 +986,22 @@ export default function App() {
                  </button>
                </div>
             </div>
+          </div>
+        ) : activeTab === 'roi' ? (
+          <div className="flex-1 overflow-y-auto">
+            <ROITab 
+              selectedProspect={selectedProspect}
+              onGenerateDM={(dmLine: string) => {
+                setGeneratedMessage(prev => prev ? `${prev}\n\n${dmLine}` : dmLine);
+                setActiveTab('prospects');
+              }}
+            />
+          </div>
+        ) : activeTab === 'assets' ? (
+          <div className="flex-1 overflow-y-auto">
+            <AssetsPanel 
+              selectedProspect={selectedProspect}
+            />
           </div>
         ) : !selectedProspect ? (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 px-4">
