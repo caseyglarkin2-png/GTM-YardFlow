@@ -7,13 +7,12 @@
       "maxDuration": 30
     }
   },
-  "routes": [
+  "headers": [
     {
-      "src": "/api/email/webhook",
-      "methods": ["POST"],
-      "headers": {
-        "x-vercel-raw-body": "true"
-      }
+      "source": "/api/email/webhook",
+      "headers": [
+        { "key": "x-vercel-raw-body", "value": "true" }
+      ]
     }
   ],
   "rewrites": [
