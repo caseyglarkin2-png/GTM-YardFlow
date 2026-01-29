@@ -120,6 +120,9 @@ import { BulkTagModal } from './components/BulkTagModal';
 import { BulkDeleteModal } from './components/BulkDeleteModal';
 import { BulkStatusModal } from './components/BulkStatusModal';
 
+// --- Toast Notification System ---
+import { ToastContainer, useToast } from './components/Toast';
+
 // --- Sprint 47 Tab Components ---
 import { IntegrationsTab, ImportTab } from './components/tabs';
 
@@ -303,6 +306,9 @@ export default function App() {
   const [recentActivities, setRecentActivities] = useState<ActivityType[]>(() => 
     activityTracker.getRecent(15)
   );
+
+  // Toast Notifications
+  const { toasts, dismissToast, success: showSuccess, error: showError } = useToast();
 
   // Screen reader announcements
   const [announcement, setAnnouncement] = useState('');
@@ -508,12 +514,13 @@ export default function App() {
       }
     } catch (error) {
       console.error('Bulk sequence assignment failed', error);
+      showError('Sequence Assignment Failed', 'Unable to assign prospects to the selected sequence. Please try again.');
       announce('Failed to assign prospects to sequence');
     } finally {
       setBulkActionModal(null);
       setIsProcessingBulkAction(false);
     }
-  }, [selectedProspectIds, prospects, clearSelection, announce]);
+  }, [selectedProspectIds, prospects, clearSelection, announce, showError]);
 
   const handleBulkAddTag = useCallback(async (tags: string[]) => {
     const prospectIdsArray = Array.from(selectedProspectIds);
@@ -553,12 +560,13 @@ export default function App() {
       }
     } catch (error) {
       console.error('Bulk tag failed', error);
+      showError('Tag Update Failed', 'Unable to add tags to the selected prospects. Please try again.');
       announce('Failed to add tags');
     } finally {
       setBulkActionModal(null);
       setIsProcessingBulkAction(false);
     }
-  }, [selectedProspectIds, clearSelection, announce]);
+  }, [selectedProspectIds, clearSelection, announce, showError]);
 
   const handleBulkChangeStatus = useCallback(async (status: Prospect['status']) => {
     const prospectIdsArray = Array.from(selectedProspectIds);
@@ -595,12 +603,13 @@ export default function App() {
       }
     } catch (error) {
       console.error('Bulk status change failed', error);
+      showError('Status Update Failed', 'Unable to update status for the selected prospects. Please try again.');
       announce('Failed to update status');
     } finally {
       setBulkActionModal(null);
       setIsProcessingBulkAction(false);
     }
-  }, [selectedProspectIds, clearSelection, announce]);
+  }, [selectedProspectIds, clearSelection, announce, showError]);
 
   const handleBulkExport = useCallback(async () => {
     setIsExportingBulk(true);
@@ -614,18 +623,21 @@ export default function App() {
       if (result.success) {
         bulkExporter.download(result);
         clearSelection();
+        showSuccess('Export Complete', `Exported ${result.rowCount} prospect${result.rowCount === 1 ? '' : 's'} to CSV`);
         announce(`Exported ${result.rowCount} prospect${result.rowCount === 1 ? '' : 's'}`);
       } else {
+        showError('Export Failed', 'Unable to generate the export file. Please try again.');
         announce('Export failed');
       }
     } catch (error) {
       console.error('Export failed:', error);
+      showError('Export Failed', 'An unexpected error occurred during export. Please try again.');
       announce('Export failed');
     } finally {
       setBulkActionModal(null);
       setIsExportingBulk(false);
     }
-  }, [prospects, selectedProspectIds, clearSelection, announce]);
+  }, [prospects, selectedProspectIds, clearSelection, announce, showSuccess, showError]);
 
   const handleBulkDelete = useCallback(async () => {
     const prospectsToDelete = prospects.filter(p => selectedProspectIds.has(p.id));
@@ -649,11 +661,12 @@ export default function App() {
       announce(`Deleted ${prospectIdsArray.length} prospect${prospectIdsArray.length === 1 ? '' : 's'}`);
     } catch (error) {
       console.error('Bulk delete failed', error);
+      showError('Delete Failed', 'Unable to delete the selected prospects. Please try again.');
       announce('Failed to delete prospects');
     } finally {
       setIsProcessingBulkAction(false);
     }
-  }, [prospects, selectedProspectIds, selectedProspect, clearSelection, announce, currentUser]);
+  }, [prospects, selectedProspectIds, selectedProspect, clearSelection, announce, currentUser, showError]);
 
   const handleUndoDelete = useCallback(async () => {
     if (deletedProspects.length === 0) return;
@@ -666,9 +679,10 @@ export default function App() {
       announce(`Restored ${deletedProspects.length} prospects`);
     } catch (error) {
       console.error('Undo delete failed', error);
+      showError('Restore Failed', 'Unable to restore deleted prospects. Please try again.');
       announce('Failed to restore prospects');
     }
-  }, [deletedProspects, announce]);
+  }, [deletedProspects, announce, showError]);
   
   // AI State
   const [geminiApiKey, setGeminiApiKey] = useState('');
@@ -731,14 +745,17 @@ export default function App() {
         await dashboardExporter.downloadPng(dashboardRef.current, {
           dateRange: dashboardDateRange,
         });
+        showSuccess('Export Complete', 'Dashboard exported as PNG');
       } else {
         await dashboardExporter.downloadPdf(dashboardRef.current, {
           dateRange: dashboardDateRange,
           includeHeader: true,
         });
+        showSuccess('Export Complete', 'Dashboard exported as PDF');
       }
     } catch (error) {
       console.error('Export failed:', error);
+      showError('Export Failed', 'Unable to export dashboard. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -997,8 +1014,10 @@ export default function App() {
     try {
       const docRef = doc(db, `artifacts/${appId}/users/${(user as { uid: string }).uid}/prospects`, selectedProspect.id);
       await setDoc(docRef, { email: trimmedEmail || null, updatedAt: Date.now() }, { merge: true });
+      showSuccess('Email Updated', 'Contact email has been saved');
     } catch (err) {
       console.error('Failed to save email:', err);
+      showError('Save Failed', 'Unable to save email to database. Changes saved locally.');
     }
   };
 
@@ -1169,6 +1188,9 @@ export default function App() {
       <PWAInstallPrompt />
       <PWAUpdateNotification />
       <OfflineBanner />
+      
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} position="bottom-right" />
       
       {/* Command Palette (Ctrl+K / Cmd+K) */}
       <CommandPalette
@@ -2440,8 +2462,10 @@ export default function App() {
                                  senderName: currentUser === 'Me' ? 'The YardFlow Team' : 'Jake'
                                }, geminiApiKey);
                                setGeneratedMessage(result.body);
+                               showSuccess('Template Generated', 'AI-powered message is ready for review');
                              } catch (e) {
                                console.error('Generation failed:', e);
+                               showError('Generation Failed', 'Unable to generate template. Check your API key.');
                              } finally {
                                setIsGeneratingTemplate(false);
                              }
@@ -2471,8 +2495,10 @@ export default function App() {
                                  geminiApiKey
                                );
                                setGeneratedMessage(refined);
+                               showSuccess('Template Refined', 'Message has been improved');
                              } catch (e) {
                                console.error('Refinement failed:', e);
+                               showError('Refinement Failed', 'Unable to refine template. Please try again.');
                              } finally {
                                setIsGeneratingTemplate(false);
                              }
