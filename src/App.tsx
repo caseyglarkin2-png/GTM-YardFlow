@@ -2588,64 +2588,67 @@ export default function App() {
                             </>
                           )}
                         </button>
-                        <button
-                          onClick={sendEmailToProspect}
-                          disabled={isSendingEmail || !generatedMessage.trim()}
-                          className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white transition-all shadow-md transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
-                            emailSendStatus === 'success' 
-                              ? 'bg-green-600' 
-                              : emailSendStatus === 'error' || emailSendStatus === 'rate_limit'
-                                ? 'bg-red-600'
-                                : emailSendStatus === 'no_email'
-                                  ? 'bg-amber-600'
-                                  : 'bg-purple-600 hover:bg-purple-700'
-                          }`}
-                          title={
-                            emailSendStatus === 'rate_limit' 
-                              ? emailErrorMessage 
-                              : selectedProspect?.email 
-                                ? `Send to ${selectedProspect.email}` 
-                                : 'No email address for this prospect'
-                          }
-                        >
-                          {isSendingEmail ? (
-                            <>
-                              <Loader className="h-4 w-4 mr-2 animate-spin" />
-                              Sending...
-                            </>
-                          ) : emailSendStatus === 'success' ? (
-                            <>
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Sent!
-                            </>
-                          ) : emailSendStatus === 'error' ? (
-                            <>
-                              <AlertCircle className="h-4 w-4 mr-2" />
-                              Failed
-                            </>
-                          ) : emailSendStatus === 'rate_limit' ? (
-                            <>
-                              <AlertCircle className="h-4 w-4 mr-2" />
-                              Limit Hit
-                            </>
-                          ) : emailSendStatus === 'no_email' ? (
-                            <>
-                              <AlertCircle className="h-4 w-4 mr-2" />
-                              No Email
-                            </>
-                          ) : (
-                            <>
-                              <Send className="h-4 w-4 mr-2" />
-                              Send Email
-                            </>
+                        {/* Relative container for email button + error tooltip */}
+                        <div className="relative">
+                          <button
+                            onClick={sendEmailToProspect}
+                            disabled={isSendingEmail || !generatedMessage.trim()}
+                            className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white transition-all shadow-md transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                              emailSendStatus === 'success' 
+                                ? 'bg-green-600' 
+                                : emailSendStatus === 'error' || emailSendStatus === 'rate_limit'
+                                  ? 'bg-red-600'
+                                  : emailSendStatus === 'no_email'
+                                    ? 'bg-amber-600'
+                                    : 'bg-purple-600 hover:bg-purple-700'
+                            }`}
+                            title={
+                              emailSendStatus === 'rate_limit' 
+                                ? emailErrorMessage 
+                                : selectedProspect?.email 
+                                  ? `Send to ${selectedProspect.email}` 
+                                  : 'No email address for this prospect'
+                            }
+                          >
+                            {isSendingEmail ? (
+                              <>
+                                <Loader className="h-4 w-4 mr-2 animate-spin" />
+                                Sending...
+                              </>
+                            ) : emailSendStatus === 'success' ? (
+                              <>
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Sent!
+                              </>
+                            ) : emailSendStatus === 'error' ? (
+                              <>
+                                <AlertCircle className="h-4 w-4 mr-2" />
+                                Failed
+                              </>
+                            ) : emailSendStatus === 'rate_limit' ? (
+                              <>
+                                <AlertCircle className="h-4 w-4 mr-2" />
+                                Limit Hit
+                              </>
+                            ) : emailSendStatus === 'no_email' ? (
+                              <>
+                                <AlertCircle className="h-4 w-4 mr-2" />
+                                No Email
+                              </>
+                            ) : (
+                              <>
+                                <Send className="h-4 w-4 mr-2" />
+                                Send Email
+                              </>
+                            )}
+                          </button>
+                          {/* Error tooltip - positioned relative to button container */}
+                          {(emailSendStatus === 'error' || emailSendStatus === 'rate_limit') && emailErrorMessage && (
+                            <div className="absolute bottom-full right-0 mb-2 p-2 bg-red-100 border border-red-200 rounded-lg text-xs text-red-700 max-w-xs whitespace-normal z-10">
+                              {emailErrorMessage}
+                            </div>
                           )}
-                        </button>
-                        {/* Show error message tooltip */}
-                        {(emailSendStatus === 'error' || emailSendStatus === 'rate_limit') && emailErrorMessage && (
-                          <div className="absolute bottom-full right-0 mb-2 p-2 bg-red-100 border border-red-200 rounded-lg text-xs text-red-700 max-w-xs whitespace-normal">
-                            {emailErrorMessage}
-                          </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   </div>
