@@ -1,4 +1,17 @@
-# Parallel Sprint Execution Plan: Sprints 34, 36, 43
+# HubSpot OAuth (add in Vercel Dashboard)
+HUBSPOT_CLIENT_SECRET=your_secret
+
+# SendGrid
+SENDGRID_API_KEY=SG.your_key
+SENDGRID_FROM_EMAIL=notifications@your-domain.com
+SENDGRID_WEBHOOK_PUBLIC_KEY=MFkwEw...
+
+# Tracking & Compliance
+TRACKING_SECRET=<openssl rand -hex 32>
+UNSUBSCRIBE_HMAC_SECRET=<openssl rand -hex 32>
+
+# Firebase Admin
+FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}# Parallel Sprint Execution Plan: Sprints 34, 36, 43
 
 ## Executive Summary
 
@@ -1355,3 +1368,149 @@ UNSUBSCRIBE_TOKEN_SECRET=xxx  # Server-side only, min 32 chars
 - C.6: 2h → 3h (proper signature validation)
 - C.10: 2h → 3h (10 test scenarios)
 - B.8: 1.5h → 2h (9 test scenarios including a11y)
+
+---
+
+## 🚀 DEPLOYMENT STATUS (January 29, 2026)
+
+### Vercel Environment Variables - Current State
+
+| Variable | Status | Value/Notes |
+|----------|--------|-------------|
+| `VITE_FIREBASE_API_KEY` | ✅ Set | Client-side Firebase |
+| `VITE_FIREBASE_AUTH_DOMAIN` | ✅ Set | gtm-eventops.firebaseapp.com |
+| `VITE_FIREBASE_PROJECT_ID` | ✅ Set | gtm-eventops |
+| `VITE_FIREBASE_STORAGE_BUCKET` | ✅ Set | |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | ✅ Set | |
+| `VITE_FIREBASE_APP_ID` | ✅ Set | |
+| `SENDGRID_API_KEY` | ✅ Set | Production key configured |
+| `SENDGRID_FROM_EMAIL` | ✅ Set | noreply@freightroll.com |
+| `HUBSPOT_CLIENT_SECRET` | ✅ Set | Server-side only |
+| `TRACKING_SECRET` | ✅ Set | Auto-generated (64 hex chars) |
+| `UNSUBSCRIBE_HMAC_SECRET` | ✅ Set | Auto-generated (64 hex chars) |
+| `FIREBASE_SERVICE_ACCOUNT_KEY` | ❌ Missing | **BLOCKS ALL API ENDPOINTS** |
+| `SENDGRID_WEBHOOK_PUBLIC_KEY` | ❌ Missing | **BLOCKS WEBHOOK VERIFICATION** |
+| `VITE_HUBSPOT_CLIENT_ID` | ❌ Missing | **BLOCKS OAUTH FLOW** |
+| `VITE_HUBSPOT_REDIRECT_URI` | ❌ Missing | Should be: `https://gtm-yard-flow.vercel.app/api/oauth/callback` |
+
+### Production URL
+- **Primary:** https://gtm-yard-flow.vercel.app
+- **Project:** gtm-yard-flow @ caseys-projects-2a50de81
+
+---
+
+## 📋 REMAINING DEPLOYMENT TASKS
+
+### Phase 1: Critical (Blocking All APIs)
+
+#### D.1: Configure Firebase Service Account [15min]
+**Status:** ❌ BLOCKING
+**Steps:**
+1. Go to: [Firebase Console](https://console.firebase.google.com) → Project Settings → Service Accounts
+2. Click "Generate New Private Key"
+3. Download JSON file
+4. Minify to single line: `cat serviceAccountKey.json | jq -c .`
+5. Add to Vercel: `vercel env add FIREBASE_SERVICE_ACCOUNT_KEY production`
+**Validation:**
+- [ ] `vercel logs` shows no Firebase credential errors
+- [ ] `/api/email/send` returns 401 (auth required) not 500 (config error)
+
+#### D.2: Configure HubSpot OAuth Credentials [10min]
+**Status:** ❌ BLOCKING
+**Steps:**
+1. Go to: [HubSpot Developers](https://developers.hubspot.com) → Your App → Auth
+2. Copy Client ID
+3. Add redirect URI: `https://gtm-yard-flow.vercel.app/api/oauth/callback`
+4. Run:
+   ```bash
+   vercel env add VITE_HUBSPOT_CLIENT_ID production
+   echo "https://gtm-yard-flow.vercel.app/api/oauth/callback" | vercel env add VITE_HUBSPOT_REDIRECT_URI production
+   ```
+**Validation:**
+- [ ] HubSpot Settings page shows "Connect" button (not config error)
+- [ ] OAuth popup opens with HubSpot authorization page
+
+### Phase 2: Webhook Security
+
+#### D.3: Configure SendGrid Signed Webhooks [10min]
+**Status:** ❌ BLOCKING WEBHOOKS
+**Steps:**
+1. Go to: SendGrid → Settings → Mail Settings → Event Webhook
+2. Set HTTP Post URL: `https://gtm-yard-flow.vercel.app/api/email/webhook`
+3. Select Events: ✅ Delivered, ✅ Opened, ✅ Clicked, ✅ Bounced, ✅ Spam Reports, ✅ Unsubscribed, ✅ Dropped
+4. **Enable "Signed Event Webhook Requests"**
+5. Copy Verification Key
+6. Run: `vercel env add SENDGRID_WEBHOOK_PUBLIC_KEY production`
+**Validation:**
+- [ ] Test webhook with `curl -X POST ... -d '[]'` returns 401 (signature required)
+- [ ] Real SendGrid events appear in Vercel logs
+
+### Phase 3: Domain Setup
+
+#### D.4: Verify freightroll.com in SendGrid [30min]
+**Status:** ⚠️ Required for email sending
+**Steps:**
+1. Go to: SendGrid → Settings → Sender Authentication → Authenticate Your Domain
+2. Add domain: `freightroll.com`
+3. Add DNS records (CNAME) as instructed
+4. Wait for verification (can take up to 48 hours)
+**Validation:**
+- [ ] Domain shows "Verified" status in SendGrid
+- [ ] Test email sends successfully from noreply@freightroll.com
+
+### Phase 4: Optional Enhancements
+
+#### D.5: Add Compliance Variables [5min]
+```bash
+echo "123 Main St, Suite 100, San Francisco, CA 94102" | vercel env add COMPLIANCE_POSTAL_ADDRESS production
+echo "support@freightroll.com" | vercel env add SUPPORT_EMAIL production
+```
+
+#### D.6: Add Custom Domain to Vercel [15min]
+If you want to use freightroll.com instead of gtm-yard-flow.vercel.app:
+```bash
+vercel domains add freightroll.com
+# Add DNS records as instructed
+```
+
+---
+
+## 🔒 SECURITY REVIEW FINDINGS
+
+### ✅ Well Implemented
+1. **Webhook Signature Verification** - Proper ECDSA verification with timestamp staleness check
+2. **OAuth CSRF Protection** - State parameter with timing-safe comparison
+3. **Raw Body Handling** - `x-vercel-raw-body: true` configured in vercel.json
+4. **Rate Limiting** - 100 emails/minute per user limit
+
+### ⚠️ Recommendations
+1. **Hardcoded Fallback Secrets** - Code has fallback secrets for local dev. Consider removing in production or failing fast.
+2. **XOR Token Encryption** - OAuth tokens use simple XOR. Recommend upgrading to AES-256-GCM.
+
+---
+
+## 📊 TEST STATUS
+
+| Metric | Value |
+|--------|-------|
+| **Total Tests** | 1,897 |
+| **Passing** | 1,893 |
+| **Skipped** | 4 (placeholder tests) |
+| **Failing** | 0 |
+| **Build** | ✅ Successful |
+
+---
+
+## 🎯 QUICK DEPLOYMENT CHECKLIST
+
+```
+[ ] D.1: Add FIREBASE_SERVICE_ACCOUNT_KEY
+[ ] D.2: Add VITE_HUBSPOT_CLIENT_ID  
+[ ] D.2: Add VITE_HUBSPOT_REDIRECT_URI
+[ ] D.3: Configure SendGrid webhook URL
+[ ] D.3: Enable signed webhooks
+[ ] D.3: Add SENDGRID_WEBHOOK_PUBLIC_KEY
+[ ] D.4: Verify freightroll.com domain in SendGrid
+[ ] Run: vercel --prod
+[ ] Verify: vercel logs --follow (no errors)
+```
