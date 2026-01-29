@@ -37,6 +37,7 @@ export default defineConfig({
             },
             workbox: {
                 globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+                maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB limit for large bundles
                 runtimeCaching: [
                     {
                         urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
@@ -66,12 +67,15 @@ export default defineConfig({
         })
     ],
     build: {
+        chunkSizeWarningLimit: 2500, // Increase warning limit to 2.5 MB
         rollupOptions: {
             output: {
                 manualChunks: {
                     'vendor-react': ['react', 'react-dom'],
                     'vendor-firebase': ['firebase/app', 'firebase/firestore', 'firebase/auth'],
                     'vendor-charts': ['recharts'],
+                    'vendor-utils': ['zod', 'fuse.js'],
+                    'vendor-lucide': ['lucide-react'],
                 },
             },
         },
