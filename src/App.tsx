@@ -157,60 +157,98 @@ const searchIndexService = new SearchIndexService<SearchableProspect>({
 const savedFiltersService = new SavedFiltersService('yardflow');
 savedFiltersService.load();
 
+// --- Email Confidence Badge Component ---
+// Displays confidence score based on email format and source
+function EmailConfidenceBadge({ email }: { email: string }): React.ReactElement | null {
+  // Calculate confidence based on email characteristics
+  const getConfidence = (email: string): { level: 'high' | 'medium' | 'low'; label: string; color: string } => {
+    // High confidence: Personal email patterns (first.last@, first_last@, etc.)
+    const personalPattern = /^[a-z]+[._-]?[a-z]+@/i;
+    const isPersonalFormat = personalPattern.test(email);
+    
+    // Check for common corporate domains vs generic
+    const genericDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com'];
+    const domain = email.split('@')[1]?.toLowerCase() || '';
+    const isCorporateDomain = !genericDomains.includes(domain);
+    
+    // High: Corporate domain + personal format
+    if (isCorporateDomain && isPersonalFormat) {
+      return { level: 'high', label: 'Verified', color: 'bg-green-100 text-green-700 border-green-200' };
+    }
+    // Medium: Corporate domain OR personal format
+    if (isCorporateDomain || isPersonalFormat) {
+      return { level: 'medium', label: 'Likely', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
+    }
+    // Low: Generic domain + no personal format
+    return { level: 'low', label: 'Unverified', color: 'bg-slate-100 text-slate-500 border-slate-200' };
+  };
+
+  const confidence = getConfidence(email);
+  
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${confidence.color}`}>
+      {confidence.label}
+    </span>
+  );
+}
+
+// --- Calendar Link Configuration ---
+const CALENDAR_LINK = 'https://calendly.com/jake-freightroll/manifest-meeting';
+
 // --- Templates with Network Effects Messaging ---
+// Shortened for platform character limits (LinkedIn DM ~300 chars, InMail ~1900 chars)
 const TEMPLATES = (prospect: Prospect, senderName: string): MessageTemplate[] => [
   {
     id: 'dm_codev',
-    label: 'App DM: Co-Dev Network Effects',
+    label: 'DM: Co-Dev (Short)',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, YardFlow Co-Dev: 2-3 partners get voting seats. Primo Brands saving avg $1M+ PER facility—now rolling to 260. Would love to share the math for ${prospect.company}. Book time: https://calendly.com/jake-freightroll/manifest-meeting -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, YardFlow Co-Dev: 2-3 partners get voting seats. Primo Brands saving $1M+/facility—now at 260. Love to share the math for ${prospect.company}. ${CALENDAR_LINK} -${senderName}`
   },
   {
     id: 'dm_exec',
-    label: 'App DM: Exec - Headcount Neutral',
+    label: 'DM: Exec - Headcount Neutral',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, Primo Brands took on additional volume while staying headcount neutral in dock ops—saving $1M+ per facility. Curious about ${prospect.company}'s yard flow? Book 10 min: https://calendly.com/jake-freightroll/manifest-meeting -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, Primo saved $1M+/facility staying headcount neutral. Curious about ${prospect.company}'s yard flow? ${CALENDAR_LINK} -${senderName}`
   },
   {
     id: 'dm_ops',
-    label: 'App DM: Ops - Dock Optimization',
+    label: 'DM: Ops - Dock Time',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, bottom-quartile facilities waste 5 min/shipment on dock assignments. System-driven assignment is the fix. Compare notes? https://calendly.com/jake-freightroll/manifest-meeting -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, avg facility wastes 5 min/shipment on dock assignments. System-driven is the fix. Compare notes? ${CALENDAR_LINK} -${senderName}`
   },
   {
     id: 'dm_carrier',
-    label: 'App DM: Carrier Benchmarking',
+    label: 'DM: Carrier Benchmarking',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, 40% of carriers have 10% of drivers underperforming in yard. We're benchmarking this. Relevant for ${prospect.company}? Book time: https://calendly.com/jake-freightroll/manifest-meeting -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, 40% of carriers have 10% drivers underperforming in yard. We're benchmarking. Relevant for ${prospect.company}? ${CALENDAR_LINK} -${senderName}`
   },
   {
     id: 'codev_invite',
-    label: 'Email: Co-Development Invitation',
+    label: 'Email: Co-Dev Invitation',
     type: 'codev',
-    subject: `Manifest: Network Effects Design Partner for ${prospect.company}?`,
+    subject: `Manifest: Design Partner for ${prospect.company}?`,
     body: `Hi ${prospect.name.split(' ')[0]},
 
-I saw you're attending Manifest and wanted to flag something specific for ${prospect.company}.
+Saw you're at Manifest—wanted to flag something for ${prospect.company}.
 
-We're launching the YardFlow Co-Development Program—2-3 enterprise partners get a voting seat on the 2026 roadmap.
+We're launching the YardFlow Co-Dev Program: 2-3 enterprise partners get a voting seat on the 2026 roadmap.
 
-**The proof point:** Primo Brands (fka Nestlé Waters) is rolling YardFlow from 25 to 260 facilities. Each facility is averaging $1M+ in contribution margin improvement—while staying headcount neutral in dock operations.
+**The proof:** Primo Brands is rolling YardFlow from 25→260 facilities. Each averages $1M+ margin improvement—headcount neutral.
 
-**The network effects thesis:**
-- Standard data model across all yards = carrier benchmarking + bottleneck identification
-- Real-time visibility = trailer pool optimization + dwell time alerts
-- Standard protocols = faster driver navigation at every facility
+**Network effects:**
+• Standard data model = carrier benchmarking + bottleneck ID
+• Real-time visibility = trailer optimization + dwell alerts
+• Standard protocols = faster driver navigation
 
-Given ${prospect.company}'s scale, I'd love to walk through what this math looks like for your network.
+Given ${prospect.company}'s scale, I'd walk through this math.
 
-Book 10 minutes: https://calendly.com/jake-freightroll/manifest-meeting
+${CALENDAR_LINK}
 
-Best,
-${senderName}`
+-${senderName}`
   }
 ];
 
@@ -2180,6 +2218,25 @@ export default function App() {
                   <span className="text-slate-300 mx-2">|</span> 
                   <span>{selectedProspect.company}</span>
                 </p>
+                {/* Email Address with Confidence Indicator */}
+                <div className="mt-2 flex items-center gap-2">
+                  {selectedProspect.email ? (
+                    <>
+                      <a 
+                        href={`mailto:${selectedProspect.email}`}
+                        className="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                      >
+                        {selectedProspect.email}
+                      </a>
+                      <EmailConfidenceBadge email={selectedProspect.email} />
+                    </>
+                  ) : (
+                    <span className="text-sm text-slate-400 italic flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      No email address
+                    </span>
+                  )}
+                </div>
                 <div className="mt-4 flex items-center space-x-4">
                    <div className="text-xs text-slate-500">
                       <span className="font-semibold text-slate-700">Hitlist Score:</span> {selectedProspect.score}
