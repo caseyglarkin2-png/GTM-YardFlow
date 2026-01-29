@@ -2309,3 +2309,591 @@ interface EmailVerification {
 | Sprint 50 | Pending | Pending | Tier 1 auto-enrolled |
 | Sprint 51 | Pending | Pending | Calendar clicks tracked |
 | Sprint 52 | Pending | Pending | Emails verified |
+---
+
+## Sprint 53: Primo Lookalike Scoring - Data Foundation
+
+**Goal:** Add the data fields needed for Primo Lookalike scoring (facility_count, industry, distribution_footprint)
+**Estimated Effort:** 8-10 hours
+**Priority:** 🔴 HIGH - Core sales targeting improvement
+**Demoable Outcome:** Companies show new fields in UI, CSV import accepts new columns
+
+### Background: Primo Brands ICP
+Primo Brands represents an ideal customer profile:
+- **260 facilities** with massive yard networks
+- **$1M+/facility margin** potential
+- **Beverage/CPG industry** with high truck throughput
+- **Profitability tied to gate efficiency**, not manufacturing
+- Companies like Primo can't manufacture more efficiently - they profit by shipping more 53' dry vans
+
+### T53.1: Extend EnrichedCompany Schema [S - 30min]
+**Files:** `src/types/marketing.ts`
+**Change:** Add new fields to EnrichedCompanySchema:
+```typescript
+// Primo Lookalike fields
+facilityCount: z.number().min(0).optional(),
+industryCategory: z.enum(['beverage', 'cpg', 'food_manufacturing', 'cold_chain', 'distribution', 'manufacturing', 'other']).optional(),
+distributionFootprint: z.enum(['local', 'regional', 'national', 'international']).optional(),
+isYardIntensive: z.boolean().optional(), // True if ops depend on truck throughput
+estimatedTruckVolume: z.number().optional(), // Daily truck movements if known
+primoLookalikeScore: z.number().min(0).max(100).optional(), // Calculated score
+```
+**Tests:** 
+- Schema validates new fields correctly
+- Optional fields don't break existing imports
+**Validation:** `npm test -- marketing.ts`
+
+### T53.2: Extend Prospect Type [S - 30min]
+**Files:** `src/types/index.ts`
+**Change:** Add company enrichment fields to Prospect interface that get merged from company data:
+```typescript
+// Company-level fields (from EnrichedCompany)
+companyFacilityCount?: number;
+companyIndustry?: string;
+companyPrimoScore?: number;
+```
+**Tests:** Type compilation succeeds, no regressions
+**Validation:** `npm run typecheck`
+
+### T53.3: Update ColumnMapper for New Fields [M - 1h]
+**Files:** `src/services/ColumnMapperService.ts`
+**Change:** Add mappings for new CSV columns:
+```typescript
+facilityCount: ['facility_count', 'facilities', 'num_facilities', 'locations', 'site_count'],
+industryCategory: ['industry_category', 'industry', 'sector', 'vertical'],
+distributionFootprint: ['distribution_footprint', 'footprint', 'geographic_coverage', 'coverage'],
+```
+**Tests:** 
+- ColumnMapper detects new columns correctly
+- Fuzzy matching works for variations
+**Validation:** `npm test -- ColumnMapperService`
+
+### T53.4: Company Data Enrichment Service [L - 3h]
+**Files:** `src/services/CompanyEnrichmentService.ts` (new)
+**Change:** Create service to enrich company data:
+```typescript
+interface CompanyEnrichmentService {
+  // Manual entry (Jake enters during research)
+  setFacilityCount(companyId: string, count: number): Promise<void>;
+  setIndustryCategory(companyId: string, category: IndustryCategory): Promise<void>;
+  setDistributionFootprint(companyId: string, footprint: DistributionFootprint): Promise<void>;
+  
+  // Bulk update from spreadsheet
+  bulkEnrichFromCSV(data: CompanyEnrichmentCSV[]): Promise<EnrichmentResult>;
+  
+  // Get enrichment gaps (companies missing Primo fields)
+  getUnenrichedCompanies(): EnrichedCompany[];
+  getEnrichmentCompletion(): { total: number; enriched: number; percentage: number };
+}
+```
+**Tests:**
+- Manual field updates persist correctly
+- Bulk CSV import works
+- Enrichment gap detection accurate
+**Validation:** `npm test -- CompanyEnrichmentService`
+
+### T53.5: Company Research Modal [M - 2h]
+**Files:** `src/components/CompanyResearchModal.tsx` (new)
+**Change:** Modal for Jake to manually enter Primo lookalike data:
+- Form fields: Facility Count, Industry Category, Distribution Footprint
+- Quick links: LinkedIn, Google Search, Company Website
+- Save button updates company record
+- "Skip for now" moves to next company
+- Progress indicator: "12 of 45 Tier 1 companies researched"
+**Tests:**
+- Form validation works
+- Save updates company data
+- Skip functionality works
+**Validation:** `npm test -- CompanyResearchModal`
+
+### T53.6: Company Research Workflow [M - 2h]
+**Files:** `src/components/CompanyResearchWorkflow.tsx` (new)
+**Change:** Workflow component that cycles through unresearched companies:
+- Shows company name, current attendees, exec_ops count
+- Displays current prospects from that company
+- Queue of companies to research (sorted by tier, then attendee count)
+- "Research Mode" button in main UI launches this workflow
+**Tests:**
+- Queue ordering correct (Tier 1 first, then by attendees)
+- Completion tracking works
+**Validation:** Visual demo - workflow cycles through companies
+
+---
+
+## Sprint 54: Primo Lookalike Scoring Algorithm
+
+**Goal:** Implement the Primo Lookalike scoring formula and integrate with existing scoring
+**Estimated Effort:** 6-8 hours
+**Priority:** 🔴 HIGH
+**Demoable Outcome:** Companies show Primo Lookalike scores, can filter/sort by this score
+
+### T54.1: Primo Lookalike Scoring Service [L - 3h]
+**Files:** `src/services/PrimoLookalikeScoring.ts` (new)
+**Change:** Implement scoring algorithm:
+```typescript
+interface PrimoLookalikeScoring {
+  calculateScore(company: EnrichedCompany): number;
+  getScoreBreakdown(company: EnrichedCompany): PrimoScoreBreakdown;
+  batchCalculate(companies: EnrichedCompany[]): Map<string, number>;
+}
+
+interface PrimoScoreBreakdown {
+  totalScore: number; // 0-100
+  facilityScore: number; // 0-30 pts (scaled, 260 facilities = max)
+  industryScore: number; // 0-25 pts (beverage/cpg/food = max)
+  opsIntensityScore: number; // 0-20 pts (based on opsShare)
+  revenueScore: number; // 0-15 pts (scaled by revenue tier)
+  footprintScore: number; // 0-10 pts (national = max)
+  factors: string[]; // Human-readable factors
+}
+
+// Scoring Formula:
+// primoLookalikeScore = 
+//   min(30, (facilityCount / 260) * 30) +  // 0-30 pts, scaled to Primo's 260
+//   (industryMatch ? 25 : partialMatch ? 15 : 0) + // 25 pts for exact industry match
+//   (opsShare * 20) + // 0-20 pts for ops density
+//   (revenueScale * 15) + // 0-15 pts for revenue tier
+//   (isNational ? 10 : isRegional ? 5 : 0) // 10 pts for national footprint
+```
+**Tests:**
+- Primo Brands itself should score 95-100
+- Company with 130 facilities (50% of Primo) scores ~50
+- Vendor/broker with 0 facilities scores <20
+- Score breakdown adds up correctly
+**Validation:** `npm test -- PrimoLookalikeScoring`
+
+### T54.2: Industry Category Matching [S - 1h]
+**Files:** `src/services/PrimoLookalikeScoring.ts`
+**Change:** Add industry matching logic:
+```typescript
+const PRIMO_INDUSTRIES = ['beverage', 'cpg', 'food_manufacturing', 'cold_chain'];
+const PARTIAL_MATCH_INDUSTRIES = ['distribution', 'manufacturing'];
+
+function getIndustryScore(category?: IndustryCategory): number {
+  if (!category) return 0;
+  if (PRIMO_INDUSTRIES.includes(category)) return 25;
+  if (PARTIAL_MATCH_INDUSTRIES.includes(category)) return 15;
+  return 0;
+}
+```
+**Tests:**
+- Beverage company gets 25 pts
+- Distribution company gets 15 pts  
+- Tech company gets 0 pts
+**Validation:** `npm test -- PrimoLookalikeScoring`
+
+### T54.3: Integrate with Existing CompanyScore [M - 1h]
+**Files:** `scripts/generateHitlistData.ts`, `src/data/hitlistData.ts`
+**Change:** Add primoLookalikeScore to company records:
+- Calculate on import
+- Store in company record
+- Update when enrichment data changes
+**Tests:**
+- Score persists through import/export cycle
+- Score updates when enrichment changes
+**Validation:** `npm test -- generateHitlistData`
+
+### T54.4: Primo Score Column in UI [M - 1h]
+**Files:** `src/App.tsx`, `src/components/ProspectTable.tsx` (if exists)
+**Change:** 
+- Add "Primo Score" column to prospect table
+- Color coding: 80+ green, 50-79 yellow, <50 gray
+- Tooltip shows score breakdown
+**Tests:**
+- Column renders correctly
+- Color coding matches thresholds
+- Tooltip shows factors
+**Validation:** Visual demo - Primo Score visible in table
+
+### T54.5: Filter by Primo Score [S - 1h]
+**Files:** `src/services/SegmentationService.ts`, `src/components/FilterPanel.tsx`
+**Change:**
+- Add primoScoreMin/primoScoreMax to SegmentFilter
+- Add slider filter in UI: "Primo Lookalike Score: 0-100"
+- Quick filter buttons: "Primo Lookalikes (80+)", "Potential (50-79)"
+**Tests:**
+- Filter correctly applies score range
+- Quick filters work
+**Validation:** `npm test -- SegmentationService`
+
+### T54.6: Primo Score Tests [M - 1h]
+**Files:** `src/__tests__/services/PrimoLookalikeScoring.test.ts` (new)
+**Change:** Comprehensive test suite:
+- Boundary conditions (0 facilities, 500 facilities)
+- Industry matching edge cases
+- Score breakdown accuracy
+- Batch calculation performance (1000+ companies)
+**Validation:** 25+ new tests pass
+
+---
+
+## Sprint 55: Company Research UI & Workflow
+
+**Goal:** Complete the company research workflow so Jake can efficiently enrich company data
+**Estimated Effort:** 6-8 hours
+**Priority:** 🟡 MEDIUM (depends on Sprint 53)
+**Demoable Outcome:** Jake can research companies, see progress, prioritize by potential
+
+### T55.1: Research Queue Dashboard [M - 2h]
+**Files:** `src/components/ResearchDashboard.tsx` (new)
+**Change:** Dashboard showing research progress:
+- Card: "X of Y companies researched"
+- Card: "X companies with Primo Score 80+"
+- Card: "X companies need research to score"
+- "Start Research" button launches workflow
+- List of top unresearched companies (by tier, attendees)
+**Tests:**
+- Metrics calculate correctly
+- Sorting works
+**Validation:** Visual demo
+
+### T55.2: Company Detail Panel [M - 2h]
+**Files:** `src/components/CompanyDetailPanel.tsx` (new)
+**Change:** Slide-out panel showing company details:
+- Company name, tier, current score, Primo score
+- Enrichment fields (editable): facility count, industry, footprint
+- Prospects from this company (list)
+- External links: LinkedIn, Google, Crunchbase
+- "Save & Next" button
+**Tests:**
+- Fields save correctly
+- Next company loads
+**Validation:** Visual demo
+
+### T55.3: Bulk Enrichment Import [M - 1h]
+**Files:** `src/components/BulkEnrichmentImport.tsx` (new)
+**Change:** Import modal for bulk company enrichment:
+- Upload CSV with company,facility_count,industry,footprint
+- Preview matching: "Found 45 of 50 companies"
+- Apply button updates all matches
+**Tests:**
+- CSV parsing works
+- Company matching works
+- Bulk update succeeds
+**Validation:** Visual demo - bulk import enriches multiple companies
+
+### T55.4: Research Progress Indicator [S - 30min]
+**Files:** `src/components/ResearchProgress.tsx` (new)
+**Change:** Small progress indicator for main dashboard:
+- Shows: "Research: 12/45 companies (27%)"
+- Click opens ResearchDashboard
+- Green when >80%, yellow when 50-80%, red when <50%
+**Tests:**
+- Percentage calculates correctly
+- Color thresholds work
+**Validation:** `npm test -- ResearchProgress`
+
+### T55.5: Auto-Calculate Primo Score on Save [S - 30min]
+**Files:** `src/services/CompanyEnrichmentService.ts`
+**Change:** After saving enrichment data, automatically recalculate Primo Lookalike score:
+- Listen for enrichment changes
+- Recalculate score
+- Update company record
+- Propagate to prospects from that company
+**Tests:**
+- Score updates after enrichment save
+- Prospects reflect new company score
+**Validation:** `npm test -- CompanyEnrichmentService`
+
+### T55.6: Research Workflow Tests [M - 1h]
+**Files:** `src/__tests__/components/ResearchWorkflow.test.tsx` (new)
+**Change:** Test suite for research workflow:
+- Queue ordering tests
+- Save/next functionality
+- Progress tracking
+- Bulk import tests
+**Validation:** 15+ new tests pass
+
+---
+
+## Sprint 56: Person Scoring for Primo Lookalikes
+
+**Goal:** Enhance person scoring to identify champions within Primo lookalike companies
+**Estimated Effort:** 5-7 hours
+**Priority:** 🟡 MEDIUM (depends on Sprint 54)
+**Demoable Outcome:** Prospects sorted by "Champion Potential" within high-Primo companies
+
+### T56.1: Champion Potential Score [L - 2h]
+**Files:** `src/services/ChampionScoring.ts` (new)
+**Change:** Calculate champion potential for each person:
+```typescript
+interface ChampionScore {
+  totalScore: number; // 0-100
+  opsLeadershipScore: number; // is_exec_ops = 30 pts
+  influenceScore: number; // Senior title = 20 pts
+  operationalScore: number; // is_ops = 15 pts
+  networkScore: number; // exec_ops_count at company = 10 pts
+  companyScore: number; // From Primo Lookalike score = 25 pts
+  factors: string[];
+}
+
+// Ideal Champion:
+// - Exec-level ops (VP Ops, Director of Logistics)
+// - At company with 80+ Primo score
+// - Company has multiple ops people (can expand internally)
+```
+**Tests:**
+- Exec Ops at Primo gets ~95
+- Junior ops at small company gets ~30
+- Sales person gets ~10
+**Validation:** `npm test -- ChampionScoring`
+
+### T56.2: Combine Person + Primo Company Score [M - 1h]
+**Files:** `src/services/ChampionScoring.ts`
+**Change:** Create combined scoring that weights company Primo score:
+```typescript
+// Combined = (PersonScore * 0.4) + (ChampionScore * 0.3) + (CompanyPrimoScore * 0.3)
+// This prioritizes:
+// 1. Good person at great Primo-like company
+// 2. Great person at good company
+// 3. Average person at amazing company
+```
+**Tests:**
+- Weighting works correctly
+- Edge cases (missing scores) handled
+**Validation:** `npm test -- ChampionScoring`
+
+### T56.3: "Champion Potential" Column [S - 1h]
+**Files:** `src/App.tsx`
+**Change:** Add Champion Potential column to prospect table:
+- Shows combined score
+- Tooltip shows breakdown: "Person: 35, Champion: 28, Company Primo: 85"
+- Sort by this column
+**Tests:**
+- Column renders
+- Sorting works
+**Validation:** Visual demo
+
+### T56.4: "Find Champions" Quick Filter [S - 30min]
+**Files:** `src/components/FilterPanel.tsx`
+**Change:** Add quick filter button:
+- "Find Champions" = Primo Score 70+ AND (isExecOps OR isOps)
+- Shows count: "42 potential champions"
+**Tests:**
+- Filter applies correctly
+**Validation:** Visual demo
+
+### T56.5: Champion Prioritization View [M - 1h]
+**Files:** `src/components/ChampionPriorityView.tsx` (new)
+**Change:** Special view for prioritized outreach:
+- Groups prospects by company (companies sorted by Primo score)
+- Within company, sorts by champion potential
+- Shows recommended approach: "3 exec-ops, start with VP Ops"
+**Tests:**
+- Grouping correct
+- Sorting correct
+**Validation:** Visual demo
+
+### T56.6: Champion Scoring Tests [S - 30min]
+**Files:** `src/__tests__/services/ChampionScoring.test.ts` (new)
+**Change:** Test suite for champion scoring:
+- Score calculation accuracy
+- Combination weighting
+- Null/missing field handling
+**Validation:** 15+ new tests pass
+
+---
+
+## Sprint 57: Reporting & Analytics
+
+**Goal:** Provide analytics on Primo Lookalike pipeline and research progress
+**Estimated Effort:** 5-6 hours
+**Priority:** 🟢 LOW (polish sprint)
+**Demoable Outcome:** Dashboard shows Primo pipeline metrics and research ROI
+
+### T57.1: Primo Pipeline Metrics [M - 2h]
+**Files:** `src/components/PrimoPipelineMetrics.tsx` (new)
+**Change:** Dashboard cards showing:
+- "X Primo Lookalikes (80+ score)"
+- "X Prospects at Primo Lookalikes"  
+- "X Champions identified"
+- "X Researched / Y Total companies"
+- Trend: "Score distribution: 10 at 80+, 25 at 50-79, 45 at <50"
+**Tests:**
+- Metrics calculate correctly
+**Validation:** Visual demo
+
+### T57.2: Research ROI Tracking [M - 1h]
+**Files:** `src/services/ResearchAnalytics.ts` (new)
+**Change:** Track research efficiency:
+- Time spent researching (session tracking)
+- Companies researched per session
+- Primo score discoveries (companies that scored 80+ after research)
+**Tests:**
+- Session tracking works
+- Metrics accurate
+**Validation:** `npm test -- ResearchAnalytics`
+
+### T57.3: Export Primo Lookalikes [S - 1h]
+**Files:** `src/services/HubSpotExporter.ts`
+**Change:** Add Primo Lookalike fields to export:
+- primo_lookalike_score
+- facility_count  
+- industry_category
+- champion_score
+**Tests:**
+- Export includes new fields
+- HubSpot-compatible format
+**Validation:** `npm test -- HubSpotExporter`
+
+### T57.4: Primo Score Trend Chart [M - 1h]
+**Files:** `src/components/PrimoScoreChart.tsx` (new)
+**Change:** Bar chart showing score distribution:
+- X-axis: Score ranges (0-20, 20-40, 40-60, 60-80, 80-100)
+- Y-axis: Number of companies
+- Color: Green for 80+, yellow for 60-79, gray for rest
+**Tests:**
+- Chart renders
+- Data binning correct
+**Validation:** Visual demo
+
+### T57.5: Analytics Tests [S - 30min]
+**Files:** `src/__tests__/services/ResearchAnalytics.test.ts` (new)
+**Change:** Test suite for analytics:
+- Metric calculations
+- Export format
+**Validation:** 10+ new tests pass
+
+---
+
+## Sprint Summary: Primo Lookalike Scoring System
+
+| Sprint | Focus | Hours | Tests | Demoable Outcome |
+|--------|-------|-------|-------|------------------|
+| 53 | Data Foundation | 8-10h | 25+ | New fields in UI, CSV import works |
+| 54 | Scoring Algorithm | 6-8h | 30+ | Primo scores visible, filterable |
+| 55 | Research Workflow | 6-8h | 15+ | Jake can research companies |
+| 56 | Champion Scoring | 5-7h | 20+ | Champions prioritized in UI |
+| 57 | Analytics | 5-6h | 10+ | Dashboard shows pipeline metrics |
+| **Total** | | **30-39h** | **100+** | Complete Primo Lookalike system |
+
+### Dependencies
+```
+Sprint 53 (Data) → Sprint 54 (Scoring) → Sprint 55 (Research UI)
+                                      → Sprint 56 (Champion Scoring)
+                                                  ↓
+                                      Sprint 57 (Analytics)
+```
+
+### Success Criteria
+1. ✅ Can import CSV with facility_count, industry, footprint
+2. ✅ Primo Lookalike score calculated and displayed
+3. ✅ Jake can research companies and see progress
+4. ✅ Champions prioritized for outreach
+5. ✅ 100+ new tests covering all functionality
+6. ✅ Each sprint results in demoable software
+
+---
+
+## 🔍 Subagent Review: Primo Lookalike Sprints (53-57)
+
+**Review Date:** 2026-01-30
+**Grade:** B+ → A- (after applying recommendations)
+
+### Review Summary
+The sprint plan was reviewed by a senior engineering subagent. Overall assessment:
+- Clear demoable outcomes ✅
+- Good test coverage targets ✅
+- Dependencies correctly ordered ✅
+- Some tasks not truly atomic ⚠️
+- Missing critical infrastructure tasks ⚠️
+
+### Critical Missing Tasks Added
+
+| ID | Task | Sprint | Effort | Reason |
+|----|------|--------|--------|--------|
+| T53.0 | **Data Migration for Existing Companies** | 53 | 1h | Existing records won't have new fields |
+| T53.7 | **Firestore Index for industryCategory** | 53 | 15min | Required for filtering |
+| T53.8 | **Company→Prospect Score Propagation** | 53 | 1.5h | Core merge logic undefined |
+| T54.0 | **Create Primo Brands Test Fixture** | 54 | 15min | Golden test case needed |
+| T55.0 | **Score Update Architecture Decision** | 55 | 30min | Prevent circular deps |
+| T56.0 | **Weighting Config and Documentation** | 56 | 30min | Avoid magic numbers |
+
+### Task Breakdowns Applied
+
+**T53.4 → Split into:**
+- T53.4a: CompanyEnrichmentService CRUD [S - 1h]
+- T53.4b: CompanyEnrichmentService Bulk Import [M - 1.5h]
+- T53.4c: CompanyEnrichmentService Gap Detection [S - 30min]
+
+**T57.2 → Split into:**
+- T57.2a: Research Session Tracker Service [M - 1.5h]
+- T57.2b: Research Session UI Integration [S - 30min]
+
+### Quick Wins Applied
+
+1. ✅ T55.4 (Progress Indicator) moved to Sprint 53 as T53.9
+2. ✅ Sprints 55 and 56 can now run in parallel (both depend only on Sprint 54)
+3. ✅ Primo Brands Test Fixture (T54.0) added for golden test case
+
+### Revised Dependency Graph
+```
+Sprint 53 (Data) → Sprint 54 (Scoring) ─┬─→ Sprint 55 (Research UI) ─┐
+                                        └─→ Sprint 56 (Champion)    ─┴─→ Sprint 57 (Analytics)
+```
+
+### Revised Effort Estimates
+
+| Sprint | Original | Revised | Delta |
+|--------|----------|---------|-------|
+| 53 | 8-10h | 11-13h | +3h (migration + propagation) |
+| 54 | 6-8h | 7-9h | +1h (fixture + memoization) |
+| 55 | 6-8h | 5.5-7.5h | -0.5h (moved indicator out) |
+| 56 | 5-7h | 5.5-7.5h | +0.5h (weighting config) |
+| 57 | 5-6h | 6-7h | +1h (split session tracking) |
+| **Total** | **30-39h** | **35-44h** | **+5-6h** |
+
+### Risk Mitigations Added
+
+1. **High Risk: No migration = broken data**
+   - Mitigation: T53.0 is now BLOCKER before all other Sprint 53 work
+
+2. **High Risk: Score propagation undefined**
+   - Mitigation: T53.8 explicitly defines Company→Prospect score merge
+
+3. **Medium Risk: ColumnMapper collisions**
+   - Mitigation: Add test for "industry" column (already exists in schema)
+
+4. **Medium Risk: Performance with 10k prospects**
+   - Mitigation: Add explicit perf test in T54.6: "Score 10k records <500ms"
+
+### Updated Sprint 53 Task Order
+
+```
+T53.0: Data Migration for Existing Companies [BLOCKER - 1h]
+T53.1: Extend EnrichedCompany Schema [S - 30min]
+T53.2: Extend Prospect Type [S - 30min]
+T53.3: Update ColumnMapper [M - 1h]
+T53.4a: CompanyEnrichmentService CRUD [S - 1h]
+T53.4b: CompanyEnrichmentService Bulk Import [M - 1.5h]
+T53.4c: CompanyEnrichmentService Gap Detection [S - 30min]
+T53.5: Company Research Modal [M - 2h]
+T53.6: Company Research Workflow [M - 2h]
+T53.7: Firestore Index for industryCategory [XS - 15min]
+T53.8: Company→Prospect Score Propagation [M - 1.5h]
+T53.9: Research Progress Indicator [S - 30min] (moved from T55.4)
+```
+
+### Updated Success Criteria
+
+1. ✅ Can import CSV with facility_count, industry, footprint
+2. ✅ Existing company records migrated with nullable Primo fields
+3. ✅ Primo Lookalike score calculated and displayed
+4. ✅ Score propagates from company to prospects
+5. ✅ Jake can research companies and see progress
+6. ✅ Champions prioritized for outreach
+7. ✅ Performance: 10k records scored in <500ms
+8. ✅ 100+ new tests covering all functionality
+9. ✅ Each sprint results in demoable software
+
+---
+
+## Ready for Execution
+
+**Pre-Sprint 53 Checklist:**
+- [ ] Confirm Firestore access in dev environment
+- [ ] Verify existing company record count (for migration testing)
+- [ ] Choose chart library for Sprint 57 (recommend: Recharts)
+- [ ] Set up test fixtures directory
+
+**First Task to Start:** T53.0 (Data Migration)
