@@ -260,6 +260,9 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<'Jake' | 'Me'>('Me');
   const [filter, setFilter] = useState('');
   const [tierFilter, setTierFilter] = useState<'All' | 'Tier 1' | 'Tier 2' | 'Tier 3'>('All');
+  // Email editing state
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [editingEmailValue, setEditingEmailValue] = useState('');
   // Hitlist date filter (Sprint 35 - T35.4)
   const [hitlistDatePeriod, setHitlistDatePeriod] = useState<TimePeriod>('all');
   const [hitlistCustomRange, setHitlistCustomRange] = useState<DateRange | undefined>(undefined);
@@ -967,6 +970,35 @@ export default function App() {
   const saveApiKey = (key: string) => {
     setGeminiApiKey(key);
     localStorage.setItem('yardflow_gemini_key', key);
+  };
+
+  // --- Email Update Handler ---
+  const handleEmailUpdate = async (newEmail: string) => {
+    if (!selectedProspect) return;
+    const trimmedEmail = newEmail.trim();
+    
+    // Update local state
+    setProspects(prev => prev.map(p => p.id === selectedProspect.id ? { ...p, email: trimmedEmail || undefined } : p));
+    setSelectedProspect({ ...selectedProspect, email: trimmedEmail || undefined });
+    
+    // Track activity (use status_change type for email updates)
+    activityTracker.track({
+      type: 'status_change',
+      user: currentUser,
+      prospectId: selectedProspect.id,
+      prospectName: selectedProspect.name,
+      details: trimmedEmail ? `Added email: ${trimmedEmail}` : 'Removed email'
+    });
+    setRecentActivities(activityTracker.getRecent(15));
+    
+    // Persist to Firestore
+    if (!user || !db) return;
+    try {
+      const docRef = doc(db, `artifacts/${appId}/users/${(user as { uid: string }).uid}/prospects`, selectedProspect.id);
+      await setDoc(docRef, { email: trimmedEmail || null, updatedAt: Date.now() }, { merge: true });
+    } catch (err) {
+      console.error('Failed to save email:', err);
+    }
   };
 
   // --- Logic ---
@@ -2218,10 +2250,44 @@ export default function App() {
                   <span className="text-slate-300 mx-2">|</span> 
                   <span>{selectedProspect.company}</span>
                 </p>
-                {/* Email Address with Confidence Indicator */}
+                {/* Email Address with Confidence Indicator - EDITABLE */}
                 <div className="mt-2 flex items-center gap-2">
-                  {selectedProspect.email ? (
-                    <>
+                  {isEditingEmail ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="email"
+                        value={editingEmailValue}
+                        onChange={(e) => setEditingEmailValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleEmailUpdate(editingEmailValue);
+                            setIsEditingEmail(false);
+                          } else if (e.key === 'Escape') {
+                            setIsEditingEmail(false);
+                          }
+                        }}
+                        placeholder="email@company.com"
+                        className="text-sm px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => {
+                          handleEmailUpdate(editingEmailValue);
+                          setIsEditingEmail(false);
+                        }}
+                        className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setIsEditingEmail(false)}
+                        className="text-xs text-slate-500 hover:text-slate-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : selectedProspect.email ? (
+                    <div className="flex items-center gap-2">
                       <a 
                         href={`mailto:${selectedProspect.email}`}
                         className="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
@@ -2229,12 +2295,27 @@ export default function App() {
                         {selectedProspect.email}
                       </a>
                       <EmailConfidenceBadge email={selectedProspect.email} />
-                    </>
+                      <button
+                        onClick={() => {
+                          setEditingEmailValue(selectedProspect.email || '');
+                          setIsEditingEmail(true);
+                        }}
+                        className="text-xs text-slate-400 hover:text-blue-600"
+                        title="Edit email"
+                      >
+                        ✎
+                      </button>
+                    </div>
                   ) : (
-                    <span className="text-sm text-slate-400 italic flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      No email address
-                    </span>
+                    <button
+                      onClick={() => {
+                        setEditingEmailValue('');
+                        setIsEditingEmail(true);
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 border border-dashed border-blue-300 px-2 py-1 rounded hover:bg-blue-50"
+                    >
+                      <span>+ Add email address</span>
+                    </button>
                   )}
                 </div>
                 <div className="mt-4 flex items-center space-x-4">
