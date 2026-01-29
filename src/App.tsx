@@ -1075,7 +1075,10 @@ export default function App() {
   }, [selectedProspect, selectedTemplateId, currentUser, currentTemplates]);
 
   const charCount = generatedMessage.length;
-  const isOverLimit = charCount > 250;
+  // Only apply 250 char limit to short DM templates (for Manifest app), not emails
+  const currentTemplate = currentTemplates.find(t => t.id === selectedTemplateId);
+  const isShortDM = currentTemplate?.type === 'short_dm';
+  const isOverLimit = isShortDM && charCount > 250;
 
   const copyToClipboard = () => {
     const textArea = document.createElement("textarea");
@@ -1130,7 +1133,9 @@ export default function App() {
           toName: selectedProspect.name,
           subject: `YardFlow for ${selectedProspect.company}`,
           html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            ${generatedMessage.split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('')}
+            ${generatedMessage
+              .replace(/https:\/\/calendly\.com\/[^\s]+/g, url => `<a href="${url}" style="color: #2563eb; text-decoration: underline;">${url}</a>`)
+              .split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('')}
           </div>`,
           text: generatedMessage,
           metadata: {
@@ -2446,7 +2451,7 @@ export default function App() {
                   <div className={`bg-white rounded-xl shadow-sm border flex flex-col flex-1 overflow-hidden transition-colors ${isOverLimit ? 'border-red-300 ring-2 ring-red-100' : 'border-slate-200'}`}>
                     <div className="p-3 lg:p-4 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                       <span className="text-xs font-medium text-slate-500">
-                        Draft Preview • <span className={isOverLimit ? 'text-red-600 font-bold' : 'text-slate-400'}>{charCount}/250 chars</span>
+                        Draft Preview • <span className={isOverLimit ? 'text-red-600 font-bold' : 'text-slate-400'}>{charCount}{isShortDM ? '/250' : ''} chars{!isShortDM && ' (no limit for emails)'}</span>
                       </span>
                       <div className="flex flex-wrap gap-2">
                          {/* AI Generate Button */}
@@ -2539,18 +2544,21 @@ export default function App() {
                       />
                     </div>
                     
-                    <div className="h-1 w-full bg-slate-100">
-                      <div 
-                        className={`h-full transition-all duration-300 ${isOverLimit ? 'bg-red-500' : charCount > 200 ? 'bg-orange-400' : 'bg-blue-500'}`} 
-                        style={{ width: `${Math.min((charCount / 250) * 100, 100)}%` }}
-                      ></div>
-                    </div>
+                    {/* Progress bar only shown for short DMs with 250 char limit */}
+                    {isShortDM && (
+                      <div className="h-1 w-full bg-slate-100">
+                        <div 
+                          className={`h-full transition-all duration-300 ${isOverLimit ? 'bg-red-500' : charCount > 200 ? 'bg-orange-400' : 'bg-blue-500'}`} 
+                          style={{ width: `${Math.min((charCount / 250) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                    )}
                     
                     <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
                       <div className="flex items-center">
                         {isOverLimit && (
                            <span className="text-xs text-red-600 font-bold flex items-center bg-red-50 px-2 py-1 rounded">
-                             <AlertCircle className="h-3 w-3 mr-1" /> Over Limit
+                             <AlertCircle className="h-3 w-3 mr-1" /> Over Limit (DM only)
                            </span>
                         )}
                       </div>
