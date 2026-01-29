@@ -98,6 +98,7 @@ import { PresenceIndicator } from './components/PresenceIndicator';
 // --- Sprint 35 Components ---
 import { DateRangePicker } from './components/DateRangePicker';
 import { dashboardExporter } from './services/DashboardExporter';
+import { FunnelChart, BarChart, PieChart } from './components/charts';
 
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
@@ -1080,6 +1081,61 @@ export default function App() {
                     { userId: '2', userName: 'Jake', totalActivities: 38, prospectsContacted: Math.floor(stats.contacted * 0.7), dealsCreated: Math.floor(stats.booked * 0.7), dealsWon: Math.floor(stats.booked * 0.35), revenue: stats.contacted * 8000, avgResponseTime: 3, rank: 2 },
                   ]}
                 />
+              </div>
+
+              {/* Charts Row (Sprint 35 - T35.3) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Funnel Chart */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                  <h3 className="text-sm font-bold text-slate-700 mb-4">Pipeline Funnel</h3>
+                  <FunnelChart
+                    data={dashboard.data.funnel?.stages ?? [
+                      { id: 'new', name: 'New', count: stats.total, value: stats.total * 5000, conversionRate: 100, avgTimeInStage: 3, color: '#3B82F6' },
+                      { id: 'contacted', name: 'Contacted', count: stats.contacted, value: stats.contacted * 5000, conversionRate: Math.round((stats.contacted / stats.total) * 100), avgTimeInStage: 5, color: '#8B5CF6' },
+                      { id: 'booked', name: 'Booked', count: stats.booked, value: stats.booked * 10000, conversionRate: Math.round((stats.booked / stats.contacted) * 100), avgTimeInStage: 7, color: '#10B981' },
+                    ]}
+                    height={200}
+                  />
+                </div>
+
+                {/* Activity Bar Chart */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                  <h3 className="text-sm font-bold text-slate-700 mb-4">Activity by Type</h3>
+                  <BarChart
+                    data={dashboard.data.activities?.byType.map(a => ({ label: a.label, value: a.count, color: '#3B82F6' })) ?? [
+                      { label: 'Messages Sent', value: stats.contacted * 2, color: '#3B82F6' },
+                      { label: 'Replies', value: Math.floor(stats.contacted * 0.3), color: '#10B981' },
+                      { label: 'Meetings', value: stats.booked, color: '#F59E0B' },
+                    ]}
+                    height={200}
+                  />
+                </div>
+
+                {/* Tier Distribution Pie */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                  <h3 className="text-sm font-bold text-slate-700 mb-4">Tier Distribution</h3>
+                  <PieChart
+                    data={[
+                      { label: 'Tier 1', value: stats.tier1, color: '#F59E0B' },
+                      { label: 'Tier 2', value: prospects.filter(p => p.tier === 'Tier 2').length, color: '#3B82F6' },
+                      { label: 'Tier 3', value: prospects.filter(p => p.tier === 'Tier 3').length, color: '#8B5CF6' },
+                    ]}
+                    height={200}
+                  />
+                </div>
+
+                {/* Status Distribution */}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                  <h3 className="text-sm font-bold text-slate-700 mb-4">Outreach Status</h3>
+                  <PieChart
+                    data={[
+                      { label: 'New', value: prospects.filter(p => p.status === 'new').length, color: '#6B7280' },
+                      { label: 'Contacted', value: prospects.filter(p => p.status === 'contacted').length, color: '#3B82F6' },
+                      { label: 'Booked', value: prospects.filter(p => p.status === 'meeting_booked').length, color: '#10B981' },
+                    ]}
+                    height={200}
+                  />
+                </div>
               </div>
             </div>
           ) : activeTab === 'import' ? (
