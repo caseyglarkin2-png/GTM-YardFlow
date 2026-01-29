@@ -18,6 +18,8 @@ import {
   filterByMinimumPrimoScore,
   getPrimoTier,
   createPrimoBrandsFixture,
+  isValidIndustryCategory,
+  isValidDistributionFootprint,
   DEFAULT_CONFIG,
   type IndustryCategory,
   type DistributionFootprint,
@@ -419,4 +421,91 @@ describe('PrimoLookalikeScoring', () => {
       expect(elapsed).toBeLessThan(500);
     });
   });
-});
+
+  // ============================================
+  // Type Guards Tests (Code Review Fixes)
+  // ============================================
+  describe('Type Guards', () => {
+    it('should validate valid industry categories', () => {
+      expect(isValidIndustryCategory('beverage')).toBe(true);
+      expect(isValidIndustryCategory('cpg')).toBe(true);
+      expect(isValidIndustryCategory('food_manufacturing')).toBe(true);
+      expect(isValidIndustryCategory('cold_chain')).toBe(true);
+      expect(isValidIndustryCategory('distribution')).toBe(true);
+      expect(isValidIndustryCategory('manufacturing')).toBe(true);
+      expect(isValidIndustryCategory('other')).toBe(true);
+    });
+
+    it('should reject invalid industry categories', () => {
+      expect(isValidIndustryCategory('technology')).toBe(false);
+      expect(isValidIndustryCategory('BEVERAGE')).toBe(false);
+      expect(isValidIndustryCategory('')).toBe(false);
+      expect(isValidIndustryCategory(null)).toBe(false);
+      expect(isValidIndustryCategory(undefined)).toBe(false);
+      expect(isValidIndustryCategory(123)).toBe(false);
+    });
+
+    it('should validate valid distribution footprints', () => {
+      expect(isValidDistributionFootprint('local')).toBe(true);
+      expect(isValidDistributionFootprint('regional')).toBe(true);
+      expect(isValidDistributionFootprint('national')).toBe(true);
+      expect(isValidDistributionFootprint('international')).toBe(true);
+    });
+
+    it('should reject invalid distribution footprints', () => {
+      expect(isValidDistributionFootprint('global')).toBe(false);
+      expect(isValidDistributionFootprint('NATIONAL')).toBe(false);
+      expect(isValidDistributionFootprint('')).toBe(false);
+      expect(isValidDistributionFootprint(null)).toBe(false);
+      expect(isValidDistributionFootprint(undefined)).toBe(false);
+    });
+
+    it('should handle invalid types in calculatePrimoLookalikeScore gracefully', () => {
+      // Test with invalid industry category string - should return 0 for industry
+      const result = calculatePrimoLookalikeScore({
+        facilityCount: 100,
+        industryCategory: 'invalid' as any,
+        distributionFootprint: 'invalid_footprint' as any,
+      });
+
+      expect(result.industryScore).toBe(0);
+      expect(result.footprintScore).toBe(0);
+      // Facility score should still work
+      expect(result.facilityScore).toBeGreaterThan(0);
+    });
+  });
+
+  // ============================================
+  // Revenue Matching Edge Cases (Code Review Fixes)
+  // ============================================
+  describe('Revenue Matching Edge Cases', () => {
+    it('should handle exact tier string matches', () => {
+      expect(calculateRevenueScore('$10B+')).toBe(15);
+      expect(calculateRevenueScore('$5B-$10B')).toBe(13);
+      expect(calculateRevenueScore('$1B-$5B')).toBe(11);
+      expect(calculateRevenueScore('Under $10M')).toBe(1);
+    });
+
+    it('should handle case insensitive tier matching', () => {
+      expect(calculateRevenueScore('$10b+')).toBe(15);
+      expect(calculateRevenueScore('under $10m')).toBe(1);
+    });
+
+    it('should handle negative revenue numbers', () => {
+      expect(calculateRevenueScore(-1000000)).toBe(0);
+    });
+
+    it('should handle NaN and Infinity revenue', () => {
+      expect(calculateRevenueScore(NaN)).toBe(0);
+      expect(calculateRevenueScore(Infinity)).toBe(0);
+    });
+
+    it('should handle revenue at exact tier boundaries', () => {
+      // Exactly at $10B boundary
+      expect(calculateRevenueScore(10_000_000_000)).toBe(15);
+      // Just under $10B
+      expect(calculateRevenueScore(9_999_999_999)).toBe(13);
+      // Exactly at $5B boundary
+      expect(calculateRevenueScore(5_000_000_000)).toBe(13);
+    });
+  });});

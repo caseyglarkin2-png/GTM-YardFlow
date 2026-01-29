@@ -484,4 +484,78 @@ describe('CompanyEnrichmentService', () => {
       expect(getEnrichment('company-1')?.facilityCount).toBeUndefined();
     });
   });
-});
+
+  // ============================================
+  // Input Validation Tests (Code Review Fixes)
+  // ============================================
+  describe('Input Validation', () => {
+    beforeEach(() => {
+      initializeCompanyStore(sampleCompanies);
+      clearEnrichmentStore();
+    });
+
+    it('should reject negative facility count', () => {
+      const result = setFacilityCount('company-1', -10);
+      
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Invalid facility count');
+    });
+
+    it('should reject NaN facility count', () => {
+      const result = setFacilityCount('company-1', NaN);
+      
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Invalid facility count');
+    });
+
+    it('should reject Infinity facility count', () => {
+      const result = setFacilityCount('company-1', Infinity);
+      
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Invalid facility count');
+    });
+
+    it('should floor decimal facility counts', () => {
+      const result = setFacilityCount('company-1', 100.7);
+      
+      expect(result.success).toBe(true);
+      const enrichment = getEnrichment('company-1');
+      expect(enrichment?.facilityCount).toBe(100);
+    });
+
+    it('should reject invalid industry category', () => {
+      // @ts-expect-error - Testing runtime validation
+      const result = setIndustryCategory('company-1', 'invalid_industry');
+      
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Invalid industry category');
+    });
+
+    it('should reject invalid distribution footprint', () => {
+      // @ts-expect-error - Testing runtime validation
+      const result = setDistributionFootprint('company-1', 'invalid_footprint');
+      
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Invalid distribution footprint');
+    });
+
+    it('should accept valid industry categories', () => {
+      const categories = ['beverage', 'cpg', 'food_manufacturing', 'cold_chain', 'distribution', 'manufacturing', 'other'] as const;
+      
+      for (const category of categories) {
+        clearEnrichmentStore();
+        const result = setIndustryCategory('company-1', category);
+        expect(result.success).toBe(true);
+      }
+    });
+
+    it('should accept valid distribution footprints', () => {
+      const footprints = ['local', 'regional', 'national', 'international'] as const;
+      
+      for (const footprint of footprints) {
+        clearEnrichmentStore();
+        const result = setDistributionFootprint('company-1', footprint);
+        expect(result.success).toBe(true);
+      }
+    });
+  });});

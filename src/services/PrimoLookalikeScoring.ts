@@ -24,6 +24,35 @@ export type IndustryCategory =
 
 export type DistributionFootprint = 'local' | 'regional' | 'national' | 'international';
 
+// ============================================
+// Type Guards
+// ============================================
+
+const VALID_INDUSTRY_CATEGORIES: readonly IndustryCategory[] = [
+  'beverage', 'cpg', 'food_manufacturing', 'cold_chain', 
+  'distribution', 'manufacturing', 'other'
+] as const;
+
+const VALID_DISTRIBUTION_FOOTPRINTS: readonly DistributionFootprint[] = [
+  'local', 'regional', 'national', 'international'
+] as const;
+
+/**
+ * Type guard for validating industry category values
+ */
+export function isValidIndustryCategory(value: unknown): value is IndustryCategory {
+  return typeof value === 'string' && 
+    VALID_INDUSTRY_CATEGORIES.includes(value as IndustryCategory);
+}
+
+/**
+ * Type guard for validating distribution footprint values
+ */
+export function isValidDistributionFootprint(value: unknown): value is DistributionFootprint {
+  return typeof value === 'string' && 
+    VALID_DISTRIBUTION_FOOTPRINTS.includes(value as DistributionFootprint);
+}
+
 export interface PrimoScoreBreakdown {
   totalScore: number; // 0-100
   facilityScore: number; // 0-30 pts (scaled, 260 facilities = max)
@@ -54,7 +83,21 @@ export const DEFAULT_CONFIG: PrimoLookalikeConfig = {
 };
 
 /**
- * Revenue tier to score mapping
+ * Revenue tier to score mapping - ordered from highest to lowest for numeric matching
+ */
+const REVENUE_TIERS: Array<{ min: number; tier: string; score: number }> = [
+  { min: 10_000_000_000, tier: '$10B+', score: 15 },
+  { min: 5_000_000_000, tier: '$5B-$10B', score: 13 },
+  { min: 1_000_000_000, tier: '$1B-$5B', score: 11 },
+  { min: 500_000_000, tier: '$500M-$1B', score: 9 },
+  { min: 100_000_000, tier: '$100M-$500M', score: 7 },
+  { min: 50_000_000, tier: '$50M-$100M', score: 5 },
+  { min: 10_000_000, tier: '$10M-$50M', score: 3 },
+  { min: 0, tier: 'Under $10M', score: 1 },
+];
+
+/**
+ * Revenue tier exact match mapping for string lookups
  */
 const REVENUE_SCORES: Record<string, number> = {
   '$10B+': 15,
@@ -120,22 +163,28 @@ export function calculateOpsIntensityScore(opsShare: number | undefined): number
 export function calculateRevenueScore(revenue: string | number | undefined): number {
   if (revenue === undefined) return 0;
   
-  // If it's a number, map to tier
+  // Handle numeric revenue - use ordered tier array for guaranteed order
   if (typeof revenue === 'number') {
-    if (revenue >= 10_000_000_000) return 15;
-    if (revenue >= 5_000_000_000) return 13;
-    if (revenue >= 1_000_000_000) return 11;
-    if (revenue >= 500_000_000) return 9;
-    if (revenue >= 100_000_000) return 7;
-    if (revenue >= 50_000_000) return 5;
-    if (revenue >= 10_000_000) return 3;
-    return 1;
+    if (!Number.isFinite(revenue) || revenue < 0) return 0;
+    for (const { min, score } of REVENUE_TIERS) {
+      if (revenue >= min) return score;
+    }
+    return 1; // Default to lowest tier
   }
   
-  // If it's a string tier, look it up
+  // Handle string tier - use exact match first, then fuzzy
   const normalizedRevenue = revenue.trim();
-  for (const [tier, score] of Object.entries(REVENUE_SCORES)) {
-    if (normalizedRevenue.includes(tier) || tier.includes(normalizedRevenue)) {
+  
+  // Exact match check first
+  if (REVENUE_SCORES[normalizedRevenue] !== undefined) {
+    return REVENUE_SCORES[normalizedRevenue];
+  }
+  
+  // Fuzzy match: iterate in order from highest to lowest tier
+  for (const { tier, score } of REVENUE_TIERS) {
+    // Check if input contains the tier string OR tier contains input
+    if (normalizedRevenue === tier || 
+        normalizedRevenue.toLowerCase() === tier.toLowerCase()) {
       return score;
     }
   }
@@ -209,10 +258,20 @@ export function calculatePrimoLookalikeScore(
   config: PrimoLookalikeConfig = DEFAULT_CONFIG
 ): PrimoScoreBreakdown {
   const facilityScore = calculateFacilityScore(company.facilityCount, config);
-  const industryScore = calculateIndustryScore(company.industryCategory as IndustryCategory | undefined, config);
+  
+  // Use type guards for safe type handling
+  const validatedIndustry = isValidIndustryCategory(company.industryCategory) 
+    ? company.industryCategory 
+    : undefined;
+  const industryScore = calculateIndustryScore(validatedIndustry, config);
+  
   const opsIntensityScore = calculateOpsIntensityScore(company.opsShare);
   const revenueScore = calculateRevenueScore(company.maxRevenue);
-  const footprintScore = calculateFootprintScore(company.distributionFootprint as DistributionFootprint | undefined);
+  
+  const validatedFootprint = isValidDistributionFootprint(company.distributionFootprint)
+    ? company.distributionFootprint
+    : undefined;
+  const footprintScore = calculateFootprintScore(validatedFootprint);
   
   const totalScore = Math.min(100, Math.round(
     facilityScore + 

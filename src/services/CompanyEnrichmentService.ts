@@ -12,7 +12,9 @@ import {
   calculatePrimoLookalikeScore, 
   type IndustryCategory, 
   type DistributionFootprint,
-  type PrimoScoreBreakdown
+  type PrimoScoreBreakdown,
+  isValidIndustryCategory,
+  isValidDistributionFootprint
 } from './PrimoLookalikeScoring';
 
 // ============================================
@@ -97,6 +99,20 @@ function normalizeCompanyName(name: string): string {
     .trim();
 }
 
+/**
+ * Get company name from store by ID
+ */
+function getCompanyName(companyId: string): string {
+  // Try to find by ID in the index
+  const normalizedName = companyIdIndex.get(companyId);
+  if (normalizedName) {
+    const company = companyStore.get(normalizedName);
+    if (company?.company) return company.company;
+  }
+  // Fallback to ID as name
+  return companyId;
+}
+
 // ============================================
 // CRUD Operations (T53.4a)
 // ============================================
@@ -112,9 +128,19 @@ export function getEnrichment(companyId: string): CompanyEnrichmentData | undefi
  * Set facility count for a company
  */
 export function setFacilityCount(companyId: string, count: number): EnrichmentResult {
+  // Input validation
+  if (!Number.isFinite(count) || count < 0) {
+    return {
+      success: false,
+      companyId,
+      companyName: getCompanyName(companyId),
+      error: `Invalid facility count: ${count}. Must be a non-negative number.`,
+    };
+  }
+  
   try {
     const existing = enrichmentStore.get(companyId) || {};
-    enrichmentStore.set(companyId, { ...existing, facilityCount: count });
+    enrichmentStore.set(companyId, { ...existing, facilityCount: Math.floor(count) });
     
     return recalculateScore(companyId);
   } catch (error) {
@@ -131,6 +157,16 @@ export function setFacilityCount(companyId: string, count: number): EnrichmentRe
  * Set industry category for a company
  */
 export function setIndustryCategory(companyId: string, category: IndustryCategory): EnrichmentResult {
+  // Input validation
+  if (!isValidIndustryCategory(category)) {
+    return {
+      success: false,
+      companyId,
+      companyName: getCompanyName(companyId),
+      error: `Invalid industry category: ${category}. Must be one of: beverage, cpg, food_manufacturing, cold_chain, distribution, manufacturing, other.`,
+    };
+  }
+  
   try {
     const existing = enrichmentStore.get(companyId) || {};
     enrichmentStore.set(companyId, { ...existing, industryCategory: category });
@@ -150,6 +186,16 @@ export function setIndustryCategory(companyId: string, category: IndustryCategor
  * Set distribution footprint for a company
  */
 export function setDistributionFootprint(companyId: string, footprint: DistributionFootprint): EnrichmentResult {
+  // Input validation
+  if (!isValidDistributionFootprint(footprint)) {
+    return {
+      success: false,
+      companyId,
+      companyName: getCompanyName(companyId),
+      error: `Invalid distribution footprint: ${footprint}. Must be one of: local, regional, national, international.`,
+    };
+  }
+  
   try {
     const existing = enrichmentStore.get(companyId) || {};
     enrichmentStore.set(companyId, { ...existing, distributionFootprint: footprint });
