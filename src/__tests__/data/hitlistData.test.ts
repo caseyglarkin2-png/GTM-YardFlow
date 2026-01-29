@@ -18,7 +18,7 @@ describe('Hitlist Data', () => {
   })
 
   it('should have valid tier values', () => {
-    const validTiers = ['Tier 1', 'Tier 2', 'Tier 3']
+    const validTiers = ['Tier 1', 'Tier 2', 'Tier 3', 'Tier 4']
     HITLIST_PROSPECTS.forEach(prospect => {
       expect(validTiers).toContain(prospect.tier)
     })
