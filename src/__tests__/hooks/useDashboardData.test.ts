@@ -1,12 +1,14 @@
 /**
  * useDashboardData Hook Tests
  * Sprint 28B - T28B.8
+ * Sprint 35 - T35.0 - Added aggregator integration tests
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useDashboardData } from '../../hooks/useDashboardData';
 import type { DateRange } from '../../types/analytics';
+import type { AnalyticsAggregator } from '../../services/AnalyticsAggregator';
 
 describe('useDashboardData', () => {
   const mockDateRange: DateRange = {
@@ -169,6 +171,125 @@ describe('useDashboardData', () => {
       expect(pipeline).toHaveProperty('totalDeals');
       expect(pipeline).toHaveProperty('avgDealSize');
       expect(pipeline).toHaveProperty('winRate');
+    });
+  });
+
+  describe('aggregator integration', () => {
+    const mockKPIs = {
+      totalProspects: { current: 100, previous: 80, change: 20, changePercent: 25, trend: 'up' as const },
+      activeDeals: { current: 50, previous: 45, change: 5, changePercent: 11, trend: 'up' as const },
+      pipelineValue: { current: 500000, previous: 400000, change: 100000, changePercent: 25, trend: 'up' as const },
+      winRate: { current: 30, previous: 25, change: 5, changePercent: 20, trend: 'up' as const },
+      avgDealSize: { current: 10000, previous: 9000, change: 1000, changePercent: 11, trend: 'up' as const },
+      activitiesThisPeriod: { current: 200, previous: 150, change: 50, changePercent: 33, trend: 'up' as const },
+    };
+
+    const mockFunnelData = {
+      stages: [{ id: 'new', name: 'New', count: 100, value: 100000, conversionRate: 100, avgTimeInStage: 5, color: '#3B82F6' }],
+      totalConversionRate: 10,
+      avgCycleTime: 30,
+      period: mockDateRange,
+    };
+
+    const mockActivityMetrics = {
+      byType: [{ type: 'email_sent' as const, count: 100, label: 'Emails Sent' }],
+      trend: [],
+      totalActivities: 100,
+      avgPerDay: 10,
+      topPerformers: [],
+    };
+
+    const mockPipelineMetrics = {
+      totalValue: 500000,
+      totalDeals: 50,
+      avgDealSize: 10000,
+      winRate: 30,
+      lossRate: 20,
+      avgCycleTime: 30,
+      byStage: [],
+      trend: [],
+    };
+
+    const mockTeamMetrics = {
+      totalMembers: 5,
+      activeMembers: 4,
+      totalActivities: 200,
+      leaderboard: [],
+      period: mockDateRange,
+    };
+
+    let mockAggregator: AnalyticsAggregator;
+    
+    beforeEach(() => {
+      mockAggregator = {
+        getKPIs: vi.fn().mockReturnValue(mockKPIs),
+        getFunnelData: vi.fn().mockReturnValue(mockFunnelData),
+        getActivityMetrics: vi.fn().mockReturnValue(mockActivityMetrics),
+        getPipelineMetrics: vi.fn().mockReturnValue(mockPipelineMetrics),
+        getTeamMetrics: vi.fn().mockReturnValue(mockTeamMetrics),
+        getDateRange: vi.fn(),
+        getPreviousPeriod: vi.fn(),
+        getConversionMetrics: vi.fn(),
+        getSummary: vi.fn(),
+        _calculateKPI: vi.fn(),
+        _isInRange: vi.fn(),
+      } as unknown as AnalyticsAggregator;
+    });
+
+    it('uses aggregator when provided', async () => {
+      const { result } = renderHook(() => 
+        useDashboardData(mockDateRange, { aggregator: mockAggregator })
+      );
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      }, { timeout: 2000 });
+
+      expect(mockAggregator.getKPIs).toHaveBeenCalledWith(mockDateRange);
+      expect(mockAggregator.getFunnelData).toHaveBeenCalledWith(mockDateRange);
+      expect(mockAggregator.getActivityMetrics).toHaveBeenCalledWith(mockDateRange);
+      expect(mockAggregator.getPipelineMetrics).toHaveBeenCalledWith(mockDateRange);
+      expect(mockAggregator.getTeamMetrics).toHaveBeenCalledWith(mockDateRange);
+    });
+
+    it('converts aggregator KPIs to KPIMetric array format', async () => {
+      const { result } = renderHook(() => 
+        useDashboardData(mockDateRange, { aggregator: mockAggregator })
+      );
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      }, { timeout: 2000 });
+
+      const kpis = result.current.data.kpis;
+      expect(kpis.length).toBeGreaterThan(0);
+      expect(kpis.find(k => k.id === 'total-prospects')).toBeDefined();
+      expect(kpis.find(k => k.id === 'pipeline-value')).toBeDefined();
+      expect(kpis.find(k => k.id === 'win-rate')).toBeDefined();
+    });
+
+    it('returns funnel data from aggregator', async () => {
+      const { result } = renderHook(() => 
+        useDashboardData(mockDateRange, { aggregator: mockAggregator })
+      );
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      }, { timeout: 2000 });
+
+      expect(result.current.data.funnel).toEqual(mockFunnelData);
+    });
+
+    it('returns activity metrics from aggregator', async () => {
+      const { result } = renderHook(() => 
+        useDashboardData(mockDateRange, { aggregator: mockAggregator })
+      );
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      }, { timeout: 2000 });
+
+      expect(result.current.data.activities).toEqual(mockActivityMetrics);
     });
   });
 });

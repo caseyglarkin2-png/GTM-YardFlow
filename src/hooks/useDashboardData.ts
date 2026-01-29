@@ -1,11 +1,13 @@
 /**
  * useDashboardData Hook
  * Sprint 28B - T28B.8
+ * Sprint 35 - T35.0 - Wire to AnalyticsAggregator
  * 
  * Connects dashboard to live data via AnalyticsAggregator.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import type { AnalyticsAggregator } from '../services/AnalyticsAggregator';
 import type {
   DateRange,
   KPIMetric,
@@ -35,6 +37,7 @@ export interface UseDashboardDataOptions {
   cacheTtl?: number; // milliseconds, default 60000 (1 minute)
   autoRefresh?: boolean;
   refreshInterval?: number; // milliseconds
+  aggregator?: AnalyticsAggregator | null; // Optional real analytics aggregator
 }
 
 const EMPTY_DATA: DashboardData = {
@@ -48,8 +51,9 @@ const EMPTY_DATA: DashboardData = {
 // Simple in-memory cache
 const cache = new Map<string, { data: DashboardData; timestamp: number }>();
 
-function getCacheKey(dateRange: DateRange): string {
-  return `${dateRange.start.toISOString()}-${dateRange.end.toISOString()}`;
+function getCacheKey(dateRange: DateRange, useAggregator: boolean): string {
+  const source = useAggregator ? 'agg' : 'mock';
+  return `${source}:${dateRange.start.toISOString()}-${dateRange.end.toISOString()}`;
 }
 
 export function useDashboardData(
@@ -60,6 +64,7 @@ export function useDashboardData(
     cacheTtl = 60000,
     autoRefresh = false,
     refreshInterval = 300000, // 5 minutes
+    aggregator = null,
   } = options;
 
   const [data, setData] = useState<DashboardData>(EMPTY_DATA);
@@ -71,7 +76,7 @@ export function useDashboardData(
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async (skipCache = false) => {
-    const cacheKey = getCacheKey(dateRange);
+    const cacheKey = getCacheKey(dateRange, !!aggregator);
     
     // Check cache first
     if (!skipCache) {
@@ -94,23 +99,51 @@ export function useDashboardData(
     setError(null);
 
     try {
-      // Simulate fetching from AnalyticsAggregator
-      // In real implementation, this would call AnalyticsAggregator methods
-      const [kpis, funnel, activities, pipeline, team] = await Promise.all([
-        fetchKPIs(dateRange),
-        fetchFunnelData(dateRange),
-        fetchActivityMetrics(dateRange),
-        fetchPipelineMetrics(dateRange),
-        fetchTeamMetrics(dateRange),
-      ]);
+      let newData: DashboardData;
+      
+      if (aggregator) {
+        // Use real AnalyticsAggregator for live data
+        const kpisData = aggregator.getKPIs(dateRange);
+        const funnelData = aggregator.getFunnelData(dateRange);
+        const activityData = aggregator.getActivityMetrics(dateRange);
+        const pipelineData = aggregator.getPipelineMetrics(dateRange);
+        const teamData = aggregator.getTeamMetrics(dateRange);
+        
+        // Convert aggregator KPIs format to KPIMetric[] format
+        const kpis: KPIMetric[] = [
+          { id: 'total-prospects', name: 'Total Prospects', value: kpisData.totalProspects, format: 'number' },
+          { id: 'pipeline-value', name: 'Pipeline Value', value: kpisData.pipelineValue, format: 'currency' },
+          { id: 'win-rate', name: 'Win Rate', value: kpisData.winRate, format: 'percent' },
+          { id: 'avg-deal-size', name: 'Avg Deal Size', value: kpisData.avgDealSize, format: 'currency' },
+          { id: 'active-deals', name: 'Active Deals', value: kpisData.activeDeals, format: 'number' },
+          { id: 'activities', name: 'Activities', value: kpisData.activitiesThisPeriod, format: 'number' },
+        ];
+        
+        newData = {
+          kpis,
+          funnel: funnelData,
+          activities: activityData,
+          pipeline: pipelineData,
+          team: teamData,
+        };
+      } else {
+        // Use mock data for demo mode
+        const [kpis, funnel, activities, pipeline, team] = await Promise.all([
+          fetchKPIs(dateRange),
+          fetchFunnelData(dateRange),
+          fetchActivityMetrics(dateRange),
+          fetchPipelineMetrics(dateRange),
+          fetchTeamMetrics(dateRange),
+        ]);
 
-      const newData: DashboardData = {
-        kpis,
-        funnel,
-        activities,
-        pipeline,
-        team,
-      };
+        newData = {
+          kpis,
+          funnel,
+          activities,
+          pipeline,
+          team,
+        };
+      }
 
       // Update cache
       cache.set(cacheKey, { data: newData, timestamp: Date.now() });
@@ -126,7 +159,7 @@ export function useDashboardData(
     } finally {
       setIsLoading(false);
     }
-  }, [dateRange, cacheTtl]);
+  }, [dateRange, cacheTtl, aggregator]);
 
   const refetch = useCallback(() => {
     fetchData(true);
