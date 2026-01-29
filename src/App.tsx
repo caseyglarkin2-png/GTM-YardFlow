@@ -246,6 +246,8 @@ export default function App() {
   const [generatedMessage, setGeneratedMessage] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('dm_codev');
   const [showCopied, setShowCopied] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailSendStatus, setEmailSendStatus] = useState<'idle' | 'success' | 'error' | 'no_email'>('idle');
   const [loading, setLoading] = useState(true);
   const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false);
   
@@ -996,6 +998,71 @@ export default function App() {
       handleStatusUpdate('drafted');
     } catch (err) { console.error('Fallback copy failed', err); }
     document.body.removeChild(textArea);
+  };
+
+  // Send email to selected prospect
+  const sendEmailToProspect = async () => {
+    if (!selectedProspect) return;
+    
+    if (!selectedProspect.email) {
+      setEmailSendStatus('no_email');
+      setTimeout(() => setEmailSendStatus('idle'), 3000);
+      return;
+    }
+
+    setIsSendingEmail(true);
+    setEmailSendStatus('idle');
+
+    try {
+      const auth = await import('firebase/auth').then(m => m.getAuth());
+      const user = auth.currentUser;
+      
+      if (!user) {
+        throw new Error('You must be logged in to send emails');
+      }
+
+      const token = await user.getIdToken();
+      const emailId = `email-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      const response = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Idempotency-Key': emailId,
+        },
+        body: JSON.stringify({
+          id: emailId,
+          to: selectedProspect.email,
+          toName: selectedProspect.name,
+          subject: `YardFlow for ${selectedProspect.company}`,
+          html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            ${generatedMessage.split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('')}
+          </div>`,
+          text: generatedMessage,
+          metadata: {
+            prospectId: selectedProspect.id,
+            prospectName: selectedProspect.name,
+            source: 'ProspectDetail',
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to send: ${response.status}`);
+      }
+
+      setEmailSendStatus('success');
+      handleStatusUpdate('contacted');
+      setTimeout(() => setEmailSendStatus('idle'), 3000);
+    } catch (err) {
+      console.error('Email send failed:', err);
+      setEmailSendStatus('error');
+      setTimeout(() => setEmailSendStatus('idle'), 3000);
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -2055,7 +2122,7 @@ export default function App() {
                   className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="flex-1">Prospect</span>
-                <span className="w-24 text-right">Company</span>
+                <span className="w-32 text-right">Company</span>
                 <span className="w-20 text-right">Tier</span>
                 <span className="w-28 text-right">Status</span>
               </div>
@@ -2103,21 +2170,24 @@ export default function App() {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between">
-                        <h3 className={`font-semibold text-sm ${selectedProspect?.id === prospect.id ? 'text-blue-700' : 'text-slate-800'}`}>
+                        <h3 className={`font-semibold text-sm truncate ${selectedProspect?.id === prospect.id ? 'text-blue-700' : 'text-slate-800'}`}>
                           {prospect.name}
                         </h3>
                         {prospect.lastEditedBy && prospect.lastEditedBy !== currentUser && prospect.status !== 'new' && (
-                          <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" title={`Updated by ${prospect.lastEditedBy}`} aria-label={`Updated by ${prospect.lastEditedBy}`} />
+                          <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse flex-shrink-0 ml-1" title={`Updated by ${prospect.lastEditedBy}`} aria-label={`Updated by ${prospect.lastEditedBy}`} />
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 truncate mb-1">{prospect.title}</p>
-                      <div className="text-xs font-medium text-slate-700 flex items-center gap-2">
-                        <Briefcase className="h-3 w-3 text-slate-400" aria-hidden="true" />
+                      <p className="text-xs text-slate-500 truncate">{prospect.title}</p>
+                    </div>
+
+                    <div className="w-32 min-w-0 text-right">
+                      <div className="text-xs font-medium text-slate-700 flex items-center justify-end gap-1">
+                        <Briefcase className="h-3 w-3 text-slate-400 flex-shrink-0" aria-hidden="true" />
                         <span className="truncate">{prospect.company}</span>
                       </div>
                     </div>
 
-                    <div className="w-20 text-right">
+                    <div className="w-20 text-right flex-shrink-0">
                       <span className="inline-flex items-center justify-end text-[11px] font-semibold text-slate-600">
                         {prospect.tier}
                         {prospect.tier === 'Tier 1' && (
@@ -2509,7 +2579,7 @@ export default function App() {
                         </button>
                         <button
                           onClick={copyToClipboard}
-                          className={`flex items-center px-6 py-2 rounded-lg text-sm font-medium text-white transition-all shadow-md transform active:scale-95 ${
+                          className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white transition-all shadow-md transform active:scale-95 ${
                             showCopied ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700'
                           }`}
                         >
@@ -2521,7 +2591,48 @@ export default function App() {
                           ) : (
                             <>
                               <MessageSquare className="h-4 w-4 mr-2" />
-                              Copy for App
+                              Copy for DM
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={sendEmailToProspect}
+                          disabled={isSendingEmail || !generatedMessage.trim()}
+                          className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white transition-all shadow-md transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            emailSendStatus === 'success' 
+                              ? 'bg-green-600' 
+                              : emailSendStatus === 'error' 
+                                ? 'bg-red-600'
+                                : emailSendStatus === 'no_email'
+                                  ? 'bg-amber-600'
+                                  : 'bg-purple-600 hover:bg-purple-700'
+                          }`}
+                          title={selectedProspect?.email ? `Send to ${selectedProspect.email}` : 'No email address for this prospect'}
+                        >
+                          {isSendingEmail ? (
+                            <>
+                              <Loader className="h-4 w-4 mr-2 animate-spin" />
+                              Sending...
+                            </>
+                          ) : emailSendStatus === 'success' ? (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Sent!
+                            </>
+                          ) : emailSendStatus === 'error' ? (
+                            <>
+                              <AlertCircle className="h-4 w-4 mr-2" />
+                              Failed
+                            </>
+                          ) : emailSendStatus === 'no_email' ? (
+                            <>
+                              <AlertCircle className="h-4 w-4 mr-2" />
+                              No Email
+                            </>
+                          ) : (
+                            <>
+                              <Send className="h-4 w-4 mr-2" />
+                              Send Email
                             </>
                           )}
                         </button>
