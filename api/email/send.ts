@@ -109,10 +109,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  const warmupCheck = await warmup.canSend(message.metadata?.tenantId, 1);
-  if (!warmupCheck.allowed) {
-    res.status(429).json({ error: 'Warmup limit', reason: warmupCheck.reason, remaining: warmupCheck.remaining });
-    return;
+  // Allow bypassing warmup limits in development or with explicit env var
+  const bypassWarmup = process.env.BYPASS_EMAIL_WARMUP === 'true' || process.env.VERCEL_ENV === 'development';
+  
+  if (!bypassWarmup) {
+    const warmupCheck = await warmup.canSend(message.metadata?.tenantId, 1);
+    if (!warmupCheck.allowed) {
+      userLog.warn('Warmup limit hit', { reason: warmupCheck.reason, remaining: warmupCheck.remaining });
+      res.status(429).json({ 
+        error: 'Daily email limit reached', 
+        reason: warmupCheck.reason, 
+        remaining: warmupCheck.remaining,
+        message: warmupCheck.reason === 'warmup_limit' 
+          ? 'New accounts start with 20 emails/day. Set BYPASS_EMAIL_WARMUP=true in Vercel to override.'
+          : 'Email sending is paused due to deliverability concerns.'
+      });
+      return;
+    }
   }
 
   try {

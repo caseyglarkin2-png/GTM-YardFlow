@@ -291,7 +291,8 @@ export default function App() {
   const [selectedTemplateId, setSelectedTemplateId] = useState('dm_codev');
   const [showCopied, setShowCopied] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [emailSendStatus, setEmailSendStatus] = useState<'idle' | 'success' | 'error' | 'no_email'>('idle');
+  const [emailSendStatus, setEmailSendStatus] = useState<'idle' | 'success' | 'error' | 'no_email' | 'rate_limit'>('idle');
+  const [emailErrorMessage, setEmailErrorMessage] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false);
   
@@ -1123,6 +1124,13 @@ export default function App() {
 
       if (!response.ok) {
         const errorData = await response.json();
+        // Handle rate limit specifically
+        if (response.status === 429) {
+          setEmailErrorMessage(errorData.message || 'Daily email limit reached. Try again tomorrow or set BYPASS_EMAIL_WARMUP=true in Vercel.');
+          setEmailSendStatus('rate_limit');
+          setTimeout(() => setEmailSendStatus('idle'), 8000);
+          return;
+        }
         throw new Error(errorData.error || `Failed to send: ${response.status}`);
       }
 
@@ -1131,8 +1139,9 @@ export default function App() {
       setTimeout(() => setEmailSendStatus('idle'), 3000);
     } catch (err) {
       console.error('Email send failed:', err);
+      setEmailErrorMessage((err as Error).message || 'Failed to send email');
       setEmailSendStatus('error');
-      setTimeout(() => setEmailSendStatus('idle'), 3000);
+      setTimeout(() => setEmailSendStatus('idle'), 5000);
     } finally {
       setIsSendingEmail(false);
     }
@@ -2551,13 +2560,19 @@ export default function App() {
                           className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white transition-all shadow-md transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
                             emailSendStatus === 'success' 
                               ? 'bg-green-600' 
-                              : emailSendStatus === 'error' 
+                              : emailSendStatus === 'error' || emailSendStatus === 'rate_limit'
                                 ? 'bg-red-600'
                                 : emailSendStatus === 'no_email'
                                   ? 'bg-amber-600'
                                   : 'bg-purple-600 hover:bg-purple-700'
                           }`}
-                          title={selectedProspect?.email ? `Send to ${selectedProspect.email}` : 'No email address for this prospect'}
+                          title={
+                            emailSendStatus === 'rate_limit' 
+                              ? emailErrorMessage 
+                              : selectedProspect?.email 
+                                ? `Send to ${selectedProspect.email}` 
+                                : 'No email address for this prospect'
+                          }
                         >
                           {isSendingEmail ? (
                             <>
@@ -2574,6 +2589,11 @@ export default function App() {
                               <AlertCircle className="h-4 w-4 mr-2" />
                               Failed
                             </>
+                          ) : emailSendStatus === 'rate_limit' ? (
+                            <>
+                              <AlertCircle className="h-4 w-4 mr-2" />
+                              Limit Hit
+                            </>
                           ) : emailSendStatus === 'no_email' ? (
                             <>
                               <AlertCircle className="h-4 w-4 mr-2" />
@@ -2586,6 +2606,12 @@ export default function App() {
                             </>
                           )}
                         </button>
+                        {/* Show error message tooltip */}
+                        {(emailSendStatus === 'error' || emailSendStatus === 'rate_limit') && emailErrorMessage && (
+                          <div className="absolute bottom-full right-0 mb-2 p-2 bg-red-100 border border-red-200 rounded-lg text-xs text-red-700 max-w-xs whitespace-normal">
+                            {emailErrorMessage}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

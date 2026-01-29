@@ -14,10 +14,12 @@ function weeksSince(start: number): number {
 }
 
 function getLimitForWeek(week: number): number {
-  if (week <= 1) return 20;
-  if (week === 2) return 50;
-  if (week === 3) return 100;
-  if (week === 4) return 250;
+  // Warmup schedule for new sending domains
+  // Can be bypassed with BYPASS_EMAIL_WARMUP=true in Vercel
+  if (week <= 1) return 50;   // Week 1: 50/day (increased from 20)
+  if (week === 2) return 100; // Week 2: 100/day
+  if (week === 3) return 250; // Week 3: 250/day
+  if (week === 4) return 500; // Week 4: 500/day
   return Number.POSITIVE_INFINITY;
 }
 
