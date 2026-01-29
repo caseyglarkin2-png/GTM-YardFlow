@@ -97,6 +97,7 @@ import { PresenceIndicator } from './components/PresenceIndicator';
 
 // --- Sprint 35 Components ---
 import { DateRangePicker } from './components/DateRangePicker';
+import { dashboardExporter } from './services/DashboardExporter';
 
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
@@ -211,6 +212,32 @@ export default function App() {
   
   // Dashboard data hook (Sprint 35)
   const dashboard = useDashboardData(dashboardDateRange);
+  const dashboardRef = useRef<HTMLDivElement>(null);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  
+  // Dashboard export handler (Sprint 35 - T35.2)
+  const handleDashboardExport = async (format: 'png' | 'pdf') => {
+    if (!dashboardRef.current) return;
+    setIsExporting(true);
+    setShowExportMenu(false);
+    try {
+      if (format === 'png') {
+        await dashboardExporter.downloadPng(dashboardRef.current, {
+          dateRange: dashboardDateRange,
+        });
+      } else {
+        await dashboardExporter.downloadPdf(dashboardRef.current, {
+          dateRange: dashboardDateRange,
+          includeHeader: true,
+        });
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
   
   // Import State (Sprint 29)
   const [showImportWizard, setShowImportWizard] = useState(false);
@@ -955,7 +982,7 @@ export default function App() {
         {/* Prospect list panel */}
         <div className="flex-1 overflow-y-auto" role="tabpanel" id="panel-prospects" aria-labelledby="tab-prospects">
           {activeTab === 'dashboard' ? (
-            <div className="p-6 space-y-6" data-testid="dashboard-tab">
+            <div ref={dashboardRef} className="p-6 space-y-6" data-testid="dashboard-tab">
               {/* Dashboard Header with DateRangePicker */}
               <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-md">
                 <div className="flex items-center justify-between mb-2">
@@ -973,6 +1000,36 @@ export default function App() {
                     >
                       <RefreshCw className={`h-4 w-4 ${dashboard.isLoading ? 'animate-spin' : ''}`} />
                     </button>
+                    {/* Export dropdown */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowExportMenu(!showExportMenu)}
+                        disabled={isExporting}
+                        className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50 flex items-center gap-1"
+                        aria-label="Export dashboard"
+                        data-testid="dashboard-export"
+                      >
+                        <Download className={`h-4 w-4 ${isExporting ? 'animate-pulse' : ''}`} />
+                      </button>
+                      {showExportMenu && (
+                        <div className="absolute right-0 mt-1 w-32 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
+                          <button
+                            onClick={() => handleDashboardExport('png')}
+                            className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+                            data-testid="export-png"
+                          >
+                            Export as PNG
+                          </button>
+                          <button
+                            onClick={() => handleDashboardExport('pdf')}
+                            className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+                            data-testid="export-pdf"
+                          >
+                            Export as PDF
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="text-2xl font-bold">GTM Performance</div>
