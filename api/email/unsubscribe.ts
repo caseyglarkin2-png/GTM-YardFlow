@@ -13,6 +13,36 @@ const warmup = new EmailWarmupService(db);
 const tracking = new EmailTrackingService(db);
 const queue = new EmailQueueService(db, sendGrid, compliance, warmup, tracking, 'api-unsubscribe');
 
+// CSRF validation for unsubscribe
+// Note: POST from List-Unsubscribe header may not have Origin, so we validate token signature instead
+const ALLOWED_ORIGINS = [
+  'https://gtm-yard-flow.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+function validateOriginOrListUnsubscribe(req: VercelRequest): boolean {
+  const origin = req.headers.origin;
+  
+  // If valid origin, allow
+  if (origin && ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed))) {
+    return true;
+  }
+  
+  // List-Unsubscribe One-Click requests may not have Origin
+  // The HMAC token signature provides authentication instead
+  if (req.method === 'POST' && req.body && bodyIncludesOneClick(req)) {
+    return true;
+  }
+  
+  // GET requests for landing page allowed (token validates user)
+  if (req.method === 'GET') {
+    return true;
+  }
+  
+  return false;
+}
+
 function bodyIncludesOneClick(req: VercelRequest): boolean {
   if (typeof req.body === 'string') {
     return req.body.includes('List-Unsubscribe=One-Click');
@@ -30,6 +60,12 @@ async function resolveEmailAddress(emailId: string): Promise<string | null> {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  // CSRF Protection
+  if (!validateOriginOrListUnsubscribe(req)) {
+    res.status(403).json({ error: 'Invalid origin' });
+    return;
+  }
+
   const token = (req.query.token as string | undefined) || (req.body?.token as string | undefined);
   if (!token) {
     res.status(400).json({ error: 'Missing token' });

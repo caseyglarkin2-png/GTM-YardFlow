@@ -32,19 +32,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  // Optional auth - if provided, verify the user owns this email
+  // Authentication required - verify user owns this email
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : undefined;
   
-  let userId: string | undefined;
-  if (token) {
-    try {
-      const decoded = await auth.verifyIdToken(token);
-      userId = decoded.uid;
-    } catch {
-      res.status(401).json({ error: 'Invalid token' });
-      return;
-    }
+  if (!token) {
+    res.status(401).json({ error: 'Missing authorization token' });
+    return;
+  }
+
+  let userId: string;
+  try {
+    const decoded = await auth.verifyIdToken(token);
+    userId = decoded.uid;
+  } catch {
+    res.status(401).json({ error: 'Invalid token' });
+    return;
   }
 
   try {
@@ -58,8 +61,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     const queueData = queueDoc.data() as Record<string, unknown>;
 
-    // If authenticated, verify ownership
-    if (userId && queueData.userId && queueData.userId !== userId) {
+    // Verify ownership - user must own the email to see its status
+    if (queueData.userId && queueData.userId !== userId) {
       res.status(403).json({ error: 'Access denied' });
       return;
     }

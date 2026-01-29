@@ -18,6 +18,35 @@ const queue = new EmailQueueService(db, sendGrid, compliance, warmup, tracking, 
 const RATE_LIMIT = 100;
 const WINDOW_MS = 60 * 1000;
 
+// CSRF Protection: Validate Origin/Referer header
+const ALLOWED_ORIGINS = [
+  'https://gtm-yard-flow.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+function validateOrigin(req: VercelRequest): boolean {
+  const origin = req.headers.origin;
+  const referer = req.headers.referer;
+  
+  // In production, require valid Origin header
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+    if (!origin) return false;
+    return ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed));
+  }
+  
+  // In development, allow if Origin or Referer matches
+  if (origin && ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed))) {
+    return true;
+  }
+  if (referer && ALLOWED_ORIGINS.some(allowed => referer.startsWith(allowed))) {
+    return true;
+  }
+  
+  // Allow in dev without Origin (e.g., curl, Postman)
+  return process.env.NODE_ENV !== 'production';
+}
+
 async function enforceRateLimit(userId: string): Promise<void> {
   const ref = db.collection('email_rate_limits').doc(userId);
   await db.runTransaction(async tx => {
@@ -41,6 +70,12 @@ function parseMessage(req: VercelRequest): EmailMessage {
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  // CSRF Protection
+  if (!validateOrigin(req)) {
+    res.status(403).json({ error: 'Invalid origin' });
     return;
   }
 

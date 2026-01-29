@@ -61,36 +61,60 @@ interface TokenData {
 // Utilities
 // =============================================================================
 
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+
+const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
+const IV_LENGTH = 12; // GCM standard IV length
+const AUTH_TAG_LENGTH = 16;
+
 /**
- * Simple encryption for cookie data using AES-like transformation
- * In production, use a proper encryption library
+ * Derive a 32-byte key from the secret using simple padding
+ * In production, consider using PBKDF2 or scrypt for key derivation
  */
-function encryptTokenData(data: TokenData, secret: string): string {
-  const json = JSON.stringify(data);
-  const encoded = Buffer.from(json).toString('base64');
-  // Simple XOR with secret for basic obfuscation
-  // In production, use proper AES encryption
+function deriveKey(secret: string): Buffer {
   const key = secret.slice(0, 32).padEnd(32, '0');
-  let result = '';
-  for (let i = 0; i < encoded.length; i++) {
-    result += String.fromCharCode(encoded.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-  }
-  return Buffer.from(result).toString('base64');
+  return Buffer.from(key, 'utf8');
 }
 
 /**
- * Decrypt token data from cookie
+ * Encrypt token data using AES-256-GCM
+ * Format: base64(iv + authTag + ciphertext)
+ */
+function encryptTokenData(data: TokenData, secret: string): string {
+  const json = JSON.stringify(data);
+  const key = deriveKey(secret);
+  const iv = randomBytes(IV_LENGTH);
+  
+  const cipher = createCipheriv(ENCRYPTION_ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
+  const encrypted = Buffer.concat([cipher.update(json, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  
+  // Combine: IV (12 bytes) + AuthTag (16 bytes) + Ciphertext
+  const combined = Buffer.concat([iv, authTag, encrypted]);
+  return combined.toString('base64');
+}
+
+/**
+ * Decrypt token data from cookie using AES-256-GCM
  */
 function decryptTokenData(encrypted: string, secret: string): TokenData | null {
   try {
-    const key = secret.slice(0, 32).padEnd(32, '0');
-    const decoded = Buffer.from(encrypted, 'base64').toString();
-    let result = '';
-    for (let i = 0; i < decoded.length; i++) {
-      result += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    const key = deriveKey(secret);
+    const combined = Buffer.from(encrypted, 'base64');
+    
+    if (combined.length < IV_LENGTH + AUTH_TAG_LENGTH) {
+      return null;
     }
-    const json = Buffer.from(result, 'base64').toString();
-    return JSON.parse(json) as TokenData;
+    
+    const iv = combined.subarray(0, IV_LENGTH);
+    const authTag = combined.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
+    const ciphertext = combined.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
+    
+    const decipher = createDecipheriv(ENCRYPTION_ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
+    decipher.setAuthTag(authTag);
+    
+    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    return JSON.parse(decrypted.toString('utf8')) as TokenData;
   } catch {
     return null;
   }
