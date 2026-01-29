@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAdminDb } from '../../lib/firebaseAdmin';
-import { isAllowedOrigin } from '../../lib/origins';
+import { validateRequestOrigin, isListUnsubscribeOneClick } from '../../lib/validateOrigin';
 import { EmailComplianceService } from '../../src/services/EmailComplianceService';
 import { EmailQueueService } from '../../src/services/EmailQueueService';
 import { EmailWarmupService } from '../../src/services/EmailWarmupService';
@@ -15,38 +15,12 @@ const tracking = new EmailTrackingService(db);
 const queue = new EmailQueueService(db, sendGrid, compliance, warmup, tracking, 'api-unsubscribe');
 
 // CSRF validation for unsubscribe
-// Note: POST from List-Unsubscribe header may not have Origin, so we validate token signature instead
-
+// Uses shared validateRequestOrigin with List-Unsubscribe One-Click support
 function validateOriginOrListUnsubscribe(req: VercelRequest): boolean {
-  const origin = req.headers.origin;
-  
-  // If valid origin, allow
-  if (isAllowedOrigin(origin as string | undefined)) {
-    return true;
-  }
-  
-  // List-Unsubscribe One-Click requests may not have Origin
-  // The HMAC token signature provides authentication instead
-  if (req.method === 'POST' && req.body && bodyIncludesOneClick(req)) {
-    return true;
-  }
-  
-  // GET requests for landing page allowed (token validates user)
-  if (req.method === 'GET') {
-    return true;
-  }
-  
-  return false;
-}
-
-function bodyIncludesOneClick(req: VercelRequest): boolean {
-  if (typeof req.body === 'string') {
-    return req.body.includes('List-Unsubscribe=One-Click');
-  }
-  if (req.body && typeof req.body === 'object') {
-    return Object.values(req.body).some(val => typeof val === 'string' && val.includes('List-Unsubscribe=One-Click'));
-  }
-  return false;
+  return validateRequestOrigin(req, {
+    allowGetWithoutOrigin: true, // GET requests for landing page allowed (token validates user)
+    customValidator: isListUnsubscribeOneClick, // List-Unsubscribe One-Click POST without origin
+  });
 }
 
 async function resolveEmailAddress(emailId: string): Promise<string | null> {

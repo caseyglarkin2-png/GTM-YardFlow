@@ -1,6 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAdminAuth, getAdminDb } from '../../lib/firebaseAdmin';
-import { isAllowedOrigin } from '../../lib/origins';
+import { validateRequestOrigin } from '../../lib/validateOrigin';
+import { createLogger } from '../../lib/logger';
+
+const log = createLogger('email-send');
 import { EmailQueueService } from '../../src/services/EmailQueueService';
 import { EmailComplianceService } from '../../src/services/EmailComplianceService';
 import { EmailWarmupService } from '../../src/services/EmailWarmupService';
@@ -19,28 +22,13 @@ const queue = new EmailQueueService(db, sendGrid, compliance, warmup, tracking, 
 const RATE_LIMIT = 100;
 const WINDOW_MS = 60 * 1000;
 
-// CSRF Protection: Validate Origin/Referer header using centralized origins module
-
+// CSRF Protection: Use shared origin validation
 function validateOrigin(req: VercelRequest): boolean {
-  const origin = req.headers.origin as string | undefined;
-  const referer = req.headers.referer as string | undefined;
-  
-  // In production, require valid Origin header
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
-    if (!origin) return false;
-    return isAllowedOrigin(origin);
-  }
-  
-  // In development, allow if Origin or Referer matches
-  if (isAllowedOrigin(origin)) {
-    return true;
-  }
-  if (referer && isAllowedOrigin(referer)) {
-    return true;
-  }
-  
-  // Allow in dev without Origin (e.g., curl, Postman)
-  return process.env.NODE_ENV !== 'production';
+  return validateRequestOrigin(req, {
+    allowDevWithoutOrigin: true,
+    checkRefererInDev: true,
+    allowGetWithoutOrigin: false,
+  });
 }
 
 async function enforceRateLimit(userId: string): Promise<void> {
@@ -91,14 +79,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
+  const userLog = log.withUser(userId);
+
   try {
     await enforceRateLimit(userId);
   } catch (err) {
     const message = (err as Error).message;
     if (message === 'RATE_LIMITED') {
+      userLog.warn('Rate limit exceeded');
       res.status(429).json({ error: 'Rate limit exceeded' });
       return;
     }
+    userLog.error('Rate limit check failed', err as Error);
     res.status(500).json({ error: 'Rate limit check failed' });
     return;
   }
@@ -129,8 +121,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       idempotencyKey: (req.headers['x-idempotency-key'] as string | undefined) || undefined,
       scheduledAt: message.scheduledAt,
     });
+    userLog.info('Email enqueued successfully', { emailId: item.id, to: message.to });
     res.status(202).json({ id: item.id, status: item.status });
   } catch (err) {
+    userLog.error('Failed to enqueue email', err as Error, { to: message.to });
     res.status(500).json({ error: 'Failed to enqueue', detail: (err as Error).message });
   }
 }

@@ -7,6 +7,9 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createLogger } from '../../lib/logger';
+
+const log = createLogger('oauth-callback');
 
 // =============================================================================
 // Configuration
@@ -61,7 +64,7 @@ interface TokenData {
 // Utilities
 // =============================================================================
 
-import { createCipheriv, createDecipheriv, randomBytes, pbkdf2Sync } from 'crypto';
+import { createCipheriv, createDecipheriv, randomBytes, pbkdf2Sync, timingSafeEqual } from 'crypto';
 
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // GCM standard IV length
@@ -190,20 +193,30 @@ function clearStateCookie(res: VercelResponse): void {
 
 /**
  * Validate state parameter to prevent CSRF attacks
+ * Uses crypto.timingSafeEqual for constant-time comparison
  */
 function validateState(receivedState: string, storedState: string | undefined): boolean {
   if (!receivedState || !storedState) {
     return false;
   }
-  // Timing-safe comparison
-  if (receivedState.length !== storedState.length) {
+  
+  // Convert to buffers for timing-safe comparison
+  const receivedBuffer = Buffer.from(receivedState, 'utf8');
+  const storedBuffer = Buffer.from(storedState, 'utf8');
+  
+  // Length check must be done before timingSafeEqual (which requires equal lengths)
+  // Pad the shorter buffer to prevent length leakage
+  if (receivedBuffer.length !== storedBuffer.length) {
+    // Still do a comparison to maintain constant time, but will always fail
+    const paddedReceived = Buffer.alloc(Math.max(receivedBuffer.length, storedBuffer.length));
+    const paddedStored = Buffer.alloc(Math.max(receivedBuffer.length, storedBuffer.length));
+    receivedBuffer.copy(paddedReceived);
+    storedBuffer.copy(paddedStored);
+    timingSafeEqual(paddedReceived, paddedStored);
     return false;
   }
-  let result = 0;
-  for (let i = 0; i < receivedState.length; i++) {
-    result |= receivedState.charCodeAt(i) ^ storedState.charCodeAt(i);
-  }
-  return result === 0;
+  
+  return timingSafeEqual(receivedBuffer, storedBuffer);
 }
 
 /**
@@ -219,13 +232,13 @@ async function getAccountInfo(accessToken: string): Promise<HubSpotAccountInfo |
     });
     
     if (!response.ok) {
-      console.error('Failed to get account info:', response.status);
+      log.error('Failed to get account info', undefined, { status: response.status });
       return null;
     }
     
     return await response.json() as HubSpotAccountInfo;
   } catch (error) {
-    console.error('Error fetching account info:', error);
+    log.error('Error fetching account info', error as Error);
     return null;
   }
 }
@@ -255,7 +268,7 @@ export default async function handler(
 
   // Validate configuration
   if (!clientId || !clientSecret || !redirectUri) {
-    console.error('Missing HubSpot OAuth configuration');
+    log.error('Missing HubSpot OAuth configuration');
     res.redirect(`${frontendUrl}/integrations?error=configuration_error&message=${encodeURIComponent('OAuth not configured')}`);
     return;
   }
@@ -266,7 +279,7 @@ export default async function handler(
       ? error_description 
       : 'Authorization failed';
     
-    console.error('HubSpot OAuth error:', error, errorMessage);
+    log.error('HubSpot OAuth error', undefined, { errorCode: error, errorMessage });
     res.redirect(`${frontendUrl}/integrations?error=${error}&message=${encodeURIComponent(errorMessage)}`);
     return;
   }
@@ -309,7 +322,7 @@ export default async function handler(
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json().catch(() => ({}));
-      console.error('Token exchange failed:', tokenResponse.status, errorData);
+      log.error('Token exchange failed', undefined, { status: tokenResponse.status, errorData });
       
       const errorMessage = (errorData as { message?: string }).message || 'Token exchange failed';
       res.redirect(`${frontendUrl}/integrations?error=token_exchange_failed&message=${encodeURIComponent(errorMessage)}`);
@@ -336,9 +349,10 @@ export default async function handler(
     clearStateCookie(res);
 
     // Redirect to frontend with success
+    log.info('OAuth callback successful', { portalId });
     res.redirect(`${frontendUrl}/integrations?success=true&portalId=${portalId}`);
   } catch (error) {
-    console.error('OAuth callback error:', error);
+    log.error('OAuth callback error', error as Error);
     res.redirect(`${frontendUrl}/integrations?error=server_error&message=${encodeURIComponent('An unexpected error occurred')}`);
   }
 }

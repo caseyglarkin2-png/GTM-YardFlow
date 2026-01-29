@@ -120,6 +120,9 @@ import { BulkTagModal } from './components/BulkTagModal';
 import { BulkDeleteModal } from './components/BulkDeleteModal';
 import { BulkStatusModal } from './components/BulkStatusModal';
 
+// --- Sprint 47 Tab Components ---
+import { IntegrationsTab, ImportTab } from './components/tabs';
+
 // --- Sprint 36 Services (Bulk Operations) ---
 import { BulkExporter } from './services/BulkExporter';
 import { BulkDeleteService } from './services/BulkDeleteService';
@@ -1826,203 +1829,12 @@ export default function App() {
               </LoadingOverlay>
             </div>
           ) : activeTab === 'import' ? (
-            <div className="p-6 space-y-6">
-              <div className="bg-gradient-to-br from-green-600 to-emerald-700 rounded-xl p-6 text-white shadow-md">
-                <div className="flex items-center gap-2 mb-2">
-                  <Upload className="h-5 w-5" />
-                  <span className="text-green-100 text-xs font-medium uppercase tracking-wider">Import Center</span>
-                </div>
-                <div className="text-2xl font-bold">LinkedIn Sales Navigator</div>
-                <div className="text-green-200 text-xs mt-2">Import contacts from CSV exports</div>
-              </div>
-              
-              <button
-                onClick={() => setShowImportWizard(true)}
-                className="w-full bg-white border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
-              >
-                <Upload className="h-10 w-10 text-slate-400 mx-auto mb-3" />
-                <div className="text-sm font-medium text-slate-700">Click to Import CSV</div>
-                <div className="text-xs text-slate-500 mt-1">LinkedIn Sales Navigator exports supported</div>
-              </button>
-              
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <h4 className="text-sm font-bold text-blue-800 mb-2">Import Features</h4>
-                <ul className="text-xs text-blue-700 space-y-1">
-                  <li>✓ Automatic column mapping</li>
-                  <li>✓ Duplicate detection & merging</li>
-                  <li>✓ Company matching</li>
-                  <li>✓ Tier classification</li>
-                </ul>
-              </div>
-            </div>
+            <ImportTab onOpenImportWizard={() => setShowImportWizard(true)} />
           ) : activeTab === 'integrations' ? (
-            <div className="p-6 space-y-6">
-              <div className="bg-gradient-to-br from-purple-600 to-violet-700 rounded-xl p-6 text-white shadow-md">
-                <div className="flex items-center gap-2 mb-2">
-                  <Link2 className="h-5 w-5" />
-                  <span className="text-purple-100 text-xs font-medium uppercase tracking-wider">Integrations</span>
-                </div>
-                <div className="text-2xl font-bold">Connected Apps</div>
-                <div className="text-purple-200 text-xs mt-2">Manage your CRM and data connections</div>
-              </div>
-              
-              {/* HubSpot Card */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" data-testid="hubspot-settings">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                      <span className="text-orange-600 font-bold text-sm">HS</span>
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-800">HubSpot CRM</div>
-                      <div className="text-xs text-slate-500">Bi-directional contact & deal sync</div>
-                    </div>
-                  </div>
-                  <span 
-                    className={`text-xs px-2 py-1 rounded-full font-medium ${
-                      hubspotConnectionStatus === 'connected' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
-                    }`}
-                    data-testid="hubspot-status"
-                  >
-                    {hubspotConnectionStatus === 'connected' ? 'Connected' : 'Not Connected'}
-                  </span>
-                </div>
-                <div className="p-4">
-                  <button
-                    onClick={() => hubspotConnectionStatus === 'connected' ? hubspot.disconnect() : hubspot.connect()}
-                    disabled={hubspotConnectionStatus === 'connecting'}
-                    data-testid="hubspot-connect-button"
-                    className={`w-full py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      hubspotConnectionStatus === 'connected' 
-                        ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                        : 'bg-orange-600 text-white hover:bg-orange-700'
-                    }`}
-                  >
-                    {hubspotConnectionStatus === 'connecting' ? 'Connecting...' : 
-                     hubspotConnectionStatus === 'connected' ? 'Disconnect HubSpot' : 'Connect HubSpot'}
-                  </button>
-                  {/* HubSpot OAuth Error States with User-Friendly Messages */}
-                  {hubspot.error && (
-                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg" data-testid="hubspot-error">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          {/* Parse and display user-friendly error messages */}
-                          {hubspot.error.toLowerCase().includes('popup') || hubspot.error.toLowerCase().includes('blocked') ? (
-                            <>
-                              <p className="text-sm font-medium text-red-800">Popup Blocked</p>
-                              <p className="text-xs text-red-600 mt-1">
-                                Please allow popups for this site to connect HubSpot. 
-                                Look for the popup blocker icon in your browser's address bar.
-                              </p>
-                            </>
-                          ) : hubspot.error.toLowerCase().includes('client_id') || hubspot.error.toLowerCase().includes('invalid_client') ? (
-                            <>
-                              <p className="text-sm font-medium text-red-800">Configuration Error</p>
-                              <p className="text-xs text-red-600 mt-1">
-                                HubSpot app not configured correctly. 
-                                <a 
-                                  href="https://developers.hubspot.com/docs/api/oauth-quickstart-guide" 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:underline ml-1"
-                                >
-                                  View setup guide →
-                                </a>
-                              </p>
-                            </>
-                          ) : hubspot.error.toLowerCase().includes('denied') || hubspot.error.toLowerCase().includes('cancelled') || hubspot.error.toLowerCase().includes('access_denied') ? (
-                            <>
-                              <p className="text-sm font-medium text-red-800">Authorization Cancelled</p>
-                              <p className="text-xs text-red-600 mt-1">
-                                You cancelled the HubSpot authorization. Click "Connect HubSpot" to try again.
-                              </p>
-                            </>
-                          ) : hubspot.error.toLowerCase().includes('timeout') ? (
-                            <>
-                              <p className="text-sm font-medium text-red-800">Connection Timed Out</p>
-                              <p className="text-xs text-red-600 mt-1">
-                                The authorization took too long. Please try again.
-                              </p>
-                            </>
-                          ) : hubspot.error.toLowerCase().includes('missing') && hubspot.error.toLowerCase().includes('redirect') ? (
-                            <>
-                              <p className="text-sm font-medium text-red-800">Configuration Missing</p>
-                              <p className="text-xs text-red-600 mt-1">
-                                OAuth redirect URI not configured. Check your environment variables.
-                              </p>
-                            </>
-                          ) : (
-                            <>
-                              <p className="text-sm font-medium text-red-800">Connection Error</p>
-                              <p className="text-xs text-red-600 mt-1">{hubspot.error}</p>
-                            </>
-                          )}
-                          <div className="flex items-center gap-3 mt-2">
-                            <button 
-                              onClick={hubspot.retry}
-                              className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                            >
-                              Try Again
-                            </button>
-                            <a 
-                              href="https://developers.hubspot.com/docs/api/oauth-quickstart-guide" 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-xs text-slate-500 hover:text-slate-700 hover:underline"
-                            >
-                              Need Help?
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {hubspot.isConnected && hubspot.portalId && (
-                    <div className="mt-2 text-xs text-slate-500 flex items-center gap-2" data-testid="hubspot-portal-info">
-                      <CheckCircle className="h-3 w-3 text-green-500" />
-                      Portal ID: {hubspot.portalId}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Google Card */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <span className="text-blue-600 font-bold text-sm">G</span>
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-800">Google Workspace</div>
-                      <div className="text-xs text-slate-500">Calendar & Gmail integration</div>
-                    </div>
-                  </div>
-                  <span className="text-xs px-2 py-1 rounded-full font-medium bg-slate-100 text-slate-600">
-                    Coming Soon
-                  </span>
-                </div>
-              </div>
-
-              {/* LinkedIn Card */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">in</span>
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-800">LinkedIn Sales Navigator</div>
-                      <div className="text-xs text-slate-500">CSV import & enrichment</div>
-                    </div>
-                  </div>
-                  <span className="text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-700">
-                    Via Import
-                  </span>
-                </div>
-              </div>
-            </div>
+            <IntegrationsTab 
+              hubspot={hubspot} 
+              hubspotConnectionStatus={hubspotConnectionStatus} 
+            />
           ) : activeTab === 'stats' ? (
             <div className="p-6 space-y-6">
               <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-md">
