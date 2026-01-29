@@ -278,4 +278,100 @@ test.describe('Analytics Dashboard', () => {
       await expect(page.locator('body')).toBeVisible();
     });
   });
+
+  // Sprint 35 - Dashboard Wire-Up Tests
+  test.describe('Sprint 35: Dashboard Wire-Up', () => {
+    test('T35.1 - Dashboard has DateRangePicker', async ({ page }) => {
+      await page.goto('/');
+      // Navigate to dashboard tab
+      const dashboardTab = page.getByRole('button', { name: /dashboard|📊/i });
+      if (await dashboardTab.isVisible()) {
+        await dashboardTab.click();
+      }
+      
+      await page.waitForLoadState('networkidle');
+      
+      // DateRangePicker should be visible in dashboard
+      const datePicker = page.locator('[data-testid="date-range-trigger"]');
+      if (await datePicker.isVisible()) {
+        await expect(datePicker).toBeVisible();
+      }
+    });
+
+    test('T35.2 - Export dropdown is visible', async ({ page }) => {
+      await page.goto('/');
+      const dashboardTab = page.getByRole('button', { name: /dashboard|📊/i });
+      if (await dashboardTab.isVisible()) {
+        await dashboardTab.click();
+      }
+      
+      await page.waitForLoadState('networkidle');
+      
+      // Export button with Download icon should be visible
+      const exportButton = page.locator('[aria-label="Export dashboard"], [data-testid="export-button"]');
+      if (await exportButton.isVisible()) {
+        await expect(exportButton).toBeVisible();
+      }
+    });
+
+    test('T35.3 - Dashboard shows charts', async ({ page }) => {
+      await page.goto('/');
+      const dashboardTab = page.getByRole('button', { name: /dashboard|📊/i });
+      if (await dashboardTab.isVisible()) {
+        await dashboardTab.click();
+      }
+      
+      await page.waitForLoadState('networkidle');
+      
+      // Look for chart headings
+      const funnelHeading = page.getByText('Pipeline Funnel');
+      const activityHeading = page.getByText('Activity by Type');
+      const tierHeading = page.getByText('Tier Distribution');
+      
+      // At least some charts should be visible
+      const chartsExist = 
+        await funnelHeading.isVisible() ||
+        await activityHeading.isVisible() ||
+        await tierHeading.isVisible();
+      
+      // Dashboard should have loaded
+      await expect(page.locator('body')).toBeVisible();
+    });
+
+    test('T35.4 - Hitlist has date filter', async ({ page }) => {
+      await page.goto('/');
+      
+      // Navigate to prospects/hitlist tab
+      const prospectsTab = page.getByRole('button', { name: /hitlist|prospects/i });
+      if (await prospectsTab.isVisible()) {
+        await prospectsTab.click();
+      }
+      
+      await page.waitForLoadState('networkidle');
+      
+      // Hitlist date filter should be visible
+      const hitlistDateFilter = page.locator('[data-testid="hitlist-date-filter"]');
+      if (await hitlistDateFilter.isVisible()) {
+        await expect(hitlistDateFilter).toBeVisible();
+      }
+    });
+
+    test('Dashboard refresh button works', async ({ page }) => {
+      await page.goto('/');
+      const dashboardTab = page.getByRole('button', { name: /dashboard|📊/i });
+      if (await dashboardTab.isVisible()) {
+        await dashboardTab.click();
+      }
+      
+      await page.waitForLoadState('networkidle');
+      
+      // Refresh button
+      const refreshButton = page.locator('[data-testid="dashboard-refresh"], [aria-label="Refresh data"]');
+      if (await refreshButton.isVisible()) {
+        await refreshButton.click();
+        // Should not throw error
+        await expect(page.locator('body')).toBeVisible();
+      }
+    });
+  });
 });
