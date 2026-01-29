@@ -55,7 +55,7 @@ const APPROVED_CLAIMS: ApprovedClaim[] = [
   {
     id: 'NET-001',
     category: 'network-effects',
-    claim: '$1M+ contribution margin across 25 facilities',
+    claim: '$1M+ contribution margin PER facility (avg)',
     source: 'Jake (internal) - Primo Brands reference',
     approved: true,
     lastVerified: '2026-01',

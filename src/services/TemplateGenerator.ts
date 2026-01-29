@@ -15,11 +15,12 @@ You are a sales messaging expert. Generate a personalized outreach message for M
 - Sign off with the sender name
 
 **KEY PROOF POINTS TO USE:**
-- Primo Brands: 25 facilities → $1M+ contribution margin, rolling to 260 yards
+- Primo Brands: avg $1M+ contribution margin PER facility, now rolling from 25 to 260 yards
 - "Headcount neutral while taking on additional volume"
 - "System-driven dock door assignment"
 - Carrier benchmarking: 40% of carriers have 10% underperforming drivers
 - Bottleneck ID: Bottom quartile facilities waste 5 min/shipment on dock assignments
+- Jake's Calendar: https://calendly.com/jake-freightroll/manifest-meeting
 
 **PERSONALIZATION:**
 - Reference their company name

@@ -15,9 +15,10 @@ Move from "Yard Management" (passive visibility) to "Yard Network Systems" (acti
 Visibility without agency is just an "observation deck for chaos."
 
 **PROOF POINT - Primo Brands (fka Nestlé Waters):**
-- Expanded from 24 to 260 facilities
-- ~25 facilities running = $1,000,000+ added contribution margin
+- Expanding from 25 to 260 facilities
+- Averaging $1M+ contribution margin PER FACILITY
 - Key quote: "Your software enabled us to take on additional volume while remaining headcount neutral in the dock office. System-driven dock door assignment is the next step for dock office optimization."
+- Book meetings: https://calendly.com/jake-freightroll/manifest-meeting
 
 **THE NETWORK EFFECTS FRAMEWORK:**
 

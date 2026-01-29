@@ -196,8 +196,8 @@ These are the ONLY customer claims that may be used in generated content:
 
 | Claim ID | Customer | Claim | Source | Verified |
 |----------|----------|-------|--------|----------|
-| PP-001 | Primo Brands | "$1M+ contribution margin across 25 facilities" | Jake (internal) | 2026-01 |
-| PP-002 | Primo Brands | "Rolling to 260 facilities" | Jake (internal) | 2026-01 |
+| PP-001 | Primo Brands | "$1M+ contribution margin PER facility" | Jake (internal) | 2026-01 |
+| PP-002 | Primo Brands | "Rolling from 25 to 260 facilities" | Jake (internal) | 2026-01 |
 | PP-003 | Benchmark | "Bottom quartile wastes ~5 min/shipment" | Industry analysis | 2026-01 |
 | PP-004 | Benchmark | "Late pickup fees $500/shipment in ~2% of cases" | Carrier data | 2026-01 |
 | PP-005 | Benchmark | "Paper handling costs ~$0.50/pallet" | Industry analysis | 2026-01 |

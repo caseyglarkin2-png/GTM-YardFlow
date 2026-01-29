@@ -112,28 +112,28 @@ const TEMPLATES = (prospect: Prospect, senderName: string): MessageTemplate[] =>
     label: 'App DM: Co-Dev Network Effects',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, YardFlow Co-Dev: 2-3 partners get voting seats. Primo Brands saw $1M+ contribution margin across 25 facilities—now rolling to 260. Would love to share the network effects math for ${prospect.company}. Coffee? -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, YardFlow Co-Dev: 2-3 partners get voting seats. Primo Brands saving avg $1M+ PER facility—now rolling to 260. Would love to share the math for ${prospect.company}. Book time: https://calendly.com/jake-freightroll/manifest-meeting -${senderName}`
   },
   {
     id: 'dm_exec',
     label: 'App DM: Exec - Headcount Neutral',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, Primo Brands took on additional volume while staying headcount neutral in dock ops. Curious how ${prospect.company} handles yard-to-dock bottlenecks today? 10 min at Manifest? -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, Primo Brands took on additional volume while staying headcount neutral in dock ops—saving $1M+ per facility. Curious about ${prospect.company}'s yard flow? Book 10 min: https://calendly.com/jake-freightroll/manifest-meeting -${senderName}`
   },
   {
     id: 'dm_ops',
     label: 'App DM: Ops - Dock Optimization',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, we found bottom-quartile facilities waste 5 min/shipment on dock assignments alone. System-driven assignment is the fix. Want to compare notes on ${prospect.company}'s yard flow? -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, bottom-quartile facilities waste 5 min/shipment on dock assignments. System-driven assignment is the fix. Compare notes? https://calendly.com/jake-freightroll/manifest-meeting -${senderName}`
   },
   {
     id: 'dm_carrier',
     label: 'App DM: Carrier Benchmarking',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, 40% of carriers have 10% of drivers underperforming in yard (slow check-in, slow BOL). We're benchmarking this across networks. Relevant for ${prospect.company}? Quick chat at Manifest? -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, 40% of carriers have 10% of drivers underperforming in yard. We're benchmarking this. Relevant for ${prospect.company}? Book time: https://calendly.com/jake-freightroll/manifest-meeting -${senderName}`
   },
   {
     id: 'codev_invite',
@@ -146,7 +146,7 @@ I saw you're attending Manifest and wanted to flag something specific for ${pros
 
 We're launching the YardFlow Co-Development Program—2-3 enterprise partners get a voting seat on the 2026 roadmap.
 
-**The proof point:** Primo Brands (fka Nestlé Waters) is rolling YardFlow from 25 to 260 facilities. The ~25 running sites already added $1M+ in contribution margin—while staying headcount neutral in dock operations.
+**The proof point:** Primo Brands (fka Nestlé Waters) is rolling YardFlow from 25 to 260 facilities. Each facility is averaging $1M+ in contribution margin improvement—while staying headcount neutral in dock operations.
 
 **The network effects thesis:**
 - Standard data model across all yards = carrier benchmarking + bottleneck identification
@@ -155,7 +155,7 @@ We're launching the YardFlow Co-Development Program—2-3 enterprise partners ge
 
 Given ${prospect.company}'s scale, I'd love to walk through what this math looks like for your network.
 
-10 minutes at the show?
+Book 10 minutes: https://calendly.com/jake-freightroll/manifest-meeting
 
 Best,
 ${senderName}`
@@ -313,7 +313,7 @@ export default function App() {
     if (persisted.length > 0) {
       return persisted.map(m => ({ role: m.role, text: m.content }));
     }
-    return [{ role: 'model', text: "I'm the YardFlow Brain. Loaded with Manifest strategy, Primo Brands case study ($1M+ margin from 25 facilities), and Network Effects framework. Ask me to draft messages, analyze prospects, or explain our value prop." }];
+    return [{ role: 'model', text: "I'm the YardFlow Brain. Loaded with Manifest strategy, Primo Brands case study ($1M+ margin per facility), and Network Effects framework. Ask me to draft messages, analyze prospects, or explain our value prop." }];
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
