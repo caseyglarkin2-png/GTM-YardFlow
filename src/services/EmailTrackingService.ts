@@ -16,7 +16,11 @@ export class EmailTrackingService {
   constructor(private readonly db: Firestore, baseUrl?: string, secret?: string) {
     const root = baseUrl || process.env.TRACKING_BASE_URL || process.env.PUBLIC_BASE_URL || process.env.VERCEL_URL || '';
     this.baseUrl = root.startsWith('http') ? root : `https://${root}`;
-    this.secret = secret || process.env.TRACKING_SECRET || 'yardflow-track-secret';
+    const trackingSecret = secret || process.env.TRACKING_SECRET;
+    if (!trackingSecret) {
+      throw new Error('TRACKING_SECRET environment variable is required');
+    }
+    this.secret = trackingSecret;
   }
 
   injectTracking(message: EmailMessage): EmailMessage {

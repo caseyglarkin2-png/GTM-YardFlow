@@ -44,6 +44,10 @@ vi.stubEnv('VITE_FIREBASE_API_KEY', 'test-firebase-key')
 vi.stubEnv('VITE_FIREBASE_AUTH_DOMAIN', 'test.firebaseapp.com')
 vi.stubEnv('VITE_FIREBASE_PROJECT_ID', 'test-project')
 
+// Security secrets for email/tracking services
+vi.stubEnv('UNSUBSCRIBE_HMAC_SECRET', 'test-unsubscribe-secret-32-chars-long')
+vi.stubEnv('TRACKING_SECRET', 'test-tracking-secret-32-chars-long')
+
 // Suppress console errors in tests
 const originalError = console.error
 beforeAll(() => {

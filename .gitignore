@@ -8,6 +8,15 @@ dist/
 .env
 .env.local
 .env.*.local
+.env.production
+
+# Secrets and credentials - NEVER commit these
+*-firebase-adminsdk-*.json
+service-account*.json
+firebase-adminsdk*.json
+*.pem
+*.key
+credentials*.json
 
 # IDE
 .vscode/
@@ -23,4 +32,3 @@ npm-debug.log*
 # Vercel
 .vercel
 .env*.local
-.env.production

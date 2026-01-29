@@ -52,7 +52,10 @@ export class EmailComplianceService {
   }
 
   generateUnsubscribeToken(emailId: string): string {
-    const secret = process.env.UNSUBSCRIBE_HMAC_SECRET || 'yardflow-unsub-secret';
+    const secret = process.env.UNSUBSCRIBE_HMAC_SECRET;
+    if (!secret) {
+      throw new Error('UNSUBSCRIBE_HMAC_SECRET environment variable is required');
+    }
     const expiresAt = now() + TOKEN_EXPIRY_MS;
     const payload = `${emailId}:${expiresAt}`;
     const signature = createHmac('sha256', secret).update(payload).digest('hex');
@@ -60,7 +63,10 @@ export class EmailComplianceService {
   }
 
   validateUnsubscribeToken(token: string): { valid: boolean; emailId?: string; reason?: string } {
-    const secret = process.env.UNSUBSCRIBE_HMAC_SECRET || 'yardflow-unsub-secret';
+    const secret = process.env.UNSUBSCRIBE_HMAC_SECRET;
+    if (!secret) {
+      return { valid: false, reason: 'missing_secret' };
+    }
     try {
       const decoded = Buffer.from(token, 'base64url').toString('utf8');
       const [emailId, expiresAtRaw, signature] = decoded.split(':');
