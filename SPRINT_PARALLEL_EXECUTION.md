@@ -3100,3 +3100,1222 @@ estimate: TimeEstimate;    // { estimatedMinutes, estimatedTokens, estimatedCost
 - [ ] Set up test fixtures directory
 
 **First Task to Start:** T53.0 (Data Migration)
+
+---
+
+# 🎨 UI/UX Improvement Sprints (60-67)
+
+## UI/UX Audit Summary
+
+**Audit Date:** 2026-01-29  
+**Auditor:** Senior UI/UX Engineering Subagent  
+**Grade:** B → A+ (target after completing all sprints)
+
+### Issues Found: 47 Total
+| Severity | Count | Categories |
+|----------|-------|------------|
+| Critical | 3 | Focus management, a11y attributes, tooltip positioning |
+| High | 12 | Monolith, chart a11y, consistency, deprecated APIs |
+| Medium | 21 | Loading states, forms, responsiveness, performance |
+| Low | 11 | Polish items |
+
+### Component Grades (Current)
+| Grade | Components |
+|-------|------------|
+| A | ErrorBoundary, Toast, BulkDeleteModal, KPICard, DashboardLayout, ResearchButton |
+| A- | BulkTagModal, SyncStatus, SendTestEmail, DashboardStates |
+| B+ | CompanyResearchPanel, DateRangePicker, MessageQualityIndicator, PresenceIndicator, BulkSequenceModal |
+| B | CommandPalette, HubSpotSettings, ImportWizard, Leaderboard, ROITab, AssetsPanel |
+| B- | FunnelChart, BarChart, PieChart, LineChart (accessibility concerns) |
+| C | App.tsx (2700+ line monolith) |
+
+---
+
+## Sprint 60: Critical Bug Fixes & A11y Blockers
+
+**Goal:** Fix critical bugs and accessibility blockers that break core functionality
+**Estimated Effort:** 4-5 hours
+**Priority:** 🔴 CRITICAL - Must be done before any other UI work
+**Demoable Outcome:** All modals trap focus, tooltips position correctly, screen readers navigate properly
+
+### T60.1: Fix Email Error Tooltip Positioning [XS - 15min]
+**Files:** `src/App.tsx`
+**Issue:** BUG-001 - Email error tooltip uses absolute positioning without relative parent
+**Change:** Wrap the Send Email button and tooltip in a relative-positioned container
+```tsx
+// Before:
+{(emailSendStatus === 'error' ...) && (
+  <div className="absolute bottom-full right-0 ...">
+
+// After:
+<div className="relative">
+  <button>Send Email</button>
+  {(emailSendStatus === 'error' ...) && (
+    <div className="absolute bottom-full right-0 ...">
+</div>
+```
+**Validation:** 
+- [ ] Tooltip appears above button, not at random page position
+- [ ] Visual test: trigger email error, verify tooltip placement
+**Tests:** Add snapshot test for tooltip positioning
+
+### T60.2: Implement Focus Trap for Modals [M - 1.5h]
+**Files:** `src/hooks/useFocusTrap.ts` (new), `src/components/BulkSequenceModal.tsx`, `src/components/BulkTagModal.tsx`, `src/components/BulkDeleteModal.tsx`, `src/components/BulkStatusModal.tsx`
+**Issue:** A11Y-001 - Modal focus management missing
+**Change:** Create reusable focus trap hook and apply to all modals
+```typescript
+// New hook: src/hooks/useFocusTrap.ts
+export function useFocusTrap(isOpen: boolean) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const previousActiveElement = useRef<HTMLElement | null>(null);
+  
+  useEffect(() => {
+    if (isOpen) {
+      previousActiveElement.current = document.activeElement as HTMLElement;
+      // Focus first focusable element
+      const focusable = containerRef.current?.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      (focusable?.[0] as HTMLElement)?.focus();
+    } else {
+      previousActiveElement.current?.focus();
+    }
+  }, [isOpen]);
+  
+  return containerRef;
+}
+```
+**Validation:**
+- [ ] Tab key cycles through modal elements only
+- [ ] Focus moves to modal on open
+- [ ] Focus returns to trigger button on close
+- [ ] Escape key closes modal
+**Tests:** 8+ tests for focus trap behavior
+
+### T60.3: Fix CommandPalette Accessibility Attributes [XS - 20min]
+**Files:** `src/components/CommandPalette.tsx`
+**Issue:** A11Y-002 - Input has id="command-palette-title" but it's not a title
+**Change:**
+```tsx
+// Add proper dialog title
+<div role="dialog" aria-modal="true" aria-labelledby="cmd-palette-heading">
+  <h2 id="cmd-palette-heading" className="sr-only">Command Palette</h2>
+  <input 
+    aria-label="Search commands"
+    placeholder="Type a command..."
+    // Remove id="command-palette-title"
+  />
+```
+**Validation:**
+- [ ] Screen reader announces "Command Palette" when opened
+- [ ] Input announced as search field
+**Tests:** Update existing CommandPalette tests for correct ARIA
+
+### T60.4: Add Date Range Validation Feedback [XS - 20min]
+**Files:** `src/components/DateRangePicker.tsx`
+**Issue:** BUG-003 - Invalid date ranges silently ignored
+**Change:** Show error message when start date > end date
+```tsx
+const [validationError, setValidationError] = useState<string | null>(null);
+
+const handleApply = () => {
+  if (customStart && customEnd && new Date(customStart) > new Date(customEnd)) {
+    setValidationError('Start date must be before end date');
+    return;
+  }
+  setValidationError(null);
+  // ... existing apply logic
+};
+
+{validationError && (
+  <p className="text-xs text-red-600 mt-1" role="alert">{validationError}</p>
+)}
+```
+**Validation:**
+- [ ] Error message shown when start > end
+- [ ] Error clears when valid dates selected
+**Tests:** 3+ tests for date validation
+
+### T60.5: Modernize Clipboard API [S - 30min]
+**Files:** `src/App.tsx`
+**Issue:** BUG-002 - Uses deprecated document.execCommand('copy')
+**Change:**
+```typescript
+const copyToClipboard = async (text: string) => {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      // Fallback for older browsers
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to copy:', err);
+    return false;
+  }
+};
+```
+**Validation:**
+- [ ] Copy works in Chrome, Firefox, Safari
+- [ ] Fallback works in older browsers
+**Tests:** Mock navigator.clipboard in tests
+
+### T60.6: Add Toast for Clipboard Copy [XS - 15min]
+**Files:** `src/App.tsx`
+**Issue:** FEED-001 - No toast notification for copy action
+**Change:** Use existing toast system for copy feedback
+```typescript
+const handleCopy = async () => {
+  const success = await copyToClipboard(generatedMessage);
+  if (success) {
+    toast({ title: 'Copied!', description: 'Message copied to clipboard', type: 'success' });
+  } else {
+    toast({ title: 'Copy failed', description: 'Could not copy to clipboard', type: 'error' });
+  }
+};
+```
+**Validation:**
+- [ ] Toast appears on successful copy
+- [ ] Toast appears on failed copy
+**Tests:** Verify toast called with correct params
+
+### T60.7: Show Firestore Error Toasts [S - 30min]
+**Files:** `src/App.tsx`
+**Issue:** FEED-003 - Firestore errors only logged to console
+**Change:** Replace console.error with toast notifications
+```typescript
+// Find all: } catch (e) { console.error("Error saving...", e); }
+// Replace with:
+} catch (e) {
+  console.error("Error saving status", e);
+  toast({ 
+    title: 'Save failed', 
+    description: 'Could not save changes. Please try again.',
+    type: 'error'
+  });
+}
+```
+**Validation:**
+- [ ] Users see error toast when save fails
+- [ ] Error still logged for debugging
+**Tests:** Mock Firestore errors, verify toast called
+
+---
+
+## Sprint 61: Design System Foundation
+
+**Goal:** Create shared components for visual consistency across the app
+**Estimated Effort:** 6-8 hours
+**Priority:** 🔴 HIGH - Foundation for consistent UI
+**Demoable Outcome:** All buttons, modals, and badges use consistent shared components
+
+### T61.1: Create Shared Button Component [M - 1.5h]
+**Files:** `src/components/ui/Button.tsx` (new)
+**Issue:** CONS-001 - Inconsistent button styles (blue, purple, emerald)
+**Change:**
+```typescript
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  size?: 'sm' | 'md' | 'lg';
+  loading?: boolean;
+  icon?: React.ReactNode;
+}
+
+const variants = {
+  primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
+  secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50',
+  danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
+  ghost: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
+};
+```
+**Validation:**
+- [ ] Button has consistent focus ring
+- [ ] Loading state shows spinner
+- [ ] Icon prop renders correctly
+**Tests:** 10+ tests for all variants and states
+
+### T61.2: Migrate App.tsx Buttons to Shared Component [M - 1h]
+**Files:** `src/App.tsx`
+**Change:** Replace inline button styles with <Button> component
+- Primary actions: "Save", "Apply", "Send Email"
+- Secondary actions: "Cancel", "Back"
+- Danger actions: "Delete", "Remove"
+**Validation:**
+- [ ] All buttons visually consistent
+- [ ] No regression in button functionality
+**Tests:** Existing tests still pass
+
+### T61.3: Migrate Modal Buttons to Shared Component [S - 45min]
+**Files:** `src/components/BulkSequenceModal.tsx`, `src/components/BulkTagModal.tsx`, `src/components/BulkDeleteModal.tsx`, `src/components/BulkStatusModal.tsx`, `src/components/HubSpotSettings.tsx`
+**Change:** Replace inline button styles in all modals
+**Validation:**
+- [ ] Modal buttons match app-wide style
+- [ ] Focus ring visible on keyboard navigation
+**Tests:** Snapshot tests for modal buttons
+
+### T61.4: Create Shared Modal Component [M - 1.5h]
+**Files:** `src/components/ui/Modal.tsx` (new)
+**Issue:** CONS-002 - Inconsistent modal close button placement
+**Change:**
+```typescript
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}
+
+export function Modal({ isOpen, onClose, title, size = 'md', children, footer }: ModalProps) {
+  const containerRef = useFocusTrap(isOpen);
+  
+  return (
+    <div role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      {/* Backdrop */}
+      <div onClick={onClose} aria-label="Close modal" />
+      
+      {/* Content */}
+      <div ref={containerRef} className={sizeClasses[size]}>
+        <div className="flex justify-between items-center border-b">
+          <h2 id="modal-title">{title}</h2>
+          <button onClick={onClose} aria-label="Close">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div>{children}</div>
+        {footer && <div className="border-t">{footer}</div>}
+      </div>
+    </div>
+  );
+}
+```
+**Validation:**
+- [ ] Close button always in top-right
+- [ ] Focus trap works
+- [ ] Escape key closes
+**Tests:** 8+ tests for modal behavior
+
+### T61.5: Create Shared Badge Component [S - 30min]
+**Files:** `src/components/ui/Badge.tsx` (new)
+**Change:**
+```typescript
+interface BadgeProps {
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'info';
+  size?: 'sm' | 'md';
+  children: React.ReactNode;
+}
+
+const variants = {
+  default: 'bg-gray-100 text-gray-800',
+  success: 'bg-green-100 text-green-800',
+  warning: 'bg-yellow-100 text-yellow-800',
+  error: 'bg-red-100 text-red-800',
+  info: 'bg-blue-100 text-blue-800',
+};
+```
+**Validation:**
+- [ ] Badge colors meet WCAG AA contrast
+**Tests:** 5+ tests for badge variants
+
+### T61.6: Standardize Icon Usage [M - 1h]
+**Files:** Multiple components with inline SVGs
+**Issue:** CONS-003 - Mixed icon libraries (lucide-react + inline SVGs)
+**Change:**
+- Create `src/components/ui/Icon.tsx` wrapper
+- Migrate inline SVGs to lucide-react equivalents
+- Ensure consistent sizing (w-4 h-4 for small, w-5 h-5 for medium)
+**Validation:**
+- [ ] All icons use consistent sizing
+- [ ] No inline SVGs for standard icons
+**Tests:** Visual regression tests
+
+### T61.7: Define Border Radius Scale [XS - 15min]
+**Files:** `tailwind.config.js`
+**Issue:** CONS-005 - Inconsistent border radius
+**Change:**
+```javascript
+// tailwind.config.js
+theme: {
+  extend: {
+    borderRadius: {
+      'ui-sm': '0.25rem',   // Badges, small elements
+      'ui-md': '0.375rem',  // Buttons, inputs
+      'ui-lg': '0.5rem',    // Cards, modals
+      'ui-xl': '0.75rem',   // Large panels
+    }
+  }
+}
+```
+**Validation:**
+- [ ] Document when to use each size
+**Tests:** N/A (config change)
+
+---
+
+## Sprint 62: Accessibility Improvements
+
+**Goal:** Make all components accessible to screen readers and keyboard users
+**Estimated Effort:** 5-6 hours
+**Priority:** 🔴 HIGH - Accessibility is a requirement, not a feature
+**Demoable Outcome:** Full keyboard navigation, screen reader compatibility for all components
+
+### T62.1: Add Chart Accessibility [M - 2h]
+**Files:** `src/components/charts/FunnelChart.tsx`, `src/components/charts/BarChart.tsx`, `src/components/charts/PieChart.tsx`, `src/components/charts/LineChart.tsx`
+**Issue:** A11Y-003 - Charts have no screen reader alternatives
+**Change:** Add visually hidden data tables and aria-labels
+```tsx
+// Add to each chart component
+<figure role="img" aria-label={`${title}: showing ${dataDescription}`}>
+  <figcaption className="sr-only">{accessibleDescription}</figcaption>
+  {/* Existing chart SVG */}
+  
+  {/* Accessible data table (visually hidden) */}
+  <table className="sr-only">
+    <caption>{title}</caption>
+    <thead><tr><th>Category</th><th>Value</th></tr></thead>
+    <tbody>
+      {data.map(item => (
+        <tr key={item.label}><td>{item.label}</td><td>{item.value}</td></tr>
+      ))}
+    </tbody>
+  </table>
+</figure>
+```
+**Validation:**
+- [ ] Screen reader reads chart data
+- [ ] Data matches visual representation
+**Tests:** 4 tests per chart for accessibility
+
+### T62.2: Add Avatar Accessibility [XS - 20min]
+**Files:** `src/components/PresenceIndicator.tsx`
+**Issue:** A11Y-004 - Initials avatars lack accessible label
+**Change:**
+```tsx
+// Before:
+<div className={`${sizeClass} rounded-full ...`}>
+  {initials}
+</div>
+
+// After:
+<div 
+  className={`${sizeClass} rounded-full ...`}
+  role="img"
+  aria-label={user.displayName}
+>
+  {initials}
+</div>
+```
+**Validation:**
+- [ ] Screen reader announces user name
+**Tests:** 2 tests for avatar accessibility
+
+### T62.3: Improve Backdrop Accessibility [XS - 15min]
+**Files:** All modal components
+**Issue:** A11Y-005 - Backdrop has no role or keyboard handling
+**Change:**
+```tsx
+<div 
+  className="fixed inset-0 bg-black/50"
+  onClick={onClose}
+  role="presentation"
+  aria-hidden="true"
+/>
+```
+**Validation:**
+- [ ] Screen reader ignores backdrop
+- [ ] Click still closes modal
+**Tests:** Update modal tests
+
+### T62.4: Add Keyboard Activation to File Dropzone [S - 30min]
+**Files:** `src/components/ImportWizard.tsx`
+**Issue:** A11Y-007 - Dropzone can't be activated via keyboard
+**Change:**
+```tsx
+<div 
+  className={dropzoneClasses}
+  tabIndex={0}
+  role="button"
+  aria-label="Upload file. Press Enter or Space to browse files."
+  onKeyDown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInputRef.current?.click();
+    }
+  }}
+>
+```
+**Validation:**
+- [ ] Enter/Space opens file dialog
+- [ ] Focus ring visible on dropzone
+**Tests:** 3 tests for keyboard activation
+
+### T62.5: Fix Leaderboard List Semantics [S - 30min]
+**Files:** `src/components/Leaderboard.tsx`
+**Issue:** A11Y-008 - List items with onClick create accessibility anti-pattern
+**Change:**
+```tsx
+// Before:
+<li onClick={() => onUserClick?.(user)} role={isClickable ? 'button' : undefined}>
+
+// After:
+<li>
+  {isClickable ? (
+    <button 
+      className="w-full text-left flex items-center gap-3 p-3 hover:bg-gray-50"
+      onClick={() => onUserClick?.(user)}
+    >
+      {/* content */}
+    </button>
+  ) : (
+    <div className="flex items-center gap-3 p-3">
+      {/* content */}
+    </div>
+  )}
+</li>
+```
+**Validation:**
+- [ ] Tab navigates to clickable items
+- [ ] Enter activates item
+**Tests:** 3 tests for keyboard navigation
+
+### T62.6: Verify Color Contrast [S - 45min]
+**Files:** `src/components/MessageQualityIndicator.tsx`, badge components
+**Issue:** A11Y-006 - Color contrast may not meet WCAG AA
+**Change:**
+- Test all color combinations with contrast checker
+- Adjust colors that don't meet 4.5:1 ratio
+- Document accessible color palette
+**Validation:**
+- [ ] All text meets 4.5:1 contrast ratio
+- [ ] Large text meets 3:1 ratio
+**Tests:** Add contrast ratio tests using color-contrast library
+
+### T62.7: Add Skip Link for Keyboard Navigation [S - 20min]
+**Files:** `src/App.tsx`
+**Change:** Add skip link at top of page
+```tsx
+<a 
+  href="#main-content" 
+  className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded z-50"
+>
+  Skip to main content
+</a>
+// ...
+<main id="main-content">
+```
+**Validation:**
+- [ ] Tab once shows skip link
+- [ ] Activating skips to main content
+**Tests:** E2E test for skip link
+
+---
+
+## Sprint 63: Responsive Design Fixes
+
+**Goal:** Fix all responsive design issues for mobile and tablet users
+**Estimated Effort:** 4-5 hours
+**Priority:** 🟡 MEDIUM - Mobile experience improvements
+**Demoable Outcome:** App fully usable on mobile devices with no overflow issues
+
+### T63.1: Fix Mobile Sidebar Width [XS - 20min]
+**Files:** `src/App.tsx`
+**Issue:** RESP-001 - Sidebar w-80 may overflow on very small screens
+**Change:**
+```tsx
+// Before:
+<div className={`... w-80 ...`}>
+
+// After:
+<div className={`... w-80 max-w-[calc(100vw-1rem)] ...`}>
+```
+**Validation:**
+- [ ] Sidebar fits on 320px wide screen
+- [ ] Content still visible when sidebar open
+**Tests:** Responsive test at 320px width
+
+### T63.2: Fix Tab Navigation Overflow [M - 1h]
+**Files:** `src/App.tsx`
+**Issue:** RESP-002 - Tab buttons overflow on narrow viewports
+**Change:** Use horizontal scroll or "More" dropdown on mobile
+```tsx
+// Option A: Scrollable tabs
+<div className="overflow-x-auto scrollbar-hide">
+  <div className="flex gap-1 min-w-max">
+    {/* tab buttons */}
+  </div>
+</div>
+
+// Option B: Collapse to dropdown on mobile
+<div className="md:hidden">
+  <select value={activeTab} onChange={...}>
+    {tabs.map(tab => <option value={tab.id}>{tab.label}</option>)}
+  </select>
+</div>
+<div className="hidden md:flex gap-1">
+  {/* desktop tabs */}
+</div>
+```
+**Validation:**
+- [ ] All tabs accessible on 320px screen
+- [ ] Touch scrolling works smoothly
+**Tests:** Responsive test at multiple breakpoints
+
+### T63.3: Fix Bulk Toolbar Safe Area [S - 30min]
+**Files:** `src/components/BulkActionsToolbar.tsx`
+**Issue:** RESP-003 - Toolbar may overlap with iOS safe area
+**Change:**
+```tsx
+// Add safe area padding for iOS
+<div className="fixed bottom-0 inset-x-0 pb-[env(safe-area-inset-bottom)]">
+  <div className="bg-white border-t shadow-lg p-4">
+```
+**Validation:**
+- [ ] Toolbar not covered by iOS home indicator
+- [ ] Works with on-screen keyboard
+**Tests:** Manual iOS testing
+
+### T63.4: Fix HubSpot Settings Tabs [S - 30min]
+**Files:** `src/components/HubSpotSettings.tsx`
+**Issue:** RESP-004 - Tabs don't adapt to narrow widths
+**Change:**
+```tsx
+// Stack tabs vertically on mobile
+<div className="flex flex-col sm:flex-row gap-2">
+  {['settings', 'conflicts', 'errors'].map(tab => (
+    <button 
+      className="w-full sm:w-auto px-4 py-2 ..."
+      onClick={() => setActiveSection(tab)}
+    >
+```
+**Validation:**
+- [ ] Tabs stack vertically under 640px
+- [ ] Touch targets at least 44x44px
+**Tests:** Responsive test at 375px
+
+### T63.5: Add Responsive Breakpoint Tests [M - 1h]
+**Files:** `src/__tests__/responsive/breakpoints.test.ts` (new)
+**Change:** Create test suite for responsive behavior
+```typescript
+describe('Responsive Breakpoints', () => {
+  const breakpoints = [320, 375, 414, 768, 1024, 1280];
+  
+  breakpoints.forEach(width => {
+    it(`renders correctly at ${width}px`, async () => {
+      window.innerWidth = width;
+      // Test critical elements are visible and not overflowing
+    });
+  });
+});
+```
+**Validation:**
+- [ ] Tests cover all critical breakpoints
+**Tests:** 12+ responsive tests
+
+---
+
+## Sprint 64: Loading & Feedback States
+
+**Goal:** Add proper loading indicators and user feedback throughout the app
+**Estimated Effort:** 4-5 hours
+**Priority:** 🟡 MEDIUM - UX polish
+**Demoable Outcome:** All async operations show loading state, users always know what's happening
+
+### T64.1: Add AI Generation Loading State [S - 30min]
+**Files:** `src/App.tsx`
+**Issue:** LOAD-001 - Textarea shows old content during AI generation
+**Change:**
+```tsx
+// Add skeleton/overlay during generation
+{isGenerating && (
+  <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+    <div className="flex items-center gap-2">
+      <Spinner className="w-5 h-5" />
+      <span>Generating with AI...</span>
+    </div>
+  </div>
+)}
+<textarea 
+  disabled={isGenerating}
+  className={isGenerating ? 'opacity-50' : ''}
+  ...
+/>
+```
+**Validation:**
+- [ ] Textarea shows loading overlay during generation
+- [ ] User can't edit during generation
+**Tests:** Test loading state rendering
+
+### T64.2: Add Research Card Loading State [S - 30min]
+**Files:** `src/components/CompanyResearchPanel.tsx`
+**Issue:** LOAD-002 - Individual research cards don't show loading
+**Change:**
+```tsx
+{isResearchingCompany && (
+  <div className="animate-pulse">
+    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
+    <div className="h-3 bg-gray-200 rounded w-1/2" />
+  </div>
+)}
+```
+**Validation:**
+- [ ] Skeleton shows while researching
+- [ ] Transitions smoothly to real data
+**Tests:** 2 tests for loading state
+
+### T64.3: Add Import Progress Steps [M - 1h]
+**Files:** `src/components/ImportWizard.tsx`
+**Issue:** FEED-002 - No granular progress during import
+**Change:**
+```tsx
+type ImportStep = 'parsing' | 'checking_duplicates' | 'importing' | 'complete';
+
+const stepLabels = {
+  parsing: 'Parsing CSV file...',
+  checking_duplicates: 'Checking for duplicates...',
+  importing: 'Importing prospects...',
+  complete: 'Import complete!'
+};
+
+// Show current step with progress
+<div className="space-y-2">
+  {Object.entries(stepLabels).map(([step, label]) => (
+    <div key={step} className="flex items-center gap-2">
+      {currentStep === step ? <Spinner /> : completedSteps.includes(step) ? <Check /> : <Circle />}
+      <span className={currentStep === step ? 'font-medium' : 'text-gray-400'}>{label}</span>
+    </div>
+  ))}
+</div>
+```
+**Validation:**
+- [ ] User sees which step is in progress
+- [ ] Completed steps show checkmarks
+**Tests:** 4 tests for step progression
+
+### T64.4: Add HubSpot Connection Progress [XS - 15min]
+**Files:** `src/components/HubSpotSettings.tsx`
+**Issue:** FEED-004 - No progress indicator during connection test
+**Change:**
+```tsx
+<Button 
+  onClick={testConnection}
+  loading={isTestingConnection}
+  disabled={isTestingConnection}
+>
+  {isTestingConnection ? 'Testing...' : 'Test Connection'}
+</Button>
+```
+**Validation:**
+- [ ] Button shows spinner during test
+- [ ] Button disabled during test
+**Tests:** 1 test for loading state
+
+### T64.5: Disable Tabs During Asset Regeneration [S - 30min]
+**Files:** `src/components/AssetsPanel.tsx`
+**Issue:** LOAD-003 - Users can switch tabs during regeneration
+**Change:**
+```tsx
+<button
+  disabled={isRegenerating}
+  className={isRegenerating ? 'opacity-50 cursor-not-allowed' : ''}
+  onClick={() => setActiveTab(tab)}
+>
+```
+**Validation:**
+- [ ] Tabs disabled during regeneration
+- [ ] Visual indication of disabled state
+**Tests:** 2 tests for disabled state
+
+### T64.6: Add Optimistic UI for Status Changes [M - 1h]
+**Files:** `src/App.tsx`
+**Change:** Show immediate feedback before Firestore confirms
+```typescript
+const handleStatusChange = async (id: string, newStatus: string) => {
+  // Optimistic update
+  setProspects(prev => prev.map(p => p.id === id ? {...p, status: newStatus} : p));
+  
+  try {
+    await saveToFirestore(id, { status: newStatus });
+  } catch (error) {
+    // Rollback on error
+    setProspects(prev => prev.map(p => p.id === id ? {...p, status: previousStatus} : p));
+    toast({ title: 'Save failed', type: 'error' });
+  }
+};
+```
+**Validation:**
+- [ ] Status updates immediately in UI
+- [ ] Rolls back if save fails
+**Tests:** 3 tests for optimistic update + rollback
+
+---
+
+## Sprint 65: Empty States & Onboarding
+
+**Goal:** Replace placeholder/mock data with helpful empty states that guide users
+**Estimated Effort:** 3-4 hours
+**Priority:** 🟡 MEDIUM - First-run experience
+**Demoable Outcome:** New users see helpful guidance instead of random mock data
+
+### T65.1: Replace Mock Chart Data with Empty State [M - 1h]
+**Files:** `src/App.tsx`
+**Issue:** EMPTY-001 - Dashboard shows random mock data
+**Change:**
+```tsx
+// Before: Math.random() generated data
+
+// After:
+{hasActivityData ? (
+  <LineChart data={activityData} />
+) : (
+  <div className="flex flex-col items-center justify-center h-48 text-gray-500">
+    <ChartBar className="w-12 h-12 mb-2 text-gray-300" />
+    <p className="font-medium">No activity data yet</p>
+    <p className="text-sm">Start reaching out to prospects to see your activity here</p>
+    <Button variant="ghost" onClick={() => setActiveTab('prospects')}>
+      Go to Hitlist →
+    </Button>
+  </div>
+)}
+```
+**Validation:**
+- [ ] Empty state shows when no real data
+- [ ] CTA navigates to relevant section
+**Tests:** 2 tests for empty state
+
+### T65.2: Improve Leaderboard Empty State [XS - 20min]
+**Files:** `src/components/Leaderboard.tsx`
+**Issue:** EMPTY-002 - "No data available" is not helpful
+**Change:**
+```tsx
+<div className="px-5 py-8 text-center">
+  <Trophy className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+  <p className="font-medium text-gray-700">No activity tracked yet</p>
+  <p className="text-sm text-gray-500 mt-1">
+    Your team's activity will appear here as you work through prospects
+  </p>
+</div>
+```
+**Validation:**
+- [ ] Empty state has icon and guidance
+**Tests:** 1 test for empty state content
+
+### T65.3: Add Activity Feed Empty State CTA [XS - 15min]
+**Files:** `src/App.tsx`
+**Issue:** EMPTY-003 - Activity feed lacks action prompt
+**Change:**
+```tsx
+<p className="text-sm text-gray-500">
+  No recent activity. 
+  <button 
+    className="text-blue-600 hover:underline ml-1"
+    onClick={() => setActiveTab('prospects')}
+  >
+    Start prospecting →
+  </button>
+</p>
+```
+**Validation:**
+- [ ] CTA navigates to hitlist
+**Tests:** 1 test for CTA functionality
+
+### T65.4: Add Sync Status Positive State [XS - 15min]
+**Files:** `src/components/SyncStatus.tsx`
+**Issue:** EMPTY-004 - No positive state when all synced
+**Change:**
+```tsx
+// Instead of returning null when operations.length === 0
+{operations.length === 0 ? (
+  <div className="flex items-center gap-2 text-green-600">
+    <CheckCircle className="w-4 h-4" />
+    <span className="text-sm">All changes synced</span>
+  </div>
+) : (
+  // existing pending operations UI
+)}
+```
+**Validation:**
+- [ ] Green success message when synced
+**Tests:** 1 test for synced state
+
+### T65.5: Add First-Run Welcome Modal [M - 1.5h]
+**Files:** `src/components/WelcomeModal.tsx` (new), `src/App.tsx`
+**Change:** Show welcome modal for new users
+```tsx
+interface WelcomeModalProps {
+  onComplete: () => void;
+}
+
+export function WelcomeModal({ onComplete }: WelcomeModalProps) {
+  const [step, setStep] = useState(0);
+  const steps = [
+    { title: 'Welcome to YardFlow Hub', description: '...', icon: Rocket },
+    { title: 'Import Your Prospects', description: '...', icon: Upload },
+    { title: 'Research with AI', description: '...', icon: Search },
+  ];
+  
+  return (
+    <Modal isOpen={true} title="Getting Started">
+      {/* Step content with next/skip buttons */}
+    </Modal>
+  );
+}
+
+// In App.tsx
+const [hasSeenWelcome] = useLocalStorage('hasSeenWelcome', false);
+{!hasSeenWelcome && <WelcomeModal onComplete={() => setHasSeenWelcome(true)} />}
+```
+**Validation:**
+- [ ] Modal shows on first visit
+- [ ] Doesn't show after dismissed
+- [ ] Can skip at any step
+**Tests:** 5 tests for welcome flow
+
+---
+
+## Sprint 66: Navigation & State Persistence
+
+**Goal:** Improve navigation experience and persist user state across sessions
+**Estimated Effort:** 3-4 hours
+**Priority:** 🟢 LOW - Polish
+**Demoable Outcome:** Navigation state persists across reloads, breadcrumbs show location
+
+### T66.1: Persist Active Tab to URL/LocalStorage [S - 30min]
+**Files:** `src/App.tsx`
+**Issue:** NAV-002 - Tab state resets on reload
+**Change:**
+```typescript
+// Use URL hash for tab state
+const [activeTab, setActiveTab] = useState(() => {
+  const hash = window.location.hash.slice(1);
+  return validTabs.includes(hash) ? hash : 'prospects';
+});
+
+useEffect(() => {
+  window.location.hash = activeTab;
+}, [activeTab]);
+
+// Listen for hash changes (back/forward navigation)
+useEffect(() => {
+  const handleHashChange = () => {
+    const hash = window.location.hash.slice(1);
+    if (validTabs.includes(hash)) setActiveTab(hash);
+  };
+  window.addEventListener('hashchange', handleHashChange);
+  return () => window.removeEventListener('hashchange', handleHashChange);
+}, []);
+```
+**Validation:**
+- [ ] URL shows current tab
+- [ ] Refreshing preserves tab
+- [ ] Browser back/forward works
+**Tests:** 3 tests for hash navigation
+
+### T66.2: Add Breadcrumb Navigation [S - 45min]
+**Files:** `src/components/ui/Breadcrumb.tsx` (new), `src/App.tsx`
+**Issue:** NAV-001 - No breadcrumb in prospect detail
+**Change:**
+```tsx
+export function Breadcrumb({ items }: { items: { label: string; onClick?: () => void }[] }) {
+  return (
+    <nav aria-label="Breadcrumb" className="text-sm text-gray-500 mb-4">
+      <ol className="flex items-center gap-2">
+        {items.map((item, i) => (
+          <li key={i} className="flex items-center gap-2">
+            {i > 0 && <ChevronRight className="w-4 h-4" />}
+            {item.onClick ? (
+              <button onClick={item.onClick} className="hover:text-gray-700">
+                {item.label}
+              </button>
+            ) : (
+              <span className="text-gray-900 font-medium">{item.label}</span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+// Usage in prospect detail
+<Breadcrumb items={[
+  { label: 'Hitlist', onClick: () => setSelectedProspect(null) },
+  { label: selectedProspect.name }
+]} />
+```
+**Validation:**
+- [ ] Breadcrumb shows current location
+- [ ] Clicking parent navigates back
+**Tests:** 4 tests for breadcrumb
+
+### T66.3: Add Command Palette Hint [XS - 15min]
+**Files:** `src/App.tsx`
+**Issue:** NAV-003 - Cmd+K shortcut not discoverable
+**Change:**
+```tsx
+// Add hint in header
+<div className="hidden md:flex items-center gap-2 text-sm text-gray-400">
+  <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">⌘K</kbd>
+  <span>Quick actions</span>
+</div>
+```
+**Validation:**
+- [ ] Hint visible on desktop
+- [ ] Hidden on mobile
+**Tests:** 1 test for hint rendering
+
+### T66.4: Add Confirmation for ROI Tab Navigation [S - 30min]
+**Files:** `src/components/ROITab.tsx`
+**Issue:** NAV-004 - DM Line button navigates without confirmation
+**Change:**
+```tsx
+// Show DM line in a toast instead of navigating
+const handleShowDMLine = () => {
+  toast({
+    title: 'Your ROI-Based DM Line',
+    description: generatedDMLine,
+    duration: 10000, // Longer duration for reading
+    action: <Button size="sm" onClick={() => copyToClipboard(generatedDMLine)}>Copy</Button>
+  });
+};
+```
+**Validation:**
+- [ ] DM line shows in toast
+- [ ] User stays on ROI tab
+- [ ] Can copy from toast
+**Tests:** 2 tests for toast behavior
+
+### T66.5: Add Form Auto-Focus [XS - 15min]
+**Files:** `src/components/BulkTagModal.tsx`
+**Issue:** FORM-004 - Tag search doesn't auto-focus
+**Change:**
+```tsx
+const searchInputRef = useRef<HTMLInputElement>(null);
+
+useEffect(() => {
+  if (isOpen) {
+    searchInputRef.current?.focus();
+  }
+}, [isOpen]);
+
+<input ref={searchInputRef} ... />
+```
+**Validation:**
+- [ ] Input focused on modal open
+**Tests:** 1 test for auto-focus
+
+### T66.6: Add ROI Input Validation on Blur [S - 30min]
+**Files:** `src/components/ROITab.tsx`
+**Issue:** FORM-005 - Validation only on Calculate click
+**Change:**
+```tsx
+const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+const validateField = (name: string, value: number) => {
+  if (isNaN(value) || value < 0) {
+    setFieldErrors(prev => ({ ...prev, [name]: 'Please enter a valid positive number' }));
+  } else {
+    setFieldErrors(prev => { const next = {...prev}; delete next[name]; return next; });
+  }
+};
+
+<input
+  onBlur={(e) => validateField('avgTrucks', parseFloat(e.target.value))}
+  className={fieldErrors.avgTrucks ? 'border-red-500' : ''}
+/>
+{fieldErrors.avgTrucks && <p className="text-xs text-red-600">{fieldErrors.avgTrucks}</p>}
+```
+**Validation:**
+- [ ] Error shows on blur for invalid input
+- [ ] Error clears when valid
+**Tests:** 3 tests for field validation
+
+---
+
+## Sprint 67: Performance Optimization
+
+**Goal:** Optimize performance for large datasets and improve rendering efficiency
+**Estimated Effort:** 6-8 hours
+**Priority:** 🟢 LOW - Performance polish
+**Demoable Outcome:** App handles 1000+ prospects smoothly, no jank during interactions
+
+### T67.1: Extract ProspectList Component from App.tsx [L - 2h]
+**Files:** `src/components/ProspectList.tsx` (new), `src/App.tsx`
+**Issue:** PERF-001 - App.tsx is 2700+ lines
+**Change:** Extract prospect list into dedicated component
+```typescript
+// New component handles:
+// - Prospect filtering and sorting
+// - Bulk selection state
+// - Rendering of prospect rows
+// - Integration with bulk actions
+
+interface ProspectListProps {
+  prospects: Prospect[];
+  selectedIds: string[];
+  onSelectionChange: (ids: string[]) => void;
+  onProspectClick: (prospect: Prospect) => void;
+  // ... other needed props
+}
+```
+**Validation:**
+- [ ] Component extracted with no regression
+- [ ] Props interface well-defined
+**Tests:** Existing tests still pass
+
+### T67.2: Extract ProspectDetail Component [L - 2h]
+**Files:** `src/components/ProspectDetail.tsx` (new), `src/App.tsx`
+**Change:** Extract prospect detail panel
+```typescript
+interface ProspectDetailProps {
+  prospect: Prospect;
+  onStatusChange: (status: string) => void;
+  onEmailSend: (email: string) => void;
+  // ... other handlers
+}
+```
+**Validation:**
+- [ ] Component extracted with no regression
+**Tests:** Existing tests still pass
+
+### T67.3: Extract ChatPanel Component [M - 1.5h]
+**Files:** `src/components/ChatPanel.tsx` (new), `src/App.tsx`
+**Change:** Extract AI chat panel
+```typescript
+interface ChatPanelProps {
+  prospect: Prospect;
+  onMessageGenerated: (message: string) => void;
+  geminiApiKey?: string;
+}
+```
+**Validation:**
+- [ ] Component extracted with no regression
+**Tests:** Existing tests still pass
+
+### T67.4: Memoize Chart Data Transformations [S - 30min]
+**Files:** `src/components/charts/LineChart.tsx`
+**Issue:** PERF-004 - Data transformation on every render
+**Change:**
+```typescript
+const transformedData = useMemo(() => {
+  const allDates = new Set<string>();
+  data.series.forEach(s => {
+    s.data.forEach(point => allDates.add(point.date));
+  });
+  // ... rest of transformation
+}, [data.series]);
+```
+**Validation:**
+- [ ] No transformation without data change
+**Tests:** 1 test verifying memoization
+
+### T67.5: Fix Bulk Handler Re-registration [S - 30min]
+**Files:** `src/App.tsx` or new `src/hooks/useBulkActions.ts`
+**Issue:** PERF-002 - Handlers registered inside callbacks
+**Change:**
+```typescript
+// Register once on mount
+useEffect(() => {
+  bulkActionService.registerHandler('sequence', async (ids, value) => {
+    // handler logic
+  });
+  bulkActionService.registerHandler('tag', async (ids, value) => {
+    // handler logic
+  });
+  
+  return () => {
+    bulkActionService.unregisterAll();
+  };
+}, []);
+```
+**Validation:**
+- [ ] Handlers registered once only
+- [ ] No memory leaks on unmount
+**Tests:** 2 tests for registration behavior
+
+### T67.6: Add Command Palette Debounce [XS - 20min]
+**Files:** `src/components/CommandPalette.tsx`
+**Issue:** PERF-005 - Filtering runs on every keystroke
+**Change:**
+```typescript
+const deferredQuery = useDeferredValue(query);
+
+const filteredCommands = useMemo(() => {
+  return commands.filter(cmd => 
+    cmd.label.toLowerCase().includes(deferredQuery.toLowerCase())
+  );
+}, [commands, deferredQuery]);
+```
+**Validation:**
+- [ ] No input lag on fast typing
+**Tests:** Performance test for typing
+
+### T67.7: Add Virtual List for Large Prospect Lists [L - 2h]
+**Files:** `src/components/ProspectList.tsx`
+**Change:** Implement virtual scrolling for 1000+ prospects
+```typescript
+import { useVirtualizer } from '@tanstack/react-virtual';
+
+const parentRef = useRef<HTMLDivElement>(null);
+const virtualizer = useVirtualizer({
+  count: filteredProspects.length,
+  getScrollElement: () => parentRef.current,
+  estimateSize: () => 60, // Row height
+});
+
+<div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}>
+  <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
+    {virtualizer.getVirtualItems().map(virtualRow => (
+      <ProspectRow key={virtualRow.key} prospect={filteredProspects[virtualRow.index]} />
+    ))}
+  </div>
+</div>
+```
+**Validation:**
+- [ ] Scrolling smooth with 1000+ prospects
+- [ ] Memory usage stays constant
+**Tests:** Performance test with 1000 items
+
+---
+
+## UI/UX Sprint Summary
+
+| Sprint | Focus | Hours | New Tests | Demoable Outcome |
+|--------|-------|-------|-----------|------------------|
+| 60 | Critical Bug Fixes | 4-5h | 20+ | All modals accessible, tooltips work |
+| 61 | Design System | 6-8h | 30+ | Consistent buttons, modals, badges |
+| 62 | Accessibility | 5-6h | 25+ | Full keyboard navigation, screen reader support |
+| 63 | Responsive Design | 4-5h | 15+ | Mobile-friendly, no overflow |
+| 64 | Loading States | 4-5h | 15+ | Clear feedback for all async operations |
+| 65 | Empty States | 3-4h | 12+ | Helpful guidance for new users |
+| 66 | Navigation | 3-4h | 15+ | URL-based navigation, breadcrumbs |
+| 67 | Performance | 6-8h | 10+ | Smooth with 1000+ prospects |
+| **Total** | | **35-45h** | **140+** | A+ grade UI/UX |
+
+### Dependencies
+```
+Sprint 60 (Critical Fixes) → Sprint 61 (Design System) → Sprints 62-67 (can parallelize)
+                                                      ↓
+                          T60.2 (Focus Trap) ← T61.4 (Modal Component)
+```
+
+### Success Criteria
+1. ✅ All critical bugs fixed
+2. ✅ WCAG AA accessibility compliance
+3. ✅ Consistent visual design language
+4. ✅ Mobile-responsive at all breakpoints
+5. ✅ Loading states for all async operations
+6. ✅ Helpful empty states with CTAs
+7. ✅ URL-based navigation persistence
+8. ✅ Smooth performance with 1000+ prospects
+9. ✅ 140+ new tests
+10. ✅ Grade improvement: B → A+
+
