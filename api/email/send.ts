@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { z } from 'zod';
 import { getAdminAuth, getAdminDb } from '../../lib/firebaseAdmin';
 import { validateRequestOrigin } from '../../lib/validateOrigin';
 import { createLogger } from '../../lib/logger';
@@ -10,6 +11,23 @@ import { EmailWarmupService } from '../../src/services/EmailWarmupService';
 import { EmailTrackingService } from '../../src/services/EmailTrackingService';
 import { SendGridClient } from '../../src/services/SendGridClient';
 import type { EmailMessage } from '../../src/types/email';
+
+// Zod schema for email message validation
+const EmailMessageSchema = z.object({
+  id: z.string().optional(),
+  to: z.string().email('Invalid email address'),
+  toName: z.string().optional(),
+  subject: z.string().min(1, 'Subject is required').max(998, 'Subject too long'),
+  html: z.string().optional(),
+  text: z.string().min(1, 'Message body is required'),
+  scheduledAt: z.number().optional(),
+  metadata: z.object({
+    prospectId: z.string().optional(),
+    prospectName: z.string().optional(),
+    source: z.string().optional(),
+    tenantId: z.string().optional(),
+  }).optional(),
+});
 
 const db = getAdminDb();
 const auth = getAdminAuth();
@@ -48,7 +66,13 @@ async function enforceRateLimit(userId: string): Promise<void> {
 
 function parseMessage(req: VercelRequest): EmailMessage {
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  return body as EmailMessage;
+  // Validate with Zod schema
+  const result = EmailMessageSchema.safeParse(body);
+  if (!result.success) {
+    const errors = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+    throw new Error(`Validation failed: ${errors}`);
+  }
+  return result.data as EmailMessage;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
