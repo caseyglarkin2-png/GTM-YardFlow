@@ -13,6 +13,10 @@ vi.mock('../../services/HubSpotAuthService', () => ({
   createHubSpotAuthService: vi.fn(),
 }));
 
+// Mock fetch for API calls
+const mockFetch = vi.fn();
+vi.stubGlobal('fetch', mockFetch);
+
 describe('useHubSpot', () => {
   const mockService = {
     getAuthUrl: vi.fn(),
@@ -31,6 +35,12 @@ describe('useHubSpot', () => {
     // Reset localStorage
     localStorage.clear();
     sessionStorage.clear();
+    
+    // Mock fetch to return disconnected by default
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ connected: false }),
+    });
     
     // Mock window.location
     Object.defineProperty(window, 'location', {
@@ -68,6 +78,17 @@ describe('useHubSpot', () => {
     it('should detect existing connection on mount', async () => {
       mockService.isConnected.mockReturnValue(true);
       localStorage.setItem('yardflow_hubspot_portal_id', 'test-portal-123');
+      
+      // Mock fetch to return connected state from server
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ 
+          connected: true, 
+          portalId: 'test-portal-123',
+          hubDomain: 'app.hubspot.com',
+          expiresAt: Date.now() + 1800000,
+        }),
+      });
 
       const { result } = renderHook(() => useHubSpot({
         clientId: 'test-client-id',
@@ -194,6 +215,17 @@ describe('useHubSpot', () => {
     it('should clear tokens and reset state', async () => {
       mockService.isConnected.mockReturnValue(true);
       localStorage.setItem('yardflow_hubspot_portal_id', 'test-portal-123');
+      
+      // Mock fetch to return connected state initially
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ 
+          connected: true, 
+          portalId: 'test-portal-123',
+          hubDomain: 'app.hubspot.com',
+          expiresAt: Date.now() + 1800000,
+        }),
+      });
 
       const { result } = renderHook(() => useHubSpot({
         clientId: 'test-client-id',
@@ -204,11 +236,13 @@ describe('useHubSpot', () => {
         expect(result.current.status).toBe('connected');
       });
 
-      act(() => {
+      await act(async () => {
         result.current.disconnect();
       });
 
-      expect(result.current.status).toBe('disconnected');
+      await waitFor(() => {
+        expect(result.current.status).toBe('disconnected');
+      });
       expect(result.current.portalId).toBeNull();
       expect(result.current.isConnected).toBe(false);
       expect(mockService.disconnect).toHaveBeenCalled();

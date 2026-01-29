@@ -405,6 +405,13 @@ export class BulkExporter {
   }
 
   /**
+   * Convenience: export prospects to CSV
+   */
+  async exportToCSV(prospects: Prospect[], filename?: string): Promise<ExportResult> {
+    return this.export(prospects, { format: 'csv', filename });
+  }
+
+  /**
    * Export and download in one step
    */
   async exportAndDownload(

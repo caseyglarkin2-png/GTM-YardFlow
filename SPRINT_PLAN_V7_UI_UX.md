@@ -7,12 +7,50 @@
 **Goal:** Wire all existing services to the UI, fix broken integrations, add missing components, and ensure E2E tests pass.
 
 **Current State:**
-- Tests: 1825 passing (unit tests)
+- Tests: 1870 passing (unit tests)
 - E2E: Multiple failures expected due to missing UI
 - Components: 15+ built but not imported
 - Services: 10+ tested but not connected
 
 **Revised Estimates:** ~75-85 hours total (47 tasks across 9 sprints)
+
+---
+
+## 🚀 Parallel Execution Plan (Sprints 34, 36, 43)
+
+**See [SPRINT_PARALLEL_EXECUTION.md](./SPRINT_PARALLEL_EXECUTION.md) for the detailed atomic task breakdown.**
+
+### Priority Workstreams (Execute Simultaneously)
+
+| Workstream | Sprint | Focus | Effort | Status |
+|------------|--------|-------|--------|--------|
+| A | 34 | HubSpot OAuth UI Wiring | ~11h | 🔄 Ready |
+| B | 36 | Bulk Operations UI | ~14h | 🔄 Ready |
+| C | 43 | Email Infrastructure | ~38h | 🔄 Ready |
+
+**Total Parallel Effort:** ~63-68 hours
+**Estimated Duration:** 7-8 days with parallel execution
+
+### Pre-Execution Requirements
+```bash
+# Install required dependencies
+npm install @sendgrid/mail@^7.7.0 @sendgrid/eventwebhook@^7.7.0 firebase-admin@^12.0.0
+```
+
+### Critical Environment Variables
+```bash
+# Firebase Admin (Server-side)
+FIREBASE_SERVICE_ACCOUNT='{"type":"service_account",...}'
+
+# HubSpot OAuth
+VITE_HUBSPOT_CLIENT_ID=xxx
+VITE_HUBSPOT_REDIRECT_URI=https://gtm-yard-flow.vercel.app/oauth/callback
+HUBSPOT_CLIENT_SECRET=xxx
+
+# SendGrid
+SENDGRID_API_KEY=SG.xxx
+SENDGRID_WEBHOOK_SIGNING_KEY=xxx
+```
 
 ---
 
@@ -1213,3 +1251,1611 @@ feat(sprint-36): T36.2 - Add BulkActionsToolbar component
 - Wire to App.tsx when selection > 0
 - Add data-testid for E2E tests
 ```
+
+---
+
+# Phase 3: Email Outreach & Account-Based Marketing (Sprints 43-48)
+
+## Current State Analysis
+
+### ✅ What Exists (Built & Tested)
+| Component | Status | Location |
+|-----------|--------|----------|
+| HubSpot OAuth Backend | ✅ Complete | `HubSpotAuthService.ts` |
+| HubSpot API Client | ✅ Complete | `HubSpotClient.ts` with rate limiting |
+| HubSpot Sync Engine | ✅ Complete | `HubSpotSyncEngine.ts` bi-directional |
+| Email Sequence Builder | ✅ Complete | `EmailSequenceService.ts` (746 lines) |
+| Pre-built Email Templates | ✅ Complete | Ops Director, CFO sequences |
+| AI Message Generation | ✅ Complete | `GeminiService.ts`, `TemplateGenerator.ts` |
+| 5,409 Prospect Data | ✅ Complete | `hitlistData.ts` with tiers |
+| Template Variables | ✅ Complete | {{firstName}}, {{company}}, {{trailerCount}} |
+
+### ⚠️ Partially Complete (Needs Wiring)
+| Component | Status | Gap |
+|-----------|--------|-----|
+| HubSpot UI Connect | ⚠️ Incomplete | OAuth button uses fake handler |
+| Sequence Builder UI | ⚠️ Incomplete | Service exists, no UI |
+| Bulk Email Selection | ⚠️ Incomplete | Checkboxes exist, no "Email Selected" action |
+
+### ❌ Not Present (Requires Backend)
+| Capability | Required For |
+|------------|--------------|
+| SendGrid SDK Integration | Actual email sending |
+| Vercel Edge Functions | Serverless email API |
+| Email Queue System | Rate-limited sending |
+| Open/Click Tracking | Analytics |
+| Unsubscribe Handling | CAN-SPAM compliance |
+| Reply Detection | Sequence pause automation |
+
+---
+
+## Sprint 43: Email Infrastructure (Vercel + SendGrid Backend)
+**Goal:** Create serverless email sending infrastructure with SendGrid.
+**Demo:** POST /api/email/send → Email delivered to inbox.
+**Validation:** Unit tests pass, manual test email received.
+
+### Task Dependency Graph
+```
+T43.1 (Types) ─────┬── T43.2 (SendGrid Client) ── T43.3 (Queue Service)
+                   │                               │
+T43.4 (Vercel API) ─────────────────────────────────── T43.5 (Tracking)
+                                                        │
+T43.6 (Tests) ───────────────────────────────────────────
+```
+
+### T43.1: Email Infrastructure Types [S - 1h]
+**Goal:** Define TypeScript types for email infrastructure.
+**Files:** 
+- `src/types/email.ts` (new)
+**Changes:**
+```typescript
+// Core email types
+interface EmailMessage {
+  id: string;
+  to: { email: string; name?: string }[];
+  cc?: { email: string; name?: string }[];
+  bcc?: { email: string; name?: string }[];
+  from: { email: string; name: string };
+  replyTo?: { email: string; name?: string };
+  subject: string;
+  bodyHtml: string;
+  bodyText: string;
+  templateId?: string;
+  variables?: Record<string, string>;
+  trackOpens?: boolean;
+  trackClicks?: boolean;
+  scheduledAt?: string; // ISO date
+  tags?: string[];
+  prospectId?: string; // Link back to prospect
+  sequenceId?: string; // Link to email sequence
+  stepNumber?: number;
+}
+
+interface EmailQueueItem extends EmailMessage {
+  status: 'pending' | 'sending' | 'sent' | 'failed' | 'bounced';
+  attempts: number;
+  lastAttemptAt?: string;
+  sentAt?: string;
+  errorMessage?: string;
+  sendgridMessageId?: string;
+}
+
+interface EmailEvent {
+  type: 'delivered' | 'opened' | 'clicked' | 'bounced' | 'spam' | 'unsubscribed';
+  emailId: string;
+  prospectId: string;
+  timestamp: string;
+  metadata?: { url?: string; userAgent?: string; ip?: string };
+}
+
+interface SendGridConfig {
+  apiKey: string;
+  fromEmail: string;
+  fromName: string;
+  replyToEmail?: string;
+  trackingDomain?: string;
+  unsubscribeUrl: string;
+}
+
+interface EmailStats {
+  sent: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  bounced: number;
+  unsubscribed: number;
+  openRate: number;
+  clickRate: number;
+  bounceRate: number;
+}
+```
+**Tests:**
+- Zod schema validates sample email objects
+- Schema rejects missing required fields
+- Stats calculation helpers work
+**Validation:**
+- [ ] Types compile without errors
+- [ ] 5+ unit tests passing
+
+### T43.2: SendGrid Client Service [M - 3h]
+**Goal:** Create SendGrid API wrapper with batch support.
+**Files:**
+- `src/services/SendGridClient.ts` (new)
+- `src/__tests__/services/SendGridClient.test.ts` (new)
+**Dependencies:** T43.1
+**Interface:**
+```typescript
+interface SendGridClient {
+  // Single email
+  sendEmail(email: EmailMessage): Promise<{ messageId: string }>;
+  
+  // Batch (max 1000 per call)
+  sendBatch(emails: EmailMessage[]): Promise<{ 
+    messageIds: string[];
+    failed: Array<{ email: string; error: string }>;
+  }>;
+  
+  // Template support
+  sendWithTemplate(
+    templateId: string, 
+    recipients: Array<{ email: string; variables: Record<string, string> }>
+  ): Promise<{ messageIds: string[] }>;
+  
+  // Status
+  getMessageStatus(messageId: string): Promise<EmailEvent[]>;
+  
+  // Suppression list management
+  addToSuppressionList(email: string, reason: 'unsubscribe' | 'bounce'): Promise<void>;
+  checkSuppressed(email: string): Promise<boolean>;
+}
+```
+**Implementation Details:**
+1. Use `@sendgrid/mail` SDK
+2. Rate limit: 10 emails/second (SendGrid API limit of 600 requests/minute)
+3. Batch API for bulk sends (up to 1000 per call)
+4. Automatic retry on 429/5xx with exponential backoff
+5. Suppression list check before sending
+6. Error categorization (transient vs permanent)
+7. Mock mode for development (no actual sends)
+**Tests:**
+- Mock SendGrid API responses
+- Verify rate limiting works
+- Verify batch splitting for >1000 emails
+- Verify suppression list check
+- Verify retry logic on transient errors
+**Validation:**
+- [ ] 10+ unit tests passing
+- [ ] Mock mode works for development
+
+### T43.3a: Email Queue Service [M - 4h]
+**Goal:** Persistent queue for scheduled and rate-limited email sending.
+**Files:**
+- `src/services/EmailQueueService.ts` (new)
+- `src/__tests__/services/EmailQueueService.test.ts` (new)
+**Dependencies:** T43.1, T43.2
+**Interface:**
+```typescript
+interface EmailQueueService {
+  // Enqueue
+  enqueue(email: EmailMessage): Promise<string>; // Returns queue ID
+  enqueueBatch(emails: EmailMessage[]): Promise<string[]>;
+  enqueueSequenceStep(
+    prospectId: string, 
+    sequenceId: string, 
+    stepNumber: number,
+    scheduledAt: Date
+  ): Promise<string>;
+  
+  // Process
+  processNext(): Promise<EmailQueueItem | null>;
+  processBatch(limit?: number): Promise<{ processed: number; failed: number }>;
+  
+  // Status
+  getQueueStats(): { pending: number; sending: number; failed: number };
+  getItemStatus(queueId: string): Promise<EmailQueueItem | null>;
+  
+  // Retry
+  retryFailed(): Promise<number>;
+  
+  // Cancel
+  cancelScheduled(queueId: string): Promise<boolean>;
+  cancelByProspect(prospectId: string): Promise<number>; // For sequence stops
+}
+```
+**Storage:** Firestore collection `email_queue` with TTL
+**Processing Logic:**
+1. Query pending items where `scheduledAt <= now`
+2. Update status to 'sending' with Firestore transaction (idempotent)
+3. Call SendGridClient.sendEmail()
+4. Update status to 'sent' or 'failed'
+5. On failure: increment attempts, set exponential backoff delay
+6. Max 3 retries for transient errors
+7. Permanent failures (bounce) → add to suppression list
+8. Dead letter queue for items that fail 3+ times
+**Tests:**
+- Queue item persists to Firestore (mocked)
+- Scheduled items wait until scheduledAt
+- Failed items retry with backoff
+- Max retries honored
+- Cancel removes from queue
+- Idempotent processing (same item not double-sent)
+**Validation:**
+- [ ] 12+ unit tests passing
+- [ ] Queue stats accurate
+
+### T43.3b: Email Compliance Service [M - 2h] ⚠️ REQUIRED FOR CAN-SPAM
+**Goal:** Ensure all emails meet CAN-SPAM and GDPR requirements.
+**Files:**
+- `src/services/EmailComplianceService.ts` (new)
+- `src/__tests__/services/EmailComplianceService.test.ts` (new)
+**Dependencies:** T43.1
+**Interface:**
+```typescript
+interface EmailComplianceService {
+  // Validate before sending
+  validateEmail(email: EmailMessage): {
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+  };
+  
+  // Inject required elements
+  injectComplianceElements(email: EmailMessage): EmailMessage;
+  
+  // Consent tracking
+  recordConsent(email: string, source: 'import' | 'signup' | 'manual'): void;
+  hasConsent(email: string): boolean;
+  
+  // GDPR right to be forgotten
+  processGDPRDeletion(email: string): Promise<void>;
+  
+  // Suppression management
+  addToSuppressionList(email: string, reason: 'unsubscribe' | 'bounce' | 'spam'): Promise<void>;
+  isOnSuppressionList(email: string): Promise<boolean>;
+}
+```
+**CAN-SPAM Requirements (Legal):**
+1. Add `List-Unsubscribe` header to all emails (RFC 8058)
+2. Add `List-Unsubscribe-Post` header for one-click unsubscribe (Gmail/Yahoo required as of Feb 2024)
+3. Inject physical mailing address footer (required by law)
+4. Clear "From" identification
+5. Honest subject lines (no deception)
+6. Process unsubscribe within 10 business days
+**GDPR Requirements (EU Prospects):**
+1. Record consent source for all contacts
+2. Support right to access (export data)
+3. Support right to deletion (remove all data)
+4. Store consent timestamp
+**Tests:**
+- Email without unsubscribe link fails validation
+- Physical address injected correctly
+- Suppression list prevents sending
+- GDPR deletion removes all prospect data
+**Validation:**
+- [ ] 8+ unit tests passing
+- [ ] All outgoing emails include required headers
+- [ ] Unsubscribe link works
+
+### T43.4a: Vercel API Routes - Core Email Operations [M - 4h]
+**Goal:** Create core serverless API endpoints for email sending.
+**Files:**
+- `api/email/send.ts` (new)
+- `api/email/batch.ts` (new)
+- `api/email/schedule.ts` (new)
+- `api/email/cancel.ts` (new)
+- `api/email/status.ts` (new)
+**Dependencies:** T43.2, T43.3a, T43.3b
+**Endpoints:**
+```typescript
+// POST /api/email/send
+// Body: EmailMessage
+// Response: { success: true, queueId: string, messageId?: string }
+
+// POST /api/email/batch
+// Body: { emails: EmailMessage[], maxPerRequest?: number }
+// Response: { success: true, queueIds: string[], count: number }
+
+// POST /api/email/schedule
+// Body: { email: EmailMessage, scheduledAt: string }
+// Response: { success: true, queueId: string }
+
+// DELETE /api/email/cancel/:queueId
+// Response: { success: true }
+
+// GET /api/email/status/:queueId
+// Response: EmailQueueItem
+```
+**Security:**
+- All routes require Firebase ID token authentication
+- Rate limiting: 100 requests/minute per user (use Vercel Edge Config)
+- Request body validation with Zod schemas
+- CORS restricted to known origins
+**Tests:**
+- Unit tests for each endpoint
+- Auth rejection for unauthenticated requests
+- Rate limiting works
+**Validation:**
+- [ ] 10+ tests passing
+- [ ] Endpoints accessible in Vercel preview
+
+### T43.4b: Vercel API Routes - Webhooks & Tracking [M - 3h]
+**Goal:** Create webhook endpoints for SendGrid events and tracking.
+**Files:**
+- `api/email/webhook.ts` (new) - SendGrid event webhook
+- `api/email/unsubscribe.ts` (new) - One-click unsubscribe
+- `api/track/open.ts` (new) - Tracking pixel
+- `api/track/click.ts` (new) - Link redirect
+**Dependencies:** T43.3b, T43.5
+**Endpoints:**
+```typescript
+// POST /api/email/webhook (SendGrid events)
+// Headers: X-Twilio-Email-Event-Webhook-Signature
+// Body: SendGrid event payload (array of events)
+// Response: 200 OK
+
+// GET/POST /api/email/unsubscribe?token=xxx
+// GET: Shows confirmation page
+// POST: Processes unsubscribe
+// Response: HTML confirmation page
+```
+**Security (Critical):**
+1. Validate SendGrid webhook signature using `X-Twilio-Email-Event-Webhook-Signature` header
+2. Use constant-time string comparison (prevent timing attacks)
+3. Store webhook signing key in Vercel environment variable `SENDGRID_WEBHOOK_SECRET`
+4. Log and reject invalid webhook requests with 401
+5. Rate limiting: 1000/minute (SendGrid may burst events)
+6. Unsubscribe token is HMAC-signed with secret
+7. Unsubscribe tokens expire after 30 days
+**Webhook Event Types:**
+- `delivered` → Update email status
+- `open` → Record open event
+- `click` → Record click event (URL in payload)
+- `bounce` → Add to suppression list
+- `spam` → Add to suppression list, pause sequences
+- `unsubscribe` → Process unsubscribe
+**Tests:**
+- Valid signature accepted
+- Invalid signature rejected (401)
+- Events update correct records
+- Bounce adds to suppression
+**Validation:**
+- [ ] 8+ tests passing
+- [ ] Webhook signature validation works
+
+### T43.5: Email Tracking Service [M - 3h]
+**Goal:** Track opens, clicks, and engagement for analytics.
+**Files:**
+- `src/services/EmailTrackingService.ts` (new)
+- `src/__tests__/services/EmailTrackingService.test.ts` (new)
+**Dependencies:** T43.1
+**Implementation:**
+1. **Open Tracking:** Inject 1x1 tracking pixel with signed token
+2. **Click Tracking:** Rewrite links to go through `/api/track/click?url=X&token=Y`
+3. **Event Storage:** Firestore collection `email_events`
+4. **Deduplication:** Only count first open/click per email
+**Privacy Considerations:**
+1. Anonymize IP addresses (zero last octet for privacy)
+2. Add tracking disclosure to email footer
+3. 90-day retention policy for tracking data
+4. No personally identifiable info in tracking tokens
+**Interface:**
+```typescript
+interface EmailTrackingService {
+  // Inject tracking into email
+  injectTracking(email: EmailMessage): EmailMessage;
+  
+  // Record events
+  recordOpen(emailId: string, metadata?: Record<string, unknown>): Promise<void>;
+  recordClick(emailId: string, url: string, metadata?: Record<string, unknown>): Promise<void>;
+  
+  // Query
+  getEmailEvents(emailId: string): Promise<EmailEvent[]>;
+  getProspectEngagement(prospectId: string): Promise<{
+    totalOpens: number;
+    totalClicks: number;
+    lastEngagement?: Date;
+    engagedEmails: string[];
+  }>;
+  
+  // Stats
+  getCampaignStats(campaignId: string): Promise<EmailStats>;
+}
+```
+**Tests:**
+- Tracking pixel injected into HTML body
+- Links rewritten with tracking parameters
+- Open recorded on pixel request
+- Click redirects to original URL
+- Duplicate opens not counted
+**Validation:**
+- [ ] 10+ tests passing
+- [ ] Tracking pixel returns 1x1 GIF
+
+### T43.6: Sprint 43 Integration Tests [S - 2h]
+**Goal:** End-to-end validation of email infrastructure.
+**Files:**
+- `src/__tests__/integration/email.test.ts` (new)
+**Dependencies:** T43.1-T43.5
+**Tests:**
+1. Full flow: enqueue → process → send (mocked SendGrid)
+2. Batch processing respects rate limits
+3. Scheduled email waits for time
+4. Webhook updates email status
+5. Tracking events recorded
+6. Suppression list prevents sending
+7. Unsubscribe flow works
+**Validation:**
+- [ ] All integration tests pass
+- [ ] `npm test -- email` shows green
+- [ ] Manual test: send email to personal inbox
+
+### T43.7: Email Domain Warmup Strategy [S - 1h] ⚠️ REQUIRED FOR DELIVERABILITY
+**Goal:** Define warmup schedule to avoid spam filters on new sending domain.
+**Files:**
+- `docs/EMAIL_WARMUP_PLAN.md` (new)
+- `src/services/EmailWarmupService.ts` (new)
+**Dependencies:** T43.3a
+**Deliverable:** Document and service with:
+1. **Warmup Schedule:**
+   - Week 1: 20 emails/day
+   - Week 2: 50 emails/day
+   - Week 3: 100 emails/day
+   - Week 4: 250 emails/day
+   - Week 5+: Full capacity
+2. **Domain Authentication (Pre-requisites):**
+   - SPF record configured
+   - DKIM signing enabled
+   - DMARC policy set (p=none initially)
+3. **Automated Throttling:**
+   - Track daily send count
+   - Enforce warmup limits automatically
+   - Alert if bounce rate > 5%
+   - Auto-pause if spam rate > 0.1%
+**Interface:**
+```typescript
+interface EmailWarmupService {
+  getDailyLimit(): number;
+  getRemainingToday(): number;
+  canSendNow(): boolean;
+  recordSent(): void;
+  getWarmupStage(): 'warming' | 'ready';
+  getHealthStatus(): {
+    bounceRate: number;
+    spamRate: number;
+    isHealthy: boolean;
+  };
+}
+```
+**Tests:**
+- Daily limit enforced correctly
+- Warmup stage advances after time
+- Unhealthy metrics pause sending
+**Validation:**
+- [ ] Warmup limits prevent over-sending
+- [ ] Documentation complete
+
+---
+
+## Sprint 43 Summary
+**Effort:** 22h total (was 18h)
+**Tasks:** T43.1, T43.2, T43.3a, T43.3b, T43.4a, T43.4b, T43.5, T43.6, T43.7
+**Deliverable:** Complete email sending infrastructure with compliance
+
+---
+
+## Sprint 44: Account-Based Email Campaigns
+**Goal:** Send persona-based emails at scale with company grouping.
+**Demo:** Select 50 prospects → Generate personalized emails → Preview → Send as batch.
+**Validation:** Emails sent with personalization, appears in HubSpot activity.
+
+### Task Dependency Graph
+```
+T44.1 (Campaign Types) ─── T44.2 (Campaign Service) ─── T44.3 (Persona Engine)
+                                    │
+T44.4 (Campaign Builder UI) ─────────── T44.5 (Preview/Send UI)
+                                    │
+T44.6 (HubSpot Activity Integration) ───── T44.7 (Tests)
+```
+
+### T44.1: Account-Based Campaign Types [S - 1h]
+**Goal:** Define types for account-based marketing campaigns.
+**Files:**
+- `src/types/campaign.ts` (new)
+**Changes:**
+```typescript
+type PersonaType = 'ops_director' | 'exec' | 'cfo' | 'procurement' | 'it' | 'generic';
+
+interface Campaign {
+  id: string;
+  name: string;
+  type: 'account_based' | 'persona_burst' | 'single_send';
+  status: 'draft' | 'scheduled' | 'sending' | 'paused' | 'completed';
+  
+  // Targeting
+  targetAccounts: string[]; // Company names or IDs
+  targetPersonas: PersonaType[];
+  tierFilter?: ('Tier 1' | 'Tier 2' | 'Tier 3' | 'Tier 4')[];
+  
+  // Content
+  sequenceId?: string; // Use existing sequence
+  customEmail?: {
+    subject: string;
+    bodyHtml: string;
+    bodyText: string;
+  };
+  personalization: {
+    useAI: boolean;
+    includeROI: boolean;
+    includeCalendly: boolean;
+    calendlyLink?: string;
+  };
+  
+  // Scheduling
+  sendWindow?: {
+    startHour: number; // 9 = 9am
+    endHour: number; // 17 = 5pm
+    timezone: string;
+    skipWeekends: boolean;
+  };
+  throttle?: {
+    maxPerHour: number;
+    maxPerDay: number;
+  };
+  
+  // Stats
+  stats: {
+    total: number;
+    sent: number;
+    delivered: number;
+    opened: number;
+    clicked: number;
+    replied: number;
+    bounced: number;
+    unsubscribed: number;
+  };
+  
+  // Metadata
+  createdAt: string;
+  updatedAt: string;
+  scheduledAt?: string;
+  completedAt?: string;
+}
+
+interface CampaignProspect {
+  prospectId: string;
+  email: string;
+  persona: PersonaType;
+  company: string;
+  tier: string;
+  personalization: Record<string, string>;
+  emailContent?: {
+    subject: string;
+    body: string;
+  };
+  status: 'pending' | 'personalized' | 'sent' | 'failed';
+}
+```
+**Tests:**
+- Zod schema validates campaign objects
+- Persona type inference works
+**Validation:**
+- [ ] Types compile without errors
+- [ ] 3+ tests passing
+
+### T44.2a: Campaign Service - CRUD & Storage [M - 2h]
+**Goal:** Create and persist campaign objects with targeting metadata.
+**Files:**
+- `src/services/CampaignService.ts` (new)
+- `src/__tests__/services/CampaignService.test.ts` (new)
+**Dependencies:** T43.3a, T44.1
+**Interface (CRUD + Targeting only):**
+```typescript
+interface CampaignService {
+  createCampaign(config: Partial<Campaign>): Campaign;
+  updateCampaign(id: string, updates: Partial<Campaign>): Campaign;
+  deleteCampaign(id: string): void;
+  getCampaign(id: string): Campaign | null;
+  listCampaigns(filter?: { status?: Campaign['status'] }): Campaign[];
+  
+  addProspects(campaignId: string, prospectIds: string[]): void;
+  removeProspects(campaignId: string, prospectIds: string[]): void;
+  getProspects(campaignId: string): CampaignProspect[];
+  previewCount(filter: Campaign['tierFilter'], personas: PersonaType[]): number;
+}
+```
+**Implementation Details:**
+1. Campaigns stored in Firestore `campaigns` collection
+2. Prospect list stored in `campaign_prospects` subcollection
+3. Indexes for `status`, `createdAt`, `scheduledAt`
+**Tests:**
+- Campaign CRUD works
+- Prospect add/remove works
+- Preview count respects tier/persona filters
+**Validation:**
+- [ ] 8+ unit tests passing
+- [ ] Manual campaign creation works
+
+### T44.2b: Campaign Service - Execution & Stats [M - 3h]
+**Goal:** Execute campaigns and track performance metrics.
+**Files:**
+- `src/services/CampaignService.ts`
+- `src/__tests__/services/CampaignServiceExecution.test.ts` (new)
+**Dependencies:** T43.3a, T43.5, T44.2a
+**Interface (Execution + Stats):**
+```typescript
+interface CampaignService {
+  generatePersonalization(campaignId: string): Promise<void>;
+  previewEmail(campaignId: string, prospectId: string): EmailMessage;
+  scheduleCampaign(id: string, scheduledAt: Date): void;
+  startCampaign(id: string): Promise<void>;
+  pauseCampaign(id: string): void;
+  resumeCampaign(id: string): Promise<void>;
+  getCampaignStats(id: string): Campaign['stats'];
+  getDetailedStats(id: string): {
+    byPersona: Record<PersonaType, EmailStats>;
+    byTier: Record<string, EmailStats>;
+    byCompany: Record<string, EmailStats>;
+    timeline: Array<{ date: string; sent: number; opened: number }>;
+  };
+}
+```
+**Implementation Details:**
+1. AI personalization batched (10 prospects at a time)
+2. Execution uses EmailQueueService for rate limiting
+3. Stats updated in real-time via webhook events
+**Tests:**
+- Personalization generates unique content
+- Throttling respected
+- Stats calculated correctly
+**Validation:**
+- [ ] 10+ unit tests passing
+
+### T44.3: Persona Detection & Personalization Engine [M - 4h]
+**Goal:** Auto-detect persona from title, generate persona-specific content.
+**Files:**
+- `src/services/PersonaEngine.ts` (new)
+- `src/__tests__/services/PersonaEngine.test.ts` (new)
+**Dependencies:** T44.1
+**Interface:**
+```typescript
+interface PersonaEngine {
+  // Detection
+  detectPersona(title: string, company?: string): PersonaType;
+  
+  // Template selection
+  getTemplateForPersona(persona: PersonaType): {
+    subject: string;
+    body: string;
+    toneGuide: string;
+    painPoints: string[];
+    ctaStyle: 'soft' | 'direct' | 'value_first';
+  };
+  
+  // Personalization
+  personalizeMessage(
+    template: string,
+    prospect: Prospect,
+    options?: {
+      includeROI?: boolean;
+      includeCalendly?: boolean;
+      calendlyLink?: string;
+      companyStats?: { trailerCount?: number; revenue?: string };
+    }
+  ): string;
+  
+  // AI Enhancement
+  enhanceWithAI(
+    message: string,
+    prospect: Prospect,
+    persona: PersonaType
+  ): Promise<string>;
+}
+```
+**Persona Detection Rules:**
+```typescript
+const PERSONA_KEYWORDS: Record<PersonaType, string[]> = {
+  ops_director: ['operations', 'ops', 'logistics', 'supply chain', 'warehouse', 'distribution', 'fleet', 'yard'],
+  exec: ['ceo', 'president', 'chief', 'vp', 'vice president', 'founder', 'owner', 'partner'],
+  cfo: ['cfo', 'finance', 'controller', 'treasurer', 'accounting'],
+  procurement: ['procurement', 'purchasing', 'sourcing', 'buyer', 'vendor'],
+  it: ['cto', 'cio', 'technology', 'it ', 'information technology', 'systems', 'developer', 'engineer'],
+  generic: [], // Fallback
+};
+```
+**Variable Substitution:**
+- `{{firstName}}` → First name from prospect.name
+- `{{company}}` → prospect.company
+- `{{title}}` → prospect.title
+- `{{trailerCount}}` → Company trailer count (if known)
+- `{{calendlyLink}}` → Jake's Calendly URL
+- `{{roiStat}}` → Persona-specific ROI stat
+**Tests:**
+- Persona detection accuracy > 90%
+- Variable substitution complete
+- AI enhancement improves message
+**Validation:**
+- [ ] 15+ tests passing
+- [ ] All personas have templates
+
+### T44.4: Campaign Builder UI [L - 5h]
+**Goal:** UI to create and configure email campaigns.
+**Files:**
+- `src/components/CampaignBuilder.tsx` (new)
+- `src/components/CampaignList.tsx` (new)
+- `src/components/CampaignCard.tsx` (new)
+- Add "Campaigns" tab to App.tsx
+**Dependencies:** T44.2, T44.3
+**UI Components:**
+1. **Campaign List View:**
+   - Cards showing campaign name, status, stats
+   - Filter by status (draft, scheduled, completed)
+   - Click to edit/view details
+2. **Campaign Builder Steps:**
+   - Step 1: Name & Type (account-based, persona burst, single send)
+   - Step 2: Select Targets (tier filter, persona checkboxes, or manual select)
+   - Step 3: Content (choose sequence or custom email, AI toggle)
+   - Step 4: Personalization (preview 5 random prospects)
+   - Step 5: Schedule & Throttle (send now, schedule, send window)
+   - Step 6: Review & Launch
+3. **Progress Indicators:**
+   - Show target count at each step
+   - Validation errors inline
+   - "Test send to myself" button
+**Tests:**
+- E2E: Create campaign flow
+- Unit: Step navigation
+**Validation:**
+- [ ] Campaign wizard completes
+- [ ] Campaign appears in list
+
+### T44.5: Campaign Preview & Send UI [M - 3h]
+**Goal:** Preview personalized emails before sending, batch send with progress.
+**Files:**
+- `src/components/CampaignPreview.tsx` (new)
+- `src/components/CampaignSendProgress.tsx` (new)
+**Dependencies:** T44.4
+**Features:**
+1. **Preview Grid:**
+   - Show 10 preview emails (randomized from targets)
+   - Click to see full email content
+   - Refresh to see different prospects
+   - AI regenerate button per email
+2. **Send Progress:**
+   - Progress bar with percentage
+   - Real-time sent/failed counters
+   - Pause button
+   - View sent emails in expandable list
+   - Error log for failed sends
+3. **Completion Summary:**
+   - Total sent, delivered, failed
+   - Link to campaign stats
+   - "View in HubSpot" button
+**Tests:**
+- E2E: Preview shows personalized content
+- E2E: Send progress updates
+**Validation:**
+- [ ] Preview shows unique content per prospect
+- [ ] Progress bar animates during send
+- [ ] Completion summary accurate
+
+### T44.6: HubSpot Email Activity Integration [M - 3h]
+**Goal:** Log sent emails as activities in HubSpot.
+**Files:**
+- `src/services/HubSpotEmailSync.ts` (new)
+- `src/__tests__/services/HubSpotEmailSync.test.ts` (new)
+**Dependencies:** T43.2, T44.2, existing HubSpotActivityLogger.ts
+**Implementation:**
+1. After email sent successfully, call HubSpot Engagements API
+2. Create EMAIL engagement on contact
+3. Include subject, body preview, sent timestamp
+4. Link to deal if exists
+5. Add metadata (campaign name, sequence step)
+6. Handle rate limiting (queue if needed)
+**Interface:**
+```typescript
+interface HubSpotEmailSync {
+  logEmailSent(
+    hubspotContactId: string,
+    email: EmailMessage,
+    campaignId?: string
+  ): Promise<string>; // Returns engagement ID
+  
+  logEmailOpened(hubspotContactId: string, engagementId: string): Promise<void>;
+  logEmailClicked(hubspotContactId: string, engagementId: string, url: string): Promise<void>;
+  logEmailReplied(hubspotContactId: string, engagementId: string): Promise<void>;
+}
+```
+**Tests:**
+- Email logged creates HubSpot engagement
+- Activity visible in contact timeline (manual verification)
+**Validation:**
+- [ ] 6+ tests passing
+- [ ] Engagement appears in HubSpot
+
+### T44.7: Sprint 44 E2E Validation [S - 2h]
+**Goal:** Full campaign creation and send flow works.
+**Files:**
+- `e2e/campaigns.spec.ts` (new)
+**Dependencies:** T44.1-T44.6
+**Tests:**
+1. Create campaign with tier filter
+2. Add persona-based targeting
+3. Preview personalized emails
+4. Start campaign
+5. Verify progress UI
+6. Check completion stats
+7. Verify HubSpot activity (mock)
+**Validation:**
+- [ ] All E2E tests pass
+- [ ] `npm run test:e2e -- campaigns.spec.ts` green
+
+---
+
+## Sprint 45: Email Sequences & Automation
+**Goal:** Execute multi-step email sequences with smart pausing.
+**Demo:** Enroll 10 prospects in 4-step sequence → Emails sent over 2 weeks with auto-pause on reply.
+**Validation:** Sequence execution works, replies detected, HubSpot updated.
+
+### T45.1a: Sequence Executor - Enrollment & Scheduling [M - 3h]
+**Goal:** Enroll prospects and schedule sequence steps.
+**Files:**
+- `src/services/SequenceExecutor.ts` (new)
+- `src/__tests__/services/SequenceExecutorEnrollment.test.ts` (new)
+**Dependencies:** T43.3a, existing EmailSequenceService.ts
+**Interface (Enrollment):**
+```typescript
+interface SequenceExecutor {
+  enrollProspect(
+    prospectId: string, 
+    sequenceId: string,
+    options?: { startAt?: Date; skipSteps?: number[] }
+  ): Promise<string>;
+  enrollBatch(
+    prospectIds: string[],
+    sequenceId: string,
+    options?: { staggerMinutes?: number }
+  ): Promise<string[]>;
+  getEnrollmentStatus(enrollmentId: string): SequenceEnrollment;
+  getProspectEnrollments(prospectId: string): SequenceEnrollment[];
+  getSequenceEnrollments(sequenceId: string): SequenceEnrollment[];
+  unenrollProspect(prospectId: string, sequenceId: string): void;
+  unenrollAll(prospectId: string): void;
+}
+```
+**Scheduling Logic:**
+1. Calculate nextStepAt based on step delays and timezone
+2. Store in Firestore `sequence_enrollments` collection
+3. Validate skipSteps and prevent invalid indices
+**Tests:**
+- Enrollment creates correct schedule
+- Batch enroll staggers steps correctly
+- Unenroll removes pending steps
+**Validation:**
+- [ ] 8+ tests passing
+
+### T45.1b: Sequence Executor - Execution & Pause Logic [M - 3h]
+**Goal:** Execute scheduled steps and handle pause/resume.
+**Files:**
+- `src/services/SequenceExecutor.ts`
+- `src/__tests__/services/SequenceExecutorExecution.test.ts` (new)
+**Dependencies:** T45.1a, T43.3a
+**Interface (Execution):**
+```typescript
+interface SequenceExecutor {
+  processScheduledSteps(): Promise<{ processed: number; skipped: number }>;
+  pauseEnrollment(enrollmentId: string, reason: 'reply' | 'meeting' | 'manual'): void;
+  resumeEnrollment(enrollmentId: string): void;
+  pauseByProspect(prospectId: string): void;
+}
+```
+**Execution Logic:**
+1. Query enrollments where `nextStepAt <= now` and status = 'active'
+2. For each: generate email, enqueue via EmailQueueService
+3. Update enrollment with next step
+4. Check pause conditions before each step
+**Pause Triggers:**
+- Reply detected (via webhook or HubSpot sync)
+- Meeting booked (Calendly webhook or manual status)
+- Manual pause from UI
+- Prospect unsubscribed
+**Tests:**
+- Steps execute at correct times
+- Pause on reply works
+- Resume continues from paused step
+**Validation:**
+- [ ] 10+ tests passing
+
+### T45.2: Reply Detection Integration [M - 4h]
+**Goal:** Detect email replies and auto-pause sequences.
+**Files:**
+- `src/services/ReplyDetectionService.ts` (new)
+- `api/webhook/email-reply.ts` (new) - Inbound email webhook
+**Dependencies:** T45.1
+**Options for Reply Detection:**
+1. **SendGrid Inbound Parse** (preferred):
+   - Configure MX records for reply subdomain
+   - Webhook receives parsed reply
+   - Match to original email via In-Reply-To header
+2. **Manual Status Update:**
+   - User marks prospect as "replied"
+   - Triggers pause via UI
+3. **HubSpot Sync:**
+   - Check HubSpot for new email activities
+   - Match by contact and timeframe
+**Implementation:**
+```typescript
+interface ReplyDetectionService {
+  // Webhook handler
+  handleInboundEmail(parsedEmail: {
+    from: string;
+    to: string;
+    subject: string;
+    body: string;
+    headers: Record<string, string>;
+  }): Promise<void>;
+  
+  // Manual
+  markAsReplied(prospectId: string): Promise<void>;
+  
+  // Check (for HubSpot sync mode)
+  checkForReplies(prospectIds: string[]): Promise<string[]>; // Returns IDs that replied
+}
+```
+**Tests:**
+- Reply webhook pauses sequence
+- Manual mark pauses sequence
+- HubSpot sync detects replies
+**Validation:**
+- [ ] 8+ tests passing
+- [ ] Reply pauses active sequence
+
+### T45.3: Sequence Builder UI Enhancements [M - 3h]
+**Goal:** UI to create/edit sequences and monitor enrollments.
+**Files:**
+- `src/components/SequenceBuilder.tsx` (enhance existing if present, or new)
+- `src/components/SequenceEnrollmentList.tsx` (new)
+**Dependencies:** T45.1
+**Features:**
+1. **Sequence Editor:**
+   - Drag-drop step reordering
+   - Edit step subject/body inline
+   - Set delay days between steps
+   - Preview with variable substitution
+   - Clone existing sequence
+2. **Enrollment Dashboard:**
+   - List of active enrollments
+   - Filter by sequence, status
+   - Bulk pause/resume
+   - Progress indicator per enrollment (step X of Y)
+3. **Stats Panel:**
+   - Completion rate, reply rate
+   - Step-by-step drop-off
+   - A/B test results if applicable
+**Tests:**
+- E2E: Create sequence, enroll prospect
+**Validation:**
+- [ ] Can create 4-step sequence
+- [ ] Enrollments visible in dashboard
+
+### T45.4: Calendly Integration for Meeting Detection [M - 3h]
+**Goal:** Detect when meeting is booked via Calendly, pause sequence.
+**Files:**
+- `api/webhook/calendly.ts` (new)
+- `src/services/CalendlyIntegration.ts` (new)
+**Dependencies:** T45.1
+**Implementation:**
+1. Register Calendly webhook for booking events
+2. On booking: extract invitee email
+3. Match to prospect by email
+4. Update prospect status to 'meeting_booked'
+5. Pause any active sequences
+6. Log to HubSpot as meeting activity
+**Webhook Payload Handling:**
+```typescript
+interface CalendlyWebhookEvent {
+  event: 'invitee.created' | 'invitee.canceled';
+  payload: {
+    email: string;
+    name: string;
+    event_type: { name: string };
+    scheduled_event: {
+      start_time: string;
+      end_time: string;
+    };
+  };
+}
+```
+**Tests:**
+- Booking event pauses sequence
+- Cancellation resumes sequence
+- Meeting logged to HubSpot
+**Validation:**
+- [ ] 6+ tests passing
+- [ ] Manual: Book via Calendly → Sequence pauses
+
+### T45.5: Vercel Cron for Sequence Processing [M - 3h]
+**Goal:** Scheduled function to process sequence steps with idempotency.
+**Files:**
+- `api/cron/process-sequences.ts` (new)
+- `vercel.json` - Add cron config
+**Dependencies:** T45.1, T45.2
+**Cron Config:**
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/process-sequences",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
+```
+**Function Logic:**
+1. Acquire distributed lock (Firestore transaction) to prevent concurrent runs
+2. Check for scheduled steps due
+3. Mark items as `processing` before execution (idempotent)
+4. Process batch (max 50 per run)
+5. Log results + emit metrics
+6. Release lock, handle timeouts gracefully
+**Tests:**
+- Function processes due steps
+- Respects batch limit
+- Lock prevents concurrent processing
+- Idempotent processing (no double-send)
+**Validation:**
+- [ ] Cron deploys to Vercel
+- [ ] Steps processed automatically
+- [ ] No duplicate sends observed
+
+### T45.6: Sprint 45 E2E Validation [S - 2h]
+**Goal:** Full sequence enrollment and execution works.
+**Files:**
+- `e2e/sequences.spec.ts` (new)
+**Dependencies:** T45.1-T45.5
+**Tests:**
+1. Create 4-step sequence
+2. Enroll prospect
+3. First email sends immediately
+4. Mock time advance → Second email sends
+5. Simulate reply → Sequence pauses
+6. Resume → Remaining steps continue
+7. Calendly booking pauses (mock)
+**Validation:**
+- [ ] All E2E tests pass
+
+---
+
+## Sprint 46: Analytics & Reporting Dashboard
+**Goal:** Comprehensive email analytics with campaign performance tracking.
+**Demo:** View email stats by campaign, persona, company with charts.
+**Validation:** Dashboard shows real-time stats, export works.
+
+### T46.1: Email Analytics Service [M - 4h]
+**Goal:** Aggregate email metrics from events.
+**Files:**
+- `src/services/EmailAnalyticsService.ts` (new)
+- `src/__tests__/services/EmailAnalyticsService.test.ts` (new)
+**Dependencies:** T43.5, T44.2
+**Interface:**
+```typescript
+interface EmailAnalyticsService {
+  // Overall stats
+  getOverallStats(dateRange?: { start: Date; end: Date }): EmailStats;
+  
+  // Campaign stats
+  getCampaignStats(campaignId: string): EmailStats;
+  getCampaignTimeline(campaignId: string): TimeSeriesData[];
+  
+  // Segmented stats
+  getStatsByPersona(): Record<PersonaType, EmailStats>;
+  getStatsByTier(): Record<string, EmailStats>;
+  getStatsByCompany(limit?: number): Array<{ company: string; stats: EmailStats }>;
+  
+  // Sequence stats
+  getSequenceStats(sequenceId: string): {
+    overall: EmailStats;
+    byStep: Array<{ step: number; stats: EmailStats }>;
+    completionRate: number;
+  };
+  
+  // Engagement trends
+  getBestSendTimes(): Array<{ hour: number; day: string; openRate: number }>;
+  getTopPerformingSubjects(limit?: number): Array<{ subject: string; openRate: number; count: number }>;
+  
+  // Prospect-level
+  getProspectEngagement(prospectId: string): {
+    totalEmails: number;
+    opened: number;
+    clicked: number;
+    replied: number;
+    lastEngagement?: Date;
+  };
+}
+```
+**Tests:**
+- Stats aggregate correctly
+- Date filtering works
+- Segmentation accurate
+**Validation:**
+- [ ] 12+ tests passing
+
+### T46.2: Email Analytics Dashboard UI [L - 5h]
+**Goal:** Visual dashboard for email performance.
+**Files:**
+- `src/components/EmailAnalyticsDashboard.tsx` (new)
+- `src/components/charts/EmailStatsChart.tsx` (new)
+- `src/components/charts/CampaignPerformanceChart.tsx` (new)
+- Add to existing Dashboard tab or new "Email Analytics" tab
+**Dependencies:** T46.1
+**Dashboard Components:**
+1. **Summary Cards:**
+   - Total Sent, Open Rate, Click Rate, Reply Rate
+   - Trend arrows comparing to previous period
+2. **Performance Chart:**
+   - Line chart: Sent, Opened, Clicked over time
+   - Toggle: Daily, Weekly, Monthly
+3. **Campaign Leaderboard:**
+   - Top 5 campaigns by open rate
+   - Click to view campaign details
+4. **Persona Breakdown:**
+   - Bar chart: Performance by persona
+   - Identify best-performing personas
+5. **Company Heatmap:**
+   - Top engaged companies
+   - Click to see contacts at company
+6. **Sequence Funnel:**
+   - Drop-off visualization per step
+   - Identify weak steps
+**Tests:**
+- E2E: Dashboard renders with data
+**Validation:**
+- [ ] All charts render
+- [ ] Data matches backend
+
+### T46.3: Email Report Export [M - 3h]
+**Goal:** Export email analytics as PDF/CSV.
+**Files:**
+- `src/services/EmailReportExporter.ts` (new)
+- `src/__tests__/services/EmailReportExporter.test.ts` (new)
+**Dependencies:** T46.1, existing PDFReportService.ts
+**Features:**
+1. **PDF Report:**
+   - Cover page with date range
+   - Summary metrics
+   - Campaign performance table
+   - Charts as images
+   - Recommendations section
+2. **CSV Export:**
+   - Email-level data (subject, recipient, status, opens, clicks)
+   - Campaign summary
+   - Prospect engagement
+**Interface:**
+```typescript
+interface EmailReportExporter {
+  exportToPDF(options: {
+    dateRange: { start: Date; end: Date };
+    includeCharts: boolean;
+    includeCampaigns: boolean;
+    includeRecommendations: boolean;
+  }): Promise<Blob>;
+  
+  exportToCSV(options: {
+    type: 'emails' | 'campaigns' | 'prospects';
+    dateRange: { start: Date; end: Date };
+  }): Promise<Blob>;
+}
+```
+**Tests:**
+- PDF generates successfully
+- CSV has correct columns
+**Validation:**
+- [ ] 6+ tests passing
+- [ ] Manual: PDF opens correctly
+
+### T46.4: Real-Time Stats Updates [S - 2h]
+**Goal:** Dashboard updates in real-time as emails are sent/opened.
+**Files:**
+- `src/hooks/useEmailAnalytics.ts` (new)
+- Wire to EmailAnalyticsDashboard.tsx
+**Dependencies:** T46.1, T46.2
+**Implementation:**
+1. Subscribe to Firestore `email_events` collection
+2. Update local stats on new events
+3. Debounce updates for performance
+4. Show "Live" indicator when receiving events
+**Tests:**
+- New event triggers stats update
+- Debouncing works
+**Validation:**
+- [ ] Stats update without page refresh
+
+### T46.5: Sprint 46 E2E Validation [S - 1h]
+**Goal:** Analytics dashboard works end-to-end.
+**Files:**
+- `e2e/email-analytics.spec.ts` (new)
+**Dependencies:** T46.1-T46.4
+**Tests:**
+1. Dashboard loads with summary cards
+2. Charts render
+3. PDF export downloads
+4. CSV export downloads
+5. Real-time updates (mock event)
+**Validation:**
+- [ ] All E2E tests pass
+
+---
+
+## Sprint 47: Integration Settings & Configuration UI
+**Goal:** Complete integrations settings page for all connections.
+**Demo:** Navigate to Settings → See all integration status → Configure each.
+**Validation:** Settings page fully functional.
+
+### T47.1: Unified Settings Page [M - 4h]
+**Goal:** Create comprehensive settings page for all integrations.
+**Files:**
+- `src/components/SettingsPage.tsx` (new)
+- `src/components/settings/HubSpotSettingsPanel.tsx` (new)
+- `src/components/settings/SendGridSettingsPanel.tsx` (new)
+- `src/components/settings/CalendlySettingsPanel.tsx` (new)
+- `src/components/settings/FirestoreSettingsPanel.tsx` (new)
+- Add Settings tab to App.tsx navigation
+**Dependencies:** All previous integration work
+**Layout:**
+1. **Navigation:** Sidebar with sections (CRM, Email, Calendar, Database, Profile)
+2. **HubSpot Panel:**
+   - Connection status
+   - Connect/Disconnect button
+   - Sync settings (auto-sync toggle, frequency)
+   - Field mapping editor
+   - Last sync timestamp
+3. **SendGrid Panel:**
+   - Connection status
+   - API key input (masked)
+   - From email/name config
+   - Test email button
+   - Sending limits display
+4. **Calendly Panel:**
+   - Connection status (webhook configured)
+   - Meeting type selection
+   - Link display/copy
+5. **Firestore Panel:**
+   - Connection status
+   - Data export button
+   - Clear local cache button
+**Tests:**
+- E2E: Navigate to settings
+- E2E: All panels render
+**Validation:**
+- [ ] Settings page accessible from nav
+- [ ] All integration panels show correct status
+
+### T47.2: Environment Variable Management [S - 2h]
+**Goal:** Secure handling of API keys without exposing secrets to the client.
+**Files:**
+- `src/services/ConfigService.ts` (new)
+- `api/config/validate.ts` (new)
+**Dependencies:** T47.1
+**Implementation:**
+1. API keys stored ONLY in server-side environment variables (Vercel)
+2. Frontend shows connection status only (no raw keys displayed)
+3. Settings page calls `/api/config/validate` to test connections
+4. Show warning banner if required server env vars missing
+5. Add CSP headers to reduce exfiltration risk
+**Required Variables (server-side):**
+```typescript
+const REQUIRED_CONFIG = {
+  SENDGRID_API_KEY: { required: true, validator: 'sendgrid' },
+  HUBSPOT_CLIENT_ID: { required: true, validator: 'hubspot' },
+  HUBSPOT_CLIENT_SECRET: { required: true, validator: 'hubspot' },
+  FIREBASE_CONFIG: { required: true, validator: 'firebase' },
+  GEMINI_API_KEY: { required: false, validator: 'gemini' },
+  CALENDLY_WEBHOOK_SECRET: { required: false, validator: 'calendly' },
+};
+```
+**Tests:**
+- Missing var shows warning
+- Invalid key shows error
+- No secrets present in client bundle
+**Validation:**
+- [ ] Missing config shows clear message
+- [ ] Client never receives API keys
+
+### T47.3: Integration Health Check [M - 3h]
+**Goal:** Real-time health status for all integrations.
+**Files:**
+- `src/services/IntegrationHealthService.ts` (new)
+- `src/components/IntegrationHealthIndicator.tsx` (new)
+**Dependencies:** T47.1
+**Implementation:**
+1. Periodic health checks (every 5 minutes)
+2. Check endpoints:
+   - HubSpot: GET /crm/v3/objects/contacts (test token)
+   - SendGrid: GET /v3/user/profile
+   - Firestore: Read test document
+   - Gemini: Simple completion
+3. Display status: 🟢 Healthy | 🟡 Degraded | 🔴 Down
+4. Show last check time
+5. Manual refresh button
+**Interface:**
+```typescript
+interface IntegrationHealthService {
+  checkAll(): Promise<Record<string, { status: 'healthy' | 'degraded' | 'down'; latency: number; error?: string }>>;
+  checkSingle(integration: string): Promise<HealthStatus>;
+  getLastCheck(): { timestamp: Date; results: Record<string, HealthStatus> };
+}
+```
+**Tests:**
+- All integrations checked
+- Correct status displayed
+**Validation:**
+- [ ] Health indicators visible in settings
+
+### T47.4: Sprint 47 Validation [S - 1h]
+**Goal:** Settings page fully functional.
+**Files:**
+- `e2e/settings.spec.ts` (new)
+**Tests:**
+1. Settings page loads
+2. All panels render
+3. Health check runs
+4. Config validation works
+**Validation:**
+- [ ] All E2E tests pass
+
+---
+
+## Sprint 48: Contact Data Leverage & Enrichment
+**Goal:** Maximize value from 5,409 loaded contacts with smart segmentation.
+**Demo:** View contact with enriched data, segment by engagement, prioritize outreach.
+**Validation:** Enrichment visible, segmentation works.
+
+### T48.1: Contact Enrichment Display [M - 3h]
+**Goal:** Show all available data for each prospect in detail view.
+**Files:**
+- `src/components/ProspectDetailPanel.tsx` (new)
+- Wire to prospect list click event
+**Dependencies:** Existing hitlistData.ts
+**Display Fields:**
+1. **Header:** Name, Title, Company, Tier badge
+2. **Contact Info:** Email, LinkedIn URL
+3. **Scoring:** Score, breakdown (company tier, engagement, recency)
+4. **Qualification:** isOps, isExec, category (Speaker/Attendee/Sponsor)
+5. **Activity:** Status, last activity, sequence enrollments
+6. **Engagement:** Email opens, clicks, replies
+7. **Notes:** Editable notes field
+8. **Actions:** Quick buttons (Send Email, Add to Sequence, Update Status)
+**Tests:**
+- E2E: Click prospect → Detail panel shows
+**Validation:**
+- [ ] All data fields visible
+- [ ] Quick actions work
+
+### T48.2: Smart Segmentation Engine [M - 4h]
+**Goal:** Auto-segment contacts for targeted campaigns.
+**Files:**
+- `src/services/SmartSegmentationService.ts` (new)
+- `src/__tests__/services/SmartSegmentation.test.ts` (new)
+**Dependencies:** Existing SegmentationService.ts (enhance)
+**Pre-built Segments:**
+```typescript
+const SMART_SEGMENTS: Segment[] = [
+  {
+    id: 'high-value-uncontacted',
+    name: 'High-Value Uncontacted',
+    criteria: { tier: ['Tier 1', 'Tier 2'], status: 'new', hasEmail: true },
+    description: 'Top tier prospects who haven\'t been contacted yet',
+  },
+  {
+    id: 'engaged-no-meeting',
+    name: 'Engaged, No Meeting Yet',
+    criteria: { hasOpened: true, status: ['contacted', 'replied'] },
+    description: 'Prospects who opened emails but haven\'t booked a meeting',
+  },
+  {
+    id: 'ops-leaders',
+    name: 'Operations Leaders',
+    criteria: { isOps: true, isExec: true },
+    description: 'Decision makers in operations',
+  },
+  {
+    id: 'speakers-manifest',
+    name: 'Manifest 2026 Speakers',
+    criteria: { category: 'Speaker' },
+    description: 'Conference speakers - high visibility',
+  },
+  {
+    id: 'stale-leads',
+    name: 'Stale Leads (30+ days)',
+    criteria: { lastActivityDaysAgo: { min: 30 }, status: 'contacted' },
+    description: 'Contacted but no activity in 30 days - may need re-engagement',
+  },
+];
+```
+**Features:**
+1. Pre-built segments auto-calculated
+2. Custom segment builder
+3. Segment counts updated in real-time
+4. One-click "Create Campaign" from segment
+**Tests:**
+- Segment criteria applied correctly
+- Counts match filters
+**Validation:**
+- [ ] 10+ tests passing
+
+### T48.3: Prioritization Score Engine [M - 3h]
+**Goal:** Dynamic scoring to prioritize outreach.
+**Files:**
+- `src/services/PrioritizationService.ts` (new)
+- `src/__tests__/services/PrioritizationService.test.ts` (new)
+**Dependencies:** T48.2
+**Scoring Formula:**
+```typescript
+function calculatePriority(prospect: Prospect): number {
+  let score = 0;
+  
+  // Company tier (0-40 points)
+  const tierScores = { 'Tier 1': 40, 'Tier 2': 30, 'Tier 3': 20, 'Tier 4': 10 };
+  score += tierScores[prospect.tier] || 10;
+  
+  // Role fit (0-30 points)
+  if (prospect.isOps) score += 15;
+  if (prospect.isExec) score += 15;
+  
+  // Engagement (0-20 points)
+  if (prospect.hasOpened) score += 10;
+  if (prospect.hasClicked) score += 10;
+  
+  // Recency decay (-10 to 0)
+  const daysSinceActivity = daysSince(prospect.lastActivityAt);
+  if (daysSinceActivity > 30) score -= 10;
+  else if (daysSinceActivity > 14) score -= 5;
+  
+  // Conference presence (0-10 points)
+  if (prospect.category === 'Speaker') score += 10;
+  else if (prospect.category === 'Sponsor') score += 5;
+  
+  return Math.max(0, Math.min(100, score));
+}
+```
+**Features:**
+1. Auto-calculate priority for all prospects
+2. Sort hitlist by priority
+3. Priority badge in list view
+4. Explain priority breakdown on hover
+**Tests:**
+- Scoring formula accurate
+- Sorting works
+**Validation:**
+- [ ] 10+ tests passing
+- [ ] High-priority prospects at top
+
+### T48.4: Outreach Cadence Recommendations [S - 2h]
+**Goal:** Suggest next action for each prospect.
+**Files:**
+- `src/services/CadenceRecommendationService.ts` (new)
+- `src/components/NextActionBadge.tsx` (new)
+**Dependencies:** T48.3
+**Recommendations:**
+```typescript
+type NextAction = 
+  | { action: 'send_email'; reason: 'Uncontacted high-value' }
+  | { action: 'follow_up'; reason: 'No reply to first email (3+ days)' }
+  | { action: 'call'; reason: 'Opened 3+ emails but no reply' }
+  | { action: 'wait'; reason: 'Recently contacted (< 3 days)' }
+  | { action: 'archive'; reason: 'Bounced or unsubscribed' }
+  | { action: 'book_meeting'; reason: 'Replied - hot lead!' };
+```
+**Features:**
+1. Badge shows recommended next action
+2. Click to execute (opens compose, logs call, etc.)
+3. Bulk apply recommendations
+**Tests:**
+- Recommendations match status
+**Validation:**
+- [ ] Badges visible in list
+
+### T48.5: Sprint 48 E2E Validation [S - 1h]
+**Goal:** Contact data features work end-to-end.
+**Files:**
+- `e2e/contact-data.spec.ts` (new)
+**Tests:**
+1. Prospect detail panel opens
+2. Smart segments show correct counts
+3. Priority sorting works
+4. Next action badges visible
+**Validation:**
+- [ ] All E2E tests pass
+
+---
+
+## Phase 3 Security Checklist (Email Sprints)
+
+- [ ] No API keys in client-side code
+- [ ] All webhooks validate signatures
+- [ ] Rate limiting on all API routes
+- [ ] Suppression list checked before every send
+- [ ] Unsubscribe tokens cryptographically signed
+- [ ] Tracking tokens cannot be forged
+- [ ] CORS restricted to known origins
+- [ ] Input sanitization on all email content
+- [ ] No PII logged in plain text
+
+## Phase 3 Summary
+
+| Sprint | Focus | Effort | Deliverable |
+|--------|-------|--------|-------------|
+| 43 | Email Infrastructure | 22h | SendGrid + API routes + queue + compliance |
+| 44 | Account-Based Campaigns | 28h | Campaign builder + persona targeting |
+| 45 | Email Sequences | 23h | Sequence execution + auto-pause |
+| 46 | Email Analytics | 15h | Analytics dashboard + reports |
+| 47 | Settings & Config | 12h | Unified settings page |
+| 48 | Contact Data | 13h | Enrichment + segmentation + prioritization |
+
+**Total Effort:** ~113 hours
+**Dependencies:** Sprints 34-36 should complete first (UI wiring)
+
+### Integration Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                         YardFlow GTM Hub                              │
+├──────────────────────────────────────────────────────────────────────┤
+│  React Frontend                                                        │
+│  ├── Campaign Builder UI                                               │
+│  ├── Sequence Manager                                                  │
+│  ├── Email Analytics Dashboard                                         │
+│  └── Settings Page                                                     │
+├──────────────────────────────────────────────────────────────────────┤
+│  Services Layer                                                        │
+│  ├── CampaignService        ──→ Firestore (campaigns)                 │
+│  ├── SequenceExecutor       ──→ EmailQueueService                     │
+│  ├── PersonaEngine          ──→ GeminiService (AI)                    │
+│  ├── EmailAnalyticsService  ──→ Firestore (email_events)              │
+│  └── HubSpotEmailSync       ──→ HubSpot API                           │
+├──────────────────────────────────────────────────────────────────────┤
+│  Vercel API Routes                                                     │
+│  ├── /api/email/send        ──→ SendGrid API                          │
+│  ├── /api/email/webhook     ←── SendGrid Events                       │
+│  ├── /api/track/open        ──→ Firestore (email_events)              │
+│  ├── /api/track/click       ──→ Firestore + redirect                  │
+│  ├── /api/webhook/calendly  ←── Calendly Bookings                     │
+│  └── /api/cron/sequences    ──→ SequenceExecutor (every 5min)         │
+├──────────────────────────────────────────────────────────────────────┤
+│  External Services                                                     │
+│  ├── SendGrid              (Email delivery + events)                   │
+│  ├── HubSpot Free          (CRM + activity logging)                   │
+│  ├── Firebase/Firestore    (Data persistence)                         │
+│  ├── Calendly              (Meeting scheduling)                        │
+│  └── Gemini API            (AI personalization)                        │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Email Platform Recommendation
+
+**Primary: SendGrid** (Already mentioned in existing docs)
+- ✅ 100 free emails/day
+- ✅ Event webhooks (opens, clicks, bounces)
+- ✅ Inbound parse for reply detection
+- ✅ Dynamic templates
+- ✅ Suppression management
+
+**Alternative Platforms for Account-Based Marketing:**
+
+| Platform | Free Tier | Best For |
+|----------|-----------|----------|
+| **Mailchimp Transactional (Mandrill)** | $0 credit | High-volume transactional |
+| **Postmark** | 100/month | Developer-friendly, fast |
+| **Amazon SES** | 62K free (EC2) | Scale, low cost |
+| **Brevo (Sendinblue)** | 300/day | Comprehensive marketing suite |
+
+**For HubSpot Free Users:**
+- HubSpot Free includes 2,000 email sends/month
+- BUT: No sequences, no automation
+- Recommendation: Use SendGrid for sending, log to HubSpot as activities
+
+### Key Decisions Needed
+
+1. **SendGrid Plan:** Free (100/day) vs. Essentials ($19.95 for 50K/month)
+2. **Reply Detection:** SendGrid Inbound Parse vs. Manual only
+3. **Calendly Plan:** Free (1 event type) vs. Standard ($10/mo for teams)
+4. **Custom Domain:** For tracking links and unsubscribe (improves deliverability)

@@ -144,10 +144,12 @@ describe('HubSpot Auth Service - T26.2', () => {
     });
 
     it('should exchange code for tokens successfully', async () => {
+      const expiresAt = Date.now() + 1800 * 1000;
       const mockTokenResponse = {
-        access_token: 'access-token-xyz',
-        refresh_token: 'refresh-token-abc',
-        expires_in: 1800,
+        success: true,
+        accessToken: 'access-token-xyz',
+        refreshToken: 'refresh-token-abc',
+        expiresAt,
       };
 
       vi.mocked(fetch).mockResolvedValueOnce({
@@ -159,7 +161,7 @@ describe('HubSpot Auth Service - T26.2', () => {
 
       expect(tokens.accessToken).toBe('access-token-xyz');
       expect(tokens.refreshToken).toBe('refresh-token-abc');
-      expect(tokens.expiresIn).toBe(1800);
+      expect(tokens.expiresIn).toBeGreaterThan(0);
       expect(tokens.tokenType).toBe('bearer');
       expect(tokens.expiresAt).toBeGreaterThan(Date.now());
     });
@@ -170,19 +172,14 @@ describe('HubSpot Auth Service - T26.2', () => {
       ).rejects.toThrow('Invalid state parameter');
     });
 
-    it('should reject when code verifier is missing', async () => {
+    it('should still work when code verifier is missing (backend handles PKCE)', async () => {
       delete mockSessionStorage['yardflow_hubspot_code_verifier'];
 
-      await expect(
-        authService.handleCallback(validCode, validState)
-      ).rejects.toThrow('Code verifier not found');
-    });
-
-    it('should store tokens after successful exchange', async () => {
       const mockTokenResponse = {
-        access_token: 'access-token-xyz',
-        refresh_token: 'refresh-token-abc',
-        expires_in: 1800,
+        success: true,
+        accessToken: 'access-token-xyz',
+        refreshToken: 'refresh-token-abc',
+        expiresAt: Date.now() + 1800 * 1000,
       };
 
       vi.mocked(fetch).mockResolvedValueOnce({
@@ -190,19 +187,37 @@ describe('HubSpot Auth Service - T26.2', () => {
         json: () => Promise.resolve(mockTokenResponse),
       } as Response);
 
-      await authService.handleCallback(validCode, validState);
+      // Should succeed - backend handles the flow
+      const tokens = await authService.handleCallback(validCode, validState);
+      expect(tokens.accessToken).toBe('access-token-xyz');
+    });
 
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-        'yardflow_hubspot_tokens',
-        expect.any(String)
-      );
+    it('should cache tokens in memory after successful exchange', async () => {
+      const mockTokenResponse = {
+        success: true,
+        accessToken: 'access-token-xyz',
+        refreshToken: 'refresh-token-abc',
+        expiresAt: Date.now() + 1800 * 1000,
+      };
+
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockTokenResponse),
+      } as Response);
+
+      const tokens = await authService.handleCallback(validCode, validState);
+
+      // Tokens are now stored in memory cache (server handles HttpOnly cookies)
+      expect(tokens.accessToken).toBe('access-token-xyz');
+      expect(authService.isConnected()).toBe(true);
     });
 
     it('should clear session storage after successful exchange', async () => {
       const mockTokenResponse = {
-        access_token: 'access-token-xyz',
-        refresh_token: 'refresh-token-abc',
-        expires_in: 1800,
+        success: true,
+        accessToken: 'access-token-xyz',
+        refreshToken: 'refresh-token-abc',
+        expiresAt: Date.now() + 1800 * 1000,
       };
 
       vi.mocked(fetch).mockResolvedValueOnce({
@@ -229,9 +244,10 @@ describe('HubSpot Auth Service - T26.2', () => {
 
     it('should send correct parameters in token exchange request', async () => {
       const mockTokenResponse = {
-        access_token: 'access-token-xyz',
-        refresh_token: 'refresh-token-abc',
-        expires_in: 1800,
+        success: true,
+        accessToken: 'access-token-xyz',
+        refreshToken: 'refresh-token-abc',
+        expiresAt: Date.now() + 1800 * 1000,
       };
 
       vi.mocked(fetch).mockResolvedValueOnce({
@@ -242,22 +258,21 @@ describe('HubSpot Auth Service - T26.2', () => {
       await authService.handleCallback(validCode, validState);
 
       expect(fetch).toHaveBeenCalledWith(
-        'https://api.hubapi.com/oauth/v1/token',
+        '/api/oauth/token',
         expect.objectContaining({
           method: 'POST',
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Type': 'application/json',
           },
         })
       );
 
-      // Check body contains required params
+      // Check body contains required params (now JSON format)
       const callArgs = vi.mocked(fetch).mock.calls[0];
-      const body = callArgs[1]?.body as URLSearchParams;
-      expect(body.get('grant_type')).toBe('authorization_code');
-      expect(body.get('client_id')).toBe(testConfig.clientId);
-      expect(body.get('code')).toBe(validCode);
-      expect(body.get('code_verifier')).toBe(validVerifier);
+      const body = JSON.parse(callArgs[1]?.body as string);
+      expect(body.code).toBe(validCode);
+      expect(body.state).toBe(validState);
+      expect(body.codeVerifier).toBe(validVerifier);
     });
   });
 
@@ -266,32 +281,72 @@ describe('HubSpot Auth Service - T26.2', () => {
       expect(authService.isConnected()).toBe(false);
     });
 
-    it('should return true when tokens are stored', () => {
-      mockStorage['yardflow_hubspot_tokens'] = 'encrypted-tokens';
+    it('should return true when tokens are cached in memory', async () => {
+      // Need to actually exchange tokens to populate cache
+      mockSessionStorage['yardflow_hubspot_state'] = 'state';
+      mockSessionStorage['yardflow_hubspot_code_verifier'] = 'verifier';
+      
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          success: true,
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+          expiresAt: Date.now() + 1800 * 1000,
+        }),
+      } as Response);
+      
+      await authService.handleCallback('code', 'state');
       
       expect(authService.isConnected()).toBe(true);
     });
   });
 
   describe('disconnect', () => {
-    it('should clear all stored tokens', () => {
-      mockStorage['yardflow_hubspot_tokens'] = 'encrypted-tokens';
+    it('should clear cached tokens and session storage', async () => {
+      // First connect
       mockSessionStorage['yardflow_hubspot_state'] = 'state';
       mockSessionStorage['yardflow_hubspot_code_verifier'] = 'verifier';
+      
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          success: true,
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+          expiresAt: Date.now() + 1800 * 1000,
+        }),
+      } as Response);
+      
+      await authService.handleCallback('code', 'state');
+      expect(authService.isConnected()).toBe(true);
+      vi.clearAllMocks();
 
       authService.disconnect();
 
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('yardflow_hubspot_tokens');
       expect(mockSessionStorageObj.removeItem).toHaveBeenCalledWith('yardflow_hubspot_state');
       expect(mockSessionStorageObj.removeItem).toHaveBeenCalledWith('yardflow_hubspot_code_verifier');
     });
 
-    it('should update isConnected to false', () => {
-      mockStorage['yardflow_hubspot_tokens'] = 'encrypted-tokens';
+    it('should update isConnected to false', async () => {
+      // First connect
+      mockSessionStorage['yardflow_hubspot_state'] = 'state';
+      mockSessionStorage['yardflow_hubspot_code_verifier'] = 'verifier';
+      
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          success: true,
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+          expiresAt: Date.now() + 1800 * 1000,
+        }),
+      } as Response);
+      
+      await authService.handleCallback('code', 'state');
       expect(authService.isConnected()).toBe(true);
 
       authService.disconnect();
-      delete mockStorage['yardflow_hubspot_tokens']; // Simulate removal
 
       expect(authService.isConnected()).toBe(false);
     });
@@ -311,9 +366,10 @@ describe('HubSpot Auth Service - T26.2', () => {
       mockSessionStorage['yardflow_hubspot_code_verifier'] = 'verifier';
       
       const initialTokens = {
-        access_token: 'old-access-token',
-        refresh_token: 'refresh-token-abc',
-        expires_in: 1800,
+        success: true,
+        accessToken: 'old-access-token',
+        refreshToken: 'refresh-token-abc',
+        expiresAt: Date.now() + 1800 * 1000,
       };
 
       vi.mocked(fetch).mockResolvedValueOnce({
@@ -324,11 +380,12 @@ describe('HubSpot Auth Service - T26.2', () => {
       await authService.handleCallback('code', 'state');
       vi.clearAllMocks();
 
-      // Now test refresh
+      // Now test refresh - server returns same format
       const refreshedTokens = {
-        access_token: 'new-access-token',
-        refresh_token: 'new-refresh-token',
-        expires_in: 1800,
+        success: true,
+        accessToken: 'new-access-token',
+        refreshToken: 'new-refresh-token',
+        expiresAt: Date.now() + 1800 * 1000,
       };
 
       vi.mocked(fetch).mockResolvedValueOnce({
@@ -340,19 +397,21 @@ describe('HubSpot Auth Service - T26.2', () => {
 
       expect(tokens.accessToken).toBe('new-access-token');
       expect(fetch).toHaveBeenCalledWith(
-        'https://api.hubapi.com/oauth/v1/token',
+        '/api/oauth/refresh',
         expect.objectContaining({
           method: 'POST',
         })
       );
-
-      const callArgs = vi.mocked(fetch).mock.calls[0];
-      const body = callArgs[1]?.body as URLSearchParams;
-      expect(body.get('grant_type')).toBe('refresh_token');
     });
 
     it('should throw when no tokens to refresh', async () => {
-      await expect(authService.refreshToken()).rejects.toThrow('No tokens to refresh');
+      // Mock the refresh endpoint to return an error when no session exists
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ success: false, error: 'No active session' }),
+      } as Response);
+      
+      await expect(authService.refreshToken()).rejects.toThrow();
     });
   });
 
@@ -389,28 +448,26 @@ describe('HubSpot Auth Service - T26.2', () => {
   });
 
   describe('Token Expiry Handling', () => {
-    it('should set expiresAt based on current time and expiresIn', async () => {
+    it('should set expiresAt based on server response', async () => {
       mockSessionStorage['yardflow_hubspot_state'] = 'state';
       mockSessionStorage['yardflow_hubspot_code_verifier'] = 'verifier';
       
-      const beforeTime = Date.now();
+      const expectedExpiry = Date.now() + 1800 * 1000;
       
       vi.mocked(fetch).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
-          access_token: 'token',
-          refresh_token: 'refresh',
-          expires_in: 1800, // 30 minutes
+          success: true,
+          accessToken: 'token',
+          refreshToken: 'refresh',
+          expiresAt: expectedExpiry,
         }),
       } as Response);
 
       const tokens = await authService.handleCallback('code', 'state');
       
-      const afterTime = Date.now();
-      
-      // expiresAt should be between beforeTime + 1800s and afterTime + 1800s
-      expect(tokens.expiresAt).toBeGreaterThanOrEqual(beforeTime + 1800 * 1000);
-      expect(tokens.expiresAt).toBeLessThanOrEqual(afterTime + 1800 * 1000);
+      // expiresAt should match the server response
+      expect(tokens.expiresAt).toBe(expectedExpiry);
     });
   });
 });

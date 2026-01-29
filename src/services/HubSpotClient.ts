@@ -190,6 +190,9 @@ export interface HubSpotClient {
   createTask(objectId: string, data: TaskInput): Promise<HubSpotEngagement>;
   logEmail(objectId: string, data: EmailLogInput): Promise<HubSpotEngagement>;
   
+  // Connection Test
+  testConnection(): Promise<{ valid: boolean; portalId: string; hubDomain: string }>;
+  
   // Utilities
   invalidateCache(pattern?: string): void;
   getRateLimitStatus(): { queueLength: number; requestCount: number };
@@ -590,6 +593,53 @@ export function createHubSpotClient(config: HubSpotClientConfig): HubSpotClient 
   // Utilities
   // ==========================================================================
 
+  // ==========================================================================
+  // Connection Test
+  // ==========================================================================
+
+  /**
+   * Test connection to HubSpot API and get account info
+   * Calls /account-info/v3/details to verify credentials and get portal info
+   */
+  async function testConnection(): Promise<{ valid: boolean; portalId: string; hubDomain: string }> {
+    try {
+      interface AccountInfoResponse {
+        portalId: number;
+        accountType: string;
+        timeZone: string;
+        companyCurrency: string;
+        additionalCurrencies: string[];
+        utcOffset: string;
+        utcOffsetMilliseconds: number;
+        uiDomain: string;
+        dataHostingLocation: string;
+      }
+
+      const response = await request<AccountInfoResponse>(
+        'GET',
+        '/account-info/v3/details',
+        { priority: 10 } // High priority for connection test
+      );
+
+      return {
+        valid: true,
+        portalId: response.portalId.toString(),
+        hubDomain: response.uiDomain || 'app.hubspot.com',
+      };
+    } catch (error) {
+      console.error('[HubSpotClient] Connection test failed:', error);
+      return {
+        valid: false,
+        portalId: '',
+        hubDomain: '',
+      };
+    }
+  }
+
+  // ==========================================================================
+  // Utilities
+  // ==========================================================================
+
   function invalidateCache(pattern?: string): void {
     cache.invalidate(pattern);
   }
@@ -615,6 +665,7 @@ export function createHubSpotClient(config: HubSpotClientConfig): HubSpotClient 
     createNote,
     createTask,
     logEmail,
+    testConnection,
     invalidateCache,
     getRateLimitStatus,
   };

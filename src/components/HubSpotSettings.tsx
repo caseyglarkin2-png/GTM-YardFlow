@@ -1,11 +1,13 @@
 /**
  * HubSpot Settings Component
- * Sprint 26 - T26.8
+ * Sprint 26 - T26.8 / Sprint 34 - OAuth UI Wiring Update
  * 
  * User interface for managing HubSpot integration settings.
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { type HubSpotErrorCode } from '../hooks/useHubSpot';
+import { SendTestEmail } from './SendTestEmail';
 
 /**
  * Connection status type
@@ -49,6 +51,52 @@ interface SyncStatus {
 }
 
 /**
+ * OAuth Error from URL parameters
+ */
+interface OAuthUrlError {
+  error: string;
+  message: string;
+}
+
+/**
+ * Get user-friendly error message based on error code
+ */
+function getErrorMessage(code: HubSpotErrorCode, rawMessage?: string): { title: string; description: string } {
+  switch (code) {
+    case 'not_configured':
+      return {
+        title: 'HubSpot Not Configured',
+        description: 'OAuth credentials are not set up. Please configure HUBSPOT_CLIENT_ID and HUBSPOT_CLIENT_SECRET in your environment.',
+      };
+    case 'token_expired':
+      return {
+        title: 'Session Expired',
+        description: 'Your HubSpot session has expired. Please reconnect to continue.',
+      };
+    case 'auth_failed':
+      return {
+        title: 'Authorization Failed',
+        description: rawMessage || 'Failed to authorize with HubSpot. Please try again.',
+      };
+    case 'refresh_failed':
+      return {
+        title: 'Token Refresh Failed',
+        description: 'Unable to refresh your session. Please reconnect to HubSpot.',
+      };
+    case 'network_error':
+      return {
+        title: 'Connection Error',
+        description: 'Unable to connect to the server. Please check your internet connection.',
+      };
+    default:
+      return {
+        title: 'Error',
+        description: rawMessage || 'An unexpected error occurred.',
+      };
+  }
+}
+
+/**
  * HubSpot Settings Props
  */
 interface HubSpotSettingsProps {
@@ -56,6 +104,8 @@ interface HubSpotSettingsProps {
   connectionStatus: ConnectionStatus;
   /** Portal ID when connected */
   portalId?: string;
+  /** Hub domain when connected */
+  hubDomain?: string;
   /** Account name when connected */
   accountName?: string;
   /** Sync status */
@@ -76,6 +126,18 @@ interface HubSpotSettingsProps {
   onSyncDirectionChange: (direction: SyncDirection) => void;
   /** Called when user resolves a conflict */
   onResolveConflict: (id: string, resolution: 'local' | 'remote') => void;
+  /** Called when test connection is requested */
+  onTestConnection?: () => Promise<{ valid: boolean; error?: string }>;
+  /** Whether test connection is in progress */
+  isTestingConnection?: boolean;
+  /** Test connection result */
+  testConnectionResult?: { valid: boolean; error?: string } | null;
+  /** OAuth error from URL */
+  oauthError?: OAuthUrlError | null;
+  /** Clear OAuth error */
+  onClearOAuthError?: () => void;
+  /** Error code for detailed error display */
+  errorCode?: HubSpotErrorCode | null;
   /** Optional className */
   className?: string;
 }
@@ -124,6 +186,7 @@ function StatusIndicator({ status }: { status: ConnectionStatus }) {
 export function HubSpotSettings({
   connectionStatus,
   portalId,
+  hubDomain,
   accountName,
   syncStatus,
   syncDirection,
@@ -134,6 +197,12 @@ export function HubSpotSettings({
   onSync,
   onSyncDirectionChange,
   onResolveConflict,
+  onTestConnection,
+  isTestingConnection = false,
+  testConnectionResult,
+  oauthError,
+  onClearOAuthError,
+  errorCode,
   className = '',
 }: HubSpotSettingsProps) {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -155,9 +224,39 @@ export function HubSpotSettings({
   }, [onSync]);
 
   const isConnected = connectionStatus === 'connected';
+  const hasError = connectionStatus === 'error';
+  const errorInfo = errorCode ? getErrorMessage(errorCode) : null;
 
   return (
     <div className={`bg-white rounded-lg shadow-md border border-gray-200 ${className}`} data-testid="hubspot-settings">
+      {/* OAuth Error Banner from URL params */}
+      {oauthError && (
+        <div className="bg-red-50 border-b border-red-200 px-6 py-4" data-testid="oauth-error-banner">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-red-800">OAuth Error: {oauthError.error}</h4>
+              {oauthError.message && (
+                <p className="text-sm text-red-600 mt-1">{oauthError.message}</p>
+              )}
+            </div>
+            {onClearOAuthError && (
+              <button
+                onClick={onClearOAuthError}
+                className="text-red-500 hover:text-red-700"
+                aria-label="Dismiss error"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
@@ -167,8 +266,12 @@ export function HubSpotSettings({
             </svg>
             <div>
               <h2 className="text-lg font-semibold text-gray-900">HubSpot Integration</h2>
-              {isConnected && accountName && (
-                <p className="text-sm text-gray-500">{accountName} (Portal: {portalId})</p>
+              {isConnected && (
+                <p className="text-sm text-gray-500">
+                  {accountName && `${accountName} • `}
+                  Portal: {portalId}
+                  {hubDomain && ` • ${hubDomain}`}
+                </p>
               )}
             </div>
           </div>
@@ -230,6 +333,57 @@ export function HubSpotSettings({
                 >
                   {connectionStatus === 'connecting' ? 'Connecting...' : 'Connect to HubSpot'}
                 </button>
+              )}
+
+              {/* Error Display */}
+              {hasError && errorInfo && (
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg" data-testid="hubspot-error-info">
+                  <h4 className="text-sm font-semibold text-red-800">{errorInfo.title}</h4>
+                  <p className="text-xs text-red-600 mt-1">{errorInfo.description}</p>
+                </div>
+              )}
+
+              {/* Test Connection Button */}
+              {isConnected && onTestConnection && (
+                <div className="mt-3">
+                  <button
+                    onClick={onTestConnection}
+                    disabled={isTestingConnection}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    data-testid="hubspot-test-connection"
+                  >
+                    {isTestingConnection ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500 inline" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Testing...
+                      </>
+                    ) : (
+                      'Test Connection'
+                    )}
+                  </button>
+                  {testConnectionResult && (
+                    <div className={`mt-2 text-sm ${testConnectionResult.valid ? 'text-green-600' : 'text-red-600'}`}>
+                      {testConnectionResult.valid ? (
+                        <span className="flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Connection verified
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          {testConnectionResult.error || 'Connection failed'}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
@@ -317,6 +471,16 @@ export function HubSpotSettings({
                 </div>
               </div>
             )}
+
+            {/* Email Test Section */}
+            <div className="pt-4 border-t border-gray-200">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Email Infrastructure Test</h3>
+              <SendTestEmail 
+                className="border-0 p-0 shadow-none"
+                onSuccess={(emailId) => console.log('Test email sent:', emailId)}
+                onError={(error) => console.error('Test email failed:', error)}
+              />
+            </div>
           </div>
         )}
 
