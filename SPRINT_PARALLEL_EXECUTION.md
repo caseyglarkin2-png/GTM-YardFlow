@@ -1929,3 +1929,383 @@ Note: Full rate limiting requires Vercel KV or Edge Middleware (Sprint 46)
 - [ ] Add security best practices section to README
 - [ ] Document OAuth flow for new developers
 - [ ] Add architecture decision records (ADRs) for security choices
+
+---
+
+# Sprint 48-52: Email Outreach & Automation System
+
+## Executive Summary
+
+**Date:** 2026-01-29
+**Priority:** URGENT - Jake needs to start sending emails today (West Coast time)
+**Goal:** Enable email sending, add automated Tier 1 outreach sequences, and improve prospect UI/UX
+
+## Current State Analysis
+
+### Email Sending Status
+| Component | Status | Issue |
+|-----------|--------|-------|
+| SendGridClient | ✅ Code Ready | Needs API key in Vercel env vars |
+| API Endpoint (/api/email/send) | ✅ Implemented | CSRF + Auth working |
+| EmailQueueService | ✅ Implemented | Queue-based with retry logic |
+| EmailComplianceService | ✅ Implemented | CAN-SPAM/GDPR compliant |
+| **Environment Variables** | ❌ NOT SET | `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL` missing |
+| **Prospect Email Data** | ⚠️ PARTIAL | Some prospects missing email addresses |
+
+### "No Email" Error Root Cause
+The error comes from `src/App.tsx` line ~1050:
+```typescript
+if (!selectedProspect.email) {
+  setEmailSendStatus('no_email');
+}
+```
+**Solution:** Prospects need email addresses populated. Either:
+1. Import from LinkedIn Sales Navigator with emails
+2. Use email enrichment service (Hunter.io, Apollo, etc.)
+3. Manually add emails to hitlist data
+
+### Jake's SendGrid Setup Checklist
+1. [ ] Create SendGrid account at https://sendgrid.com
+2. [ ] Navigate to Settings → API Keys → Create API Key (Full Access)
+3. [ ] Copy API key (starts with `SG.`)
+4. [ ] In Vercel Dashboard → Settings → Environment Variables:
+   - Add `SENDGRID_API_KEY` = `SG.your_key_here`
+   - Add `SENDGRID_FROM_EMAIL` = `jake@yardflow.io` (or verified sender)
+5. [ ] In SendGrid: Settings → Sender Authentication → Verify domain/email
+6. [ ] Redeploy Vercel to pick up new env vars
+
+---
+
+## Sprint 48: Email UI Improvements ✅ COMPLETED
+
+**Status:** ✅ Completed 2026-01-29
+**Tests:** 2032 passing (+14 new)
+**Commit:** 4890673
+
+### T48.1: Add Email Address Display ✅
+**Files:** `src/App.tsx`
+**Change:** Display email address prominently in prospect detail panel
+**Validation:** Email visible below name/title
+
+### T48.2: Add Email Confidence Badge ✅
+**Files:** `src/App.tsx`
+**Change:** Show Verified/Likely/Unverified badge based on email format
+**Validation:** Badge displays with appropriate color coding
+
+### T48.3: Centralize Calendar Link ✅
+**Files:** `src/App.tsx`
+**Change:** Use `CALENDAR_LINK` constant for all templates
+**Validation:** Single source of truth for Calendly URL
+
+### T48.4: Shorten Templates ✅
+**Files:** `src/App.tsx`
+**Change:** Reduce template character count for LinkedIn DM limits (~300 chars)
+**Validation:** All templates under 300 characters for DMs
+
+### T48.5: Add Email Confidence Tests ✅
+**Files:** `src/__tests__/components/EmailConfidence.test.ts`
+**Change:** 14 test cases for confidence scoring logic
+**Validation:** All tests pass
+
+---
+
+## Sprint 49: Email Infrastructure Activation (URGENT)
+
+**Goal:** Enable Jake to send emails TODAY
+**Estimated Effort:** 3-4 hours
+**Priority:** 🔴 CRITICAL
+**Subagent Review Grade:** B+ (updated with recommendations)
+
+### T49.1: Complete SendGrid Setup Guide [XS - 15min]
+**Files:** `scripts/setup-sendgrid.md` (new)
+**Change:** Comprehensive SendGrid setup guide including:
+```markdown
+### Complete SendGrid Setup:
+1. ✅ Create API Key (Full Access)
+2. ❌ **Authenticate Domain** (Settings → Sender Authentication → Domain)
+   - Add CNAME records to DNS
+   - Wait for verification (up to 48h)
+3. ❌ **Create Suppression Group** (Settings → Unsubscribe Groups)
+4. ❌ **Configure Webhooks** (Settings → Mail Settings → Event Notification)
+   - URL: https://your-domain.vercel.app/api/email/webhook
+   - Events: Bounced, Spam Reports, Unsubscribes
+5. ❌ **Send Test Email** to personal address first
+```
+**Validation:** Document covers domain authentication & webhooks
+
+### T49.2: Add Manual Email Entry Field [S - 30min] ⚠️ UPDATED
+**Files:** `src/App.tsx`
+**Change:** Add editable email input in prospect detail panel (NOT hardcoded data)
+**Rationale:** Pattern emails (`first.last@company.com`) often fail; manual entry is more reliable
+**Validation:** User can add/edit email, persists to Firestore
+
+### T49.3: Email Enrichment Service [M - 2h]
+**Files:** `src/services/EmailEnrichmentService.ts` (new)
+**Change:** Integrate Apollo API for email lookup
+```typescript
+interface EmailEnrichment {
+  findEmail(name: string, company: string): Promise<{
+    email: string;
+    confidence: number;
+    source: 'apollo' | 'hunter' | 'pattern';
+  } | null>;
+}
+```
+**Validation:** Can find emails for prospects without them
+
+### T49.4: Add Email Send Status & Error Handling [S - 45min] ⚠️ COMBINED
+**Files:** `src/App.tsx`
+**Change:** Loading spinner, error messages, AND retry button (combined from T49.4 + T49.6)
+**Validation:** User sees feedback on send status and can retry failures
+
+### T49.5: Test Email Send Flow End-to-End [M - 1h]
+**Files:** `e2e/email-send.spec.ts` (new)
+**Change:** E2E test for email sending with mocked SendGrid
+**Validation:** Test passes in CI
+
+### T49.6: Add Email Send Confirmation Modal [XS - 15min] 🆕 NEW
+**Files:** `src/App.tsx`
+**Change:** "Send email to {email}?" confirmation before sending
+**Validation:** Accidental sends prevented
+
+---
+
+## Sprint 50: Automated Tier 1 Outreach Sequences
+
+**Goal:** Auto-enroll Tier 1 prospects in co-development invitation sequence
+**Estimated Effort:** 10-12 hours (updated from 8-10h)
+**Priority:** 🟠 HIGH
+**Prerequisite:** Vercel Pro plan ($20/month) for native cron, OR external scheduler
+
+### T50.0: Verify Vercel Plan & Configure Scheduler [XS - 15min] 🆕 NEW
+**Files:** `vercel.json`, `README.md`
+**Change:** Document Vercel plan requirement OR configure alternative:
+- **Vercel Pro:** Native cron support
+- **Hobby plan fallback:** Use Upstash QStash or GitHub Actions as external trigger
+**Validation:** Scheduler endpoint reachable every 5 min
+
+### T50.1: Create Sequence Executor Service [L - 4h] ⚠️ UPDATED
+**Files:** `src/services/SequenceExecutor.ts` (new)
+**Change:** Core logic with concurrency limits and error handling:
+```typescript
+interface SequenceExecutor {
+  processEnrollments(): Promise<number>;
+  advanceStep(enrollmentId: string): Promise<void>;
+  pauseOnReply(enrollmentId: string): Promise<void>;
+  pauseOnMeeting(enrollmentId: string): Promise<void>;
+}
+
+// Configuration
+const CONCURRENT_SEND_LIMIT = 5;
+const RETRY_POLICY = { maxRetries: 3, backoffMs: 1000 };
+const DAILY_SEND_LIMIT_PER_PROSPECT = 2; // Prevent spam
+```
+**Validation:** Unit tests for step advancement logic
+
+### T50.2: Create Sequence Cron API Endpoint [M - 2h]
+**Files:** `api/cron/process-sequences.ts` (new)
+**Change:** Vercel cron endpoint to process scheduled sequence steps
+**Validation:** Endpoint processes pending enrollments
+
+### T50.3: Add Vercel Cron Configuration [XS - 15min]
+**Files:** `vercel.json`
+**Change:** Add cron schedule for sequence processing
+```json
+{
+  "crons": [
+    { "path": "/api/cron/process-sequences", "schedule": "*/5 * * * *" }
+  ]
+}
+```
+**Validation:** Cron runs every 5 minutes in Vercel
+
+### T50.4: Create Tier 1 Co-Dev Sequence Template [S - 30min]
+**Files:** `src/data/sequences/tier1-codev.ts` (new)
+**Change:** Define the Tier 1 co-development invitation sequence
+```typescript
+const TIER1_CODEV_SEQUENCE = {
+  id: 'tier1-codev-invite',
+  name: 'Tier 1 Co-Development Invitation',
+  steps: [
+    { day: 0, type: 'email', templateId: 'codev_invite' },
+    { day: 3, type: 'email', templateId: 'codev_followup', condition: 'no_reply' },
+    { day: 7, type: 'email', templateId: 'codev_last_touch', condition: 'no_reply' },
+  ]
+}
+```
+**Validation:** Sequence definition is valid
+
+### T50.5: Add Auto-Enrollment on Import [M - 1.5h]
+**Files:** `src/components/ImportWizard.tsx`
+**Change:** Option to auto-enroll Tier 1 prospects in sequence
+**Validation:** Import wizard shows auto-enroll checkbox
+
+### T50.6: Add Sequence Enrollment UI [M - 2h]
+**Files:** `src/components/SequenceEnrollmentPanel.tsx` (new)
+**Change:** UI to view/manage sequence enrollments per prospect
+**Validation:** Can see enrollment status, pause/resume sequences
+
+### T50.6a: Add Manual Reply Toggle [S - 30min] 🆕 NEW (Immediate Workaround)
+**Files:** `src/App.tsx`
+**Change:** Add "Mark as Replied" button in prospect detail to manually pause sequences
+**Rationale:** SendGrid Inbound Parse requires DNS setup (24-48h); this is immediate
+**Validation:** Manual toggle pauses the sequence
+
+### T50.7: Configure SendGrid Inbound Parse [M - 2h] ⚠️ UPDATED
+**Files:** `api/email/webhook.ts`, DNS configuration
+**Change:** Handle SendGrid inbound parse for reply detection
+**Prerequisites:**
+- Configure MX record for reply domain (e.g., `reply.yardflow.io`)
+- Set up Inbound Parse webhook in SendGrid
+- DNS propagation takes 24-48 hours
+**Validation:** Replies auto-pause the sequence
+
+### T50.8: Add Sequence Progress Tests [M - 1h]
+**Files:** `src/__tests__/services/SequenceExecutor.test.ts`
+**Change:** Unit tests for sequence progression
+**Validation:** Tests cover: advance, pause, resume, complete
+
+### T50.9: Add Sequence Dashboard View [M - 2h] 🆕 NEW
+**Files:** `src/components/SequenceDashboard.tsx` (new)
+**Change:** Overview of all active sequences with stats
+**Validation:** See enrolled count, open rates, reply rates
+
+---
+
+## Sprint 51: Calendar Link & CTA Improvements
+
+**Goal:** Make calendar links hyperlinked, configurable, and trackable
+**Estimated Effort:** 3-4 hours (reduced from 4-5h)
+**Priority:** 🟡 MEDIUM
+
+### T51.0: Migrate CALENDAR_LINK to User Settings [S - 30min] 🆕 NEW
+**Files:** `src/App.tsx`, Firestore
+**Change:** Store per-user calendar URL in user profile
+**Validation:** Each user can have their own Calendly link
+
+### T51.1: Create Calendar Link Component with Preview [S - 45min] ⚠️ COMBINED
+**Files:** `src/components/CalendarLink.tsx` (new)
+**Change:** Reusable component that renders clickable calendar links with preview
+```tsx
+<CalendarLink url={CALENDAR_LINK} label="Book 10 min →" showPreview />
+```
+**Validation:** Link is clickable in message preview
+
+### T51.2: Make Calendar URL Configurable [S - 30min]
+**Files:** `src/config/calendar.ts` (new)
+**Change:** User-configurable calendar URL per user
+**Validation:** Jake can set his own Calendly URL
+
+### ~~T51.3: Add Link Shortener Service~~ ❌ REMOVED
+**Rationale:** Over-engineered. Use UTM parameters on Calendly URLs + existing click tracking instead.
+
+### T51.3: Add Calendar Click Tracking via UTM [M - 1h] ⚠️ SIMPLIFIED
+**Files:** `src/App.tsx`, existing `api/track/click.ts`
+**Change:** Add UTM parameters to calendar URLs and use existing click tracking
+**Validation:** Clicks recorded in Firestore with campaign info
+
+### ~~T51.5: Template Preview with Live Links~~ ❌ REMOVED
+**Rationale:** Combined into T51.1 (Calendar Link Component with Preview)
+
+---
+
+## Sprint 52: Email Data Quality & Enrichment
+
+**Goal:** Improve email data quality with verification and enrichment
+**Estimated Effort:** 6-8 hours (reduced from 8-10h)
+**Priority:** 🟡 MEDIUM
+
+### T52.1: Email Verification Service [L - 3h]
+**Files:** `src/services/EmailVerificationService.ts` (new)
+**Change:** Integrate email verification API (ZeroBounce, NeverBounce, etc.)
+```typescript
+interface EmailVerification {
+  email: string;
+  status: 'valid' | 'invalid' | 'unknown' | 'catch_all';
+  confidence: number; // 0-100
+  provider: string;
+}
+```
+**Validation:** Can verify email addresses
+
+### T52.2: Add Email Status UI with Actions [M - 1h] ⚠️ COMBINED
+**Files:** `src/App.tsx`
+**Change:** Combined verified badge + "Find Email" button into single Email Status component
+- Show "Verified ✓" when API-verified
+- Show "Find Email" button when prospect has no email
+- Show "Verify" button for unverified emails
+**Validation:** All email status states handled in one component
+
+### T52.3: Bulk Email Verification Action [M - 2h]
+**Files:** `src/components/BulkEmailVerifyModal.tsx` (new)
+**Change:** Bulk action to verify selected prospects' emails
+**Validation:** Can verify 10+ emails at once
+
+### T52.4: Email Enrichment Integration [L - 3h]
+**Files:** `src/services/EmailEnrichmentService.ts` (new)
+**Change:** Find missing emails using Apollo/Hunter API
+**Validation:** Can find email for prospect without one
+
+### ~~T52.5: Add "Find Email" Button~~ ❌ REMOVED
+**Rationale:** Combined into T52.2
+
+### T52.5: Email Quality Score Tests [M - 1h]
+**Files:** `src/__tests__/services/EmailVerification.test.ts`
+**Change:** Tests for verification and enrichment logic
+**Validation:** All tests pass
+
+---
+
+## Subagent Review Summary
+
+**Review Date:** 2026-01-29
+**Grade:** B+ → A- (after applying recommendations)
+
+### Changes Applied from Review:
+1. ✅ T49.2 updated: Manual email entry instead of hardcoded data
+2. ✅ T50.0 added: Vercel plan verification
+3. ✅ T50.1 updated: Added concurrency limits and rate policies
+4. ✅ T50.6a added: Manual reply toggle (immediate workaround)
+5. ✅ T50.9 added: Sequence dashboard view
+6. ✅ T51.0 added: Per-user calendar URL
+7. ✅ T51.3 removed: Link shortener (over-engineered)
+8. ✅ Combined tasks: T49.4+T49.6, T51.1+T51.5, T52.2+T52.5
+
+### SendGrid Setup Checklist Updated:
+- Added domain authentication requirement
+- Added suppression group setup
+- Added webhook configuration
+- Added test email step
+
+---
+
+## Summary: Jake's Immediate Action Items
+
+### Today (Must Do):
+1. **Set up SendGrid** (T49.1) - 15 min
+2. **Add environment variables** to Vercel - 5 min
+3. **Authenticate sender domain** in SendGrid - 10 min (critical for deliverability)
+4. **Redeploy Vercel** to pick up env vars - 2 min
+5. **Send test email** to personal address first
+
+### This Week:
+1. Add email addresses to prospects manually (T49.2)
+2. Test email sending with one Tier 1 prospect
+3. Review automated sequence design (T50.4)
+
+### Next Week:
+1. Enable automated Tier 1 sequences (Sprint 50)
+2. Set up calendar link tracking (Sprint 51)
+3. Integrate email verification (Sprint 52)
+
+---
+
+## Validation Checklist
+
+| Sprint | Tests | Build | Demo |
+|--------|-------|-------|------|
+| Sprint 48 | 2032 ✅ | ✅ Clean | Email displayed in UI |
+| Sprint 49 | Pending | Pending | Jake can send email |
+| Sprint 50 | Pending | Pending | Tier 1 auto-enrolled |
+| Sprint 51 | Pending | Pending | Calendar clicks tracked |
+| Sprint 52 | Pending | Pending | Emails verified |
