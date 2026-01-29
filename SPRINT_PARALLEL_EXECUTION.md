@@ -58,6 +58,63 @@ HUBSPOT_CLIENT_SECRET=xxx  # Server-side token exchange
 | CommandPalette wired | ✅ DONE | `App.tsx:86, 289` |
 | useOfflineQueue wired | ✅ DONE | `App.tsx:87, 291` |
 | PresenceIndicator | ✅ IMPORTED | `App.tsx:93` |
+
+---
+
+## Sprint 45: Security Hardening & Test Coverage
+
+**Goal:** Address remaining security issues, improve test coverage, and refactor for maintainability.
+
+### T45.1: Upgrade to PBKDF2 Key Derivation [1h, HIGH]
+**Files:** `api/oauth/callback.ts`, `lib/crypto.ts`
+**Change:** Replace manual key truncation with PBKDF2 (100k iterations, SHA-256)
+**Validation:** Decryption/encryption works, tests pass
+
+### T45.2: Add Timing-Safe HMAC Comparisons [30m, MEDIUM]
+**Files:** `api/email/unsubscribe.ts`, `api/track/click.ts`
+**Change:** Use `crypto.timingSafeEqual` for HMAC token checks
+**Validation:** Tokens compared in constant time, tests pass
+
+### T45.3: Add Expiry to Tracking Tokens [45m, MEDIUM]
+**Files:** `api/track/click.ts`, `lib/EmailTrackingService.ts`
+**Change:** Add 90-day expiry to tracking tokens, reject expired
+**Validation:** Expired tokens rejected, tests pass
+
+### T45.4: Add Security Headers (CSP, X-Frame) [30m, LOW]
+**Files:** `api/_middleware.ts`, `vercel.json`
+**Change:** Set Content-Security-Policy, X-Frame-Options headers
+**Validation:** Headers present in all API responses
+
+### T45.5: Centralize ALLOWED_ORIGINS [15m, LOW]
+**Files:** `lib/origins.ts`, update imports in API files
+**Change:** Move allowlist to shared module
+**Validation:** All endpoints import from shared file
+
+### T45.6: Add Vercel Rate Limiting [30m, LOW]
+**Files:** `api/_middleware.ts`, `vercel.json`
+**Change:** Add per-IP rate limiting headers
+**Validation:** Excessive requests blocked, headers present
+
+### T45.7: Remove or Guard Debug Console Logs [15m, LOW]
+**Files:** `src/hooks/useHubSpot.ts` (lines 394, 565, 592, 615, 619)
+**Change:** Remove or wrap logs in `if (import.meta.env.DEV)`
+**Validation:** No sensitive logs in production build
+
+### T45.8: Add API Endpoint Unit Tests [3h, MEDIUM]
+**Files:** `api/__tests__/` (new)
+**Change:** Add vitest tests for all security-critical endpoints
+**Validation:** `npm test` includes API tests
+
+---
+
+## Additional Recommendations (Sprint 46+)
+
+- Refactor `App.tsx` into tab components (<500 lines each)
+- Extract `useDateRange` hook
+- Add React Error Boundaries
+- Virtualize prospect list with `@tanstack/react-virtual`
+- Document all required env vars and security best practices in README
+- Add architecture decision records (ADRs) for security
 | E2E integrations.spec.ts | ✅ EXISTS | `e2e/integrations.spec.ts` |
 
 **Remaining Work:** Environment variable configuration, Vercel deployment settings, E2E validation
@@ -1542,75 +1599,250 @@ vercel domains add freightroll.com
 
 ---
 
-## 🔒 Security Audit Summary
+## 🔒 Security Audit Summary (Updated: January 29, 2026)
 
-### Fixed Issues
-| ID | Severity | Issue | Resolution |
-|----|----------|-------|------------|
-| H2 | HIGH | Hardcoded fallback secrets | Removed - now requires env vars |
-| L5 | LOW | .gitignore missing credential patterns | Added patterns for service accounts |
+### ✅ Fixed Issues (Sprint 44 Complete)
+| ID | Severity | Issue | Resolution | Commit |
+|----|----------|-------|------------|--------|
+| H2 | HIGH | Hardcoded fallback secrets | Removed - now requires env vars | ✅ |
+| L5 | LOW | .gitignore missing credential patterns | Added patterns for service accounts | ✅ |
+| H1 | HIGH | Weak XOR encryption for OAuth tokens | Replaced with AES-256-GCM | ✅ |
+| H3 | HIGH | Missing CSRF on email endpoints | Added Origin validation to send/unsubscribe | ✅ |
+| H4 | HIGH | Open redirect in click tracking | URL allowlist validation added | ✅ |
+| M4 | MEDIUM | Email status unauthenticated | Required Firebase Auth + ownership check | ✅ |
 
-### Remaining Issues (Prioritized)
-| ID | Severity | Issue | Estimated Effort |
-|----|----------|-------|------------------|
-| C1 | CRITICAL | Exposed Firebase key (rotate immediately) | User action |
-| H1 | HIGH | Weak XOR encryption for OAuth tokens | 2h - Replace with AES-GCM |
-| H3 | HIGH | Missing CSRF on some endpoints | 1.5h |
-| H4 | HIGH | Open redirect in click tracking | 30min |
-| M2 | MEDIUM | Cookie Secure flag conditional | 15min |
-| M4 | MEDIUM | Email status allows unauthenticated | 30min |
+### 🔍 Post-Hardening Security Review (January 29, 2026)
+
+#### ✅ Verified Implementations
+| Implementation | Location | Status |
+|----------------|----------|--------|
+| AES-256-GCM encryption | [api/oauth/callback.ts](api/oauth/callback.ts#L63-L119) | ✅ Correct |
+| CSRF Origin validation | [api/email/send.ts](api/email/send.ts#L22-L47) | ✅ Correct |
+| CSRF with One-Click fallback | [api/email/unsubscribe.ts](api/email/unsubscribe.ts#L18-L43) | ✅ Correct |
+| Redirect URL allowlist | [api/track/click.ts](api/track/click.ts#L9-L40) | ✅ Correct |
+| Auth + ownership on status | [api/email/status.ts](api/email/status.ts#L35-L65) | ✅ Correct |
+| Webhook signature verification | [api/email/webhook.ts](api/email/webhook.ts#L85-L120) | ✅ Correct |
+| State parameter CSRF (OAuth) | [api/oauth/callback.ts](api/oauth/callback.ts#L186-L207) | ✅ Timing-safe compare |
+
+### ⚠️ Remaining Security Recommendations
+
+| ID | Priority | Issue | Location | Effort | Risk |
+|----|----------|-------|----------|--------|------|
+| S1 | HIGH | Key derivation uses simple padding | [callback.ts#L74-L77](api/oauth/callback.ts#L74-L77) | 1h | Weak key derivation |
+| S2 | MEDIUM | No timingSafeEqual for HMAC comparison | [EmailComplianceService.ts#L78](src/services/EmailComplianceService.ts#L78) | 30m | Timing attack |
+| S3 | MEDIUM | No timingSafeEqual for tracking tokens | [EmailTrackingService.ts#L84](src/services/EmailTrackingService.ts#L84) | 30m | Timing attack |
+| S4 | MEDIUM | Tracking tokens have no expiry validation | [EmailTrackingService.ts#L80-L88](src/services/EmailTrackingService.ts#L80-L88) | 45m | Token replay |
+| S5 | LOW | Security headers missing (CSP, X-Frame) | [vercel.json](vercel.json) | 30m | XSS/Clickjacking |
+| S6 | LOW | ALLOWED_ORIGINS duplicated | [send.ts](api/email/send.ts#L22), [unsubscribe.ts](api/email/unsubscribe.ts#L18) | 15m | Maintainability |
+| S7 | LOW | No API endpoint rate limiting (Vercel level) | [vercel.json](vercel.json) | 30m | DoS risk |
+| S8 | INFO | Console logs may expose token info | [useHubSpot.ts#L394-L619](src/hooks/useHubSpot.ts#L394-L619) | 15m | Info leak in dev tools |
+| S9 | LOW | No unit tests for API security endpoints | Missing test files for `api/` | 3h | Regression risk |
 
 ---
 
 ## 🎯 Next Sprint Recommendations
 
-### Sprint 44: Security Hardening (Priority 1)
-**Goal:** Fix all HIGH severity security issues
-**Estimated Effort:** 4-5 hours
+### Sprint 45: Security Hardening Phase 2 (Priority 1)
+**Goal:** Address remaining security vulnerabilities and add defense-in-depth
+**Estimated Effort:** 6-7 hours
 
-#### T44.1: Replace XOR encryption with AES-GCM [M - 2h]
-**Files:** `api/oauth/callback.ts` lines 62-86
-**Change:** Use Node.js crypto with AES-256-GCM for token encryption
-**Validation:** Unit tests for encrypt/decrypt, verify cookie security
+#### T45.1: Upgrade Key Derivation to PBKDF2 [M - 1h]
+**Files:** `api/oauth/callback.ts` lines 74-77
+**Issue:** Current `deriveKey` uses simple string padding which is cryptographically weak
+**Change:** Use PBKDF2 with 100k iterations for key derivation from client secret
+```typescript
+import { pbkdf2Sync } from 'crypto';
 
-#### T44.2: Add CSRF protection to state-changing endpoints [M - 1.5h]
-**Files:** `api/email/send.ts`, `api/email/unsubscribe.ts`
-**Change:** Add double-submit cookie pattern or Origin validation
-**Validation:** Attempt CSRF attack fails
+function deriveKey(secret: string, salt: string = 'yardflow-oauth-v1'): Buffer {
+  return pbkdf2Sync(secret, salt, 100000, 32, 'sha256');
+}
+```
+**Impact:** Existing cookies will be invalid (force re-auth on deploy)
+**Validation:** Unit tests pass, OAuth flow works end-to-end
 
-#### T44.3: Validate redirect URLs in click tracking [S - 30min]
-**Files:** `api/track/click.ts`
-**Change:** Allowlist valid redirect domains
-**Validation:** External URLs blocked
+#### T45.2: Add Timing-Safe HMAC Comparisons [S - 30min]
+**Files:** `src/services/EmailComplianceService.ts`, `src/services/EmailTrackingService.ts`
+**Issue:** String comparison `===` is vulnerable to timing attacks
+**Change:** Replace with `crypto.timingSafeEqual`:
+```typescript
+import { timingSafeEqual } from 'crypto';
 
-#### T44.4: Require auth on email status endpoint [S - 30min]
-**Files:** `api/email/status.ts`
-**Change:** Remove optional auth, require Bearer token
-**Validation:** Unauthenticated requests return 401
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'hex');
+  const bufB = Buffer.from(b, 'hex');
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+```
+**Validation:** Unit tests for timing-safe comparison
 
-### Sprint 45: Performance & UX Polish (Priority 2)
-**Goal:** Improve performance and fix UX issues
-**Estimated Effort:** 6-8 hours
+#### T45.3: Add Expiry Validation to Tracking Tokens [S - 45min]
+**Files:** `src/services/EmailTrackingService.ts`
+**Issue:** Tracking tokens never expire, enabling indefinite replay
+**Change:** Add 90-day expiry check in `validateToken()`:
+```typescript
+const TRACKING_TOKEN_EXPIRY_MS = 90 * 24 * 60 * 60 * 1000;
 
-#### T45.1: Extract useDateRange hook [S - 30min]
+private validateToken(token: string, expectedType: 'open' | 'click') {
+  // ... existing validation ...
+  const issuedAt = Number(issuedAtStr);
+  if (Date.now() - issuedAt > TRACKING_TOKEN_EXPIRY_MS) {
+    return { valid: false, reason: 'expired' };
+  }
+  // ...
+}
+```
+**Validation:** Unit test: old token rejected
+
+#### T45.4: Add Security Headers to Vercel Config [S - 30min]
+**Files:** `vercel.json`
+**Issue:** Missing CSP, X-Frame-Options, X-Content-Type-Options headers
+**Change:** Add security headers block:
+```json
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+      ]
+    }
+  ]
+}
+```
+**Validation:** Response headers visible in browser DevTools
+
+#### T45.5: Centralize ALLOWED_ORIGINS Configuration [S - 15min]
+**Files:** Create `api/lib/security.ts`, update `send.ts`, `unsubscribe.ts`
+**Issue:** ALLOWED_ORIGINS duplicated in multiple files
+**Change:** Extract to shared module:
+```typescript
+// api/lib/security.ts
+export const ALLOWED_ORIGINS = [
+  'https://gtm-yard-flow.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+export function validateOrigin(origin: string | undefined): boolean {
+  if (!origin) return false;
+  return ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed));
+}
+```
+**Validation:** Build passes, endpoints work
+
+#### T45.6: Add Vercel Rate Limiting [S - 30min]
+**Files:** `vercel.json`
+**Issue:** No rate limiting at edge, DoS risk
+**Change:** Add rate limiting headers for API endpoints:
+```json
+{
+  "headers": [
+    {
+      "source": "/api/:path*",
+      "headers": [
+        { "key": "X-Vercel-Cache-Control-Override", "value": "max-age=0" }
+      ]
+    }
+  ]
+}
+```
+Note: Full rate limiting requires Vercel KV or Edge Middleware (Sprint 46)
+**Validation:** API endpoints have rate limit headers
+
+#### T45.7: Remove Debug Console Logs [XS - 15min]
+**Files:** `src/hooks/useHubSpot.ts` lines 394, 565, 592, 615, 619
+**Issue:** Token-related console.log statements could leak info
+**Change:** Remove or wrap in `if (import.meta.env.DEV)` check
+**Validation:** Production build has no token logs
+
+#### T45.8: Add API Endpoint Unit Tests [L - 3h]
+**Files:** Create `api/__tests__/` directory with test files
+**Issue:** No unit tests for security-critical API endpoints
+**Tests to create:**
+- `api/__tests__/email/send.test.ts` - CSRF validation, auth
+- `api/__tests__/email/unsubscribe.test.ts` - Token validation, CSRF
+- `api/__tests__/track/click.test.ts` - URL allowlist validation
+- `api/__tests__/oauth/callback.test.ts` - Encryption/decryption
+**Validation:** `npm test` includes API tests
+
+---
+
+### Sprint 46: Performance & Architecture (Priority 2)
+**Goal:** Improve performance and code maintainability
+**Estimated Effort:** 8-10 hours
+#### T46.1: Extract useDateRange Hook [S - 30min]
 **Files:** `src/hooks/useDateRange.ts` (new)
 **Change:** Extract duplicated date range logic from App.tsx
+**Validation:** Unit tests pass
 
-#### T45.2: Add virtualized list for prospects [M - 2h]
+#### T46.2: Add Virtualized List for Prospects [M - 2h]
 **Files:** `src/App.tsx`, install `@tanstack/react-virtual`
 **Change:** Virtualize prospect list for 5k+ items
+**Validation:** Smooth scrolling with 10k items
 
-#### T45.3: Add Error Boundaries [M - 1.5h]
+#### T46.3: Add Error Boundaries [M - 1.5h]
 **Files:** `src/components/ErrorBoundary.tsx` (new)
-**Change:** Wrap major sections to prevent crashes
+**Change:** Wrap major sections to prevent full-app crashes
+**Validation:** Error in one tab doesn't crash others
 
-#### T45.4: Split App.tsx into tab components [L - 4h]
-**Files:** Create `HitlistTab.tsx`, `DashboardTab.tsx`, etc.
+#### T46.4: Split App.tsx into Tab Components [L - 4h]
+**Files:** Create `HitlistTab.tsx`, `DashboardTab.tsx`, `IntegrationsTab.tsx`
 **Change:** Reduce App.tsx from 2700 lines to <500
+**Validation:** All tabs work, tests pass
 
-### Sprint 46: Feature Completion (Priority 3)
+#### T46.5: Implement Edge Rate Limiting [M - 2h]
+**Files:** `api/middleware.ts` (new), `vercel.json`
+**Change:** Add Vercel Edge Middleware for per-IP rate limiting
+**Validation:** Rate limit headers present, excessive requests blocked
+
+---
+
+### Sprint 47: Feature Completion (Priority 3)
 **Goal:** Complete planned features from Sprint 37+
+**Estimated Effort:** 7-8 hours
 
-#### T46.1: Advanced Filter Panel [M - 4h]
-#### T46.2: Import History UI [S - 1.5h]
-#### T46.3: Full keyboard accessibility audit [M - 2h]
+#### T47.1: Advanced Filter Panel [M - 4h]
+**Files:** `src/components/AdvancedFilterPanel.tsx` (new)
+**Change:** Compound filter builder with AND/OR logic
+**Validation:** Complex filters work correctly
+
+#### T47.2: Import History UI [S - 1.5h]
+**Files:** `src/components/ImportHistoryPanel.tsx` (new)
+**Change:** Show past imports with rollback option
+**Validation:** History displays, rollback works
+
+#### T47.3: Full Keyboard Accessibility Audit [M - 2h]
+**Files:** Multiple components
+**Change:** Ensure all interactive elements keyboard navigable
+**Validation:** Tab through entire app, all actions accessible
+
+---
+
+## 📋 Code Quality Observations
+
+### Architecture Issues (Non-Security)
+| Issue | Location | Recommendation | Effort |
+|-------|----------|----------------|--------|
+| App.tsx too large (2700+ lines) | [src/App.tsx](src/App.tsx) | Split into tab components | 4h |
+| Duplicate date range logic | App.tsx | Extract to useDateRange hook | 30m |
+| No error boundaries | App-wide | Add React Error Boundaries | 1.5h |
+| Prospect list not virtualized | App.tsx | Use @tanstack/react-virtual | 2h |
+| parseCookies duplicated | [callback.ts](api/oauth/callback.ts#L120), [session.ts](api/oauth/session.ts#L32) | Import from callback.ts (already exports) | 15m |
+
+### Test Coverage Gaps
+| Area | Current | Recommended |
+|------|---------|-------------|
+| API endpoints | 0% | Add vitest tests with mocked req/res |
+| EmailTrackingService | Partial | Add token expiry tests |
+| EmailComplianceService | Partial | Add timing-safe comparison tests |
+| CSRF validation | 0% | Add Origin header tests |
+
+### Documentation Needs
+- [ ] Document all required environment variables in README
+- [ ] Add security best practices section to README
+- [ ] Document OAuth flow for new developers
+- [ ] Add architecture decision records (ADRs) for security choices

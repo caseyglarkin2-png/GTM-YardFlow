@@ -391,7 +391,7 @@ export function useHubSpot(options: UseHubSpotOptions = {}): UseHubSpotReturn {
       setStatus('connected');
       clearCallbackParams();
       
-      console.log('[useHubSpot] OAuth callback successful, tokens received');
+      if (import.meta.env.DEV) console.log('[useHubSpot] OAuth callback successful, tokens received');
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'OAuth callback failed';
@@ -517,7 +517,7 @@ export function useHubSpot(options: UseHubSpotOptions = {}): UseHubSpotReturn {
         }, 5 * 60 * 1000);
       } else {
         // Popup was blocked, fall back to redirect
-        console.log('[useHubSpot] Popup blocked, redirecting...');
+        if (import.meta.env.DEV) console.log('[useHubSpot] Popup blocked, redirecting...');
         window.location.href = authUrl;
       }
     } catch (err) {
@@ -562,7 +562,7 @@ export function useHubSpot(options: UseHubSpotOptions = {}): UseHubSpotReturn {
   // Refresh token function via server
   const refreshToken = useCallback(async () => {
     try {
-      console.log('[useHubSpot] Refreshing token via server...');
+      if (import.meta.env.DEV) console.log('[useHubSpot] Refreshing token via server...');
       
       const response = await fetch('/api/oauth/refresh', {
         method: 'POST',
@@ -589,7 +589,7 @@ export function useHubSpot(options: UseHubSpotOptions = {}): UseHubSpotReturn {
       setNeedsRefresh(false);
       clearErrorState();
       
-      console.log('[useHubSpot] Token refreshed successfully');
+      if (import.meta.env.DEV) console.log('[useHubSpot] Token refreshed successfully');
     } catch (err) {
       console.error('[useHubSpot] Token refresh failed:', err);
       const message = err instanceof Error ? err.message : 'Session expired. Please reconnect.';
@@ -612,11 +612,11 @@ export function useHubSpot(options: UseHubSpotOptions = {}): UseHubSpotReturn {
 
     if (delay <= 0) {
       // Token is already expired or about to expire, refresh immediately
-      console.log('[useHubSpot] Token expired or expiring soon, refreshing now');
+      if (import.meta.env.DEV) console.log('[useHubSpot] Token expired or expiring soon, refreshing now');
       refreshToken();
     } else {
       // Schedule refresh
-      console.log(`[useHubSpot] Scheduling token refresh in ${Math.round(delay / 1000 / 60)} minutes`);
+      if (import.meta.env.DEV) console.log(`[useHubSpot] Scheduling token refresh in ${Math.round(delay / 1000 / 60)} minutes`);
       refreshTimerRef.current = setTimeout(() => {
         refreshToken().then(() => {
           // After successful refresh, schedule next refresh

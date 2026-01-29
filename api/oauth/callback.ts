@@ -61,19 +61,21 @@ interface TokenData {
 // Utilities
 // =============================================================================
 
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, randomBytes, pbkdf2Sync } from 'crypto';
 
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // GCM standard IV length
 const AUTH_TAG_LENGTH = 16;
+const PBKDF2_ITERATIONS = 100000;
+const KEY_LENGTH = 32;
+const PBKDF2_SALT = 'yardflow-hubspot-encryption-v1';
 
 /**
- * Derive a 32-byte key from the secret using simple padding
- * In production, consider using PBKDF2 or scrypt for key derivation
+ * Derive a 32-byte key from the secret using PBKDF2 (100k iterations)
+ * Provides proper key stretching for cryptographic strength
  */
 function deriveKey(secret: string): Buffer {
-  const key = secret.slice(0, 32).padEnd(32, '0');
-  return Buffer.from(key, 'utf8');
+  return pbkdf2Sync(secret, PBKDF2_SALT, PBKDF2_ITERATIONS, KEY_LENGTH, 'sha256');
 }
 
 /**

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAdminDb } from '../../lib/firebaseAdmin';
+import { isAllowedOrigin } from '../../lib/origins';
 import { EmailComplianceService } from '../../src/services/EmailComplianceService';
 import { EmailQueueService } from '../../src/services/EmailQueueService';
 import { EmailWarmupService } from '../../src/services/EmailWarmupService';
@@ -15,17 +16,12 @@ const queue = new EmailQueueService(db, sendGrid, compliance, warmup, tracking, 
 
 // CSRF validation for unsubscribe
 // Note: POST from List-Unsubscribe header may not have Origin, so we validate token signature instead
-const ALLOWED_ORIGINS = [
-  'https://gtm-yard-flow.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:3000',
-];
 
 function validateOriginOrListUnsubscribe(req: VercelRequest): boolean {
   const origin = req.headers.origin;
   
   // If valid origin, allow
-  if (origin && ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed))) {
+  if (isAllowedOrigin(origin as string | undefined)) {
     return true;
   }
   

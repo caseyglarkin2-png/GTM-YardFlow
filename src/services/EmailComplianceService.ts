@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { EmailMessage, SuppressionEntry, SendGridWebhookEvent } from '../types/email';
 import { SendGridClient } from './SendGridClient';
@@ -74,7 +74,8 @@ export class EmailComplianceService {
         return { valid: false, reason: 'invalid_token' };
       }
       const expected = createHmac('sha256', secret).update(`${emailId}:${expiresAtRaw}`).digest('hex');
-      if (expected !== signature) {
+      // Use timing-safe comparison to prevent timing attacks
+      if (!timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
         return { valid: false, reason: 'signature_mismatch' };
       }
       const expiresAt = Number(expiresAtRaw);

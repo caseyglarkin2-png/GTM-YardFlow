@@ -1,9 +1,10 @@
-import { createHash, createHmac } from 'crypto';
+import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import type { Firestore } from 'firebase-admin/firestore';
 import type { EmailMessage } from '../types/email';
 
 const EVENT_COLLECTION = 'email_events';
 const RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+const TOKEN_EXPIRY_MS = 90 * 24 * 60 * 60 * 1000; // 90 days token expiry
 
 function currentMs(): number {
   return Date.now();
@@ -93,8 +94,16 @@ export class EmailTrackingService {
       const [emailId, type, url, issuedAt, signature] = decoded.split('|');
       if (!emailId || !type || !issuedAt || !signature) return { valid: false };
       if (type !== expectedType) return { valid: false };
+      
+      // Check token expiry (90 days)
+      const issuedAtMs = Number(issuedAt);
+      if (Number.isNaN(issuedAtMs) || currentMs() - issuedAtMs > TOKEN_EXPIRY_MS) {
+        return { valid: false };
+      }
+      
       const check = createHmac('sha256', this.secret).update(`${emailId}|${type}|${url || ''}|${issuedAt}`).digest('hex');
-      if (check !== signature) return { valid: false };
+      // Use timing-safe comparison to prevent timing attacks
+      if (!timingSafeEqual(Buffer.from(check), Buffer.from(signature))) return { valid: false };
       return { valid: true, emailId, url };
     } catch {
       return { valid: false };

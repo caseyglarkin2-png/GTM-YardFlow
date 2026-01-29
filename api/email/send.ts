@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAdminAuth, getAdminDb } from '../../lib/firebaseAdmin';
+import { isAllowedOrigin } from '../../lib/origins';
 import { EmailQueueService } from '../../src/services/EmailQueueService';
 import { EmailComplianceService } from '../../src/services/EmailComplianceService';
 import { EmailWarmupService } from '../../src/services/EmailWarmupService';
@@ -18,28 +19,23 @@ const queue = new EmailQueueService(db, sendGrid, compliance, warmup, tracking, 
 const RATE_LIMIT = 100;
 const WINDOW_MS = 60 * 1000;
 
-// CSRF Protection: Validate Origin/Referer header
-const ALLOWED_ORIGINS = [
-  'https://gtm-yard-flow.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:3000',
-];
+// CSRF Protection: Validate Origin/Referer header using centralized origins module
 
 function validateOrigin(req: VercelRequest): boolean {
-  const origin = req.headers.origin;
-  const referer = req.headers.referer;
+  const origin = req.headers.origin as string | undefined;
+  const referer = req.headers.referer as string | undefined;
   
   // In production, require valid Origin header
   if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
     if (!origin) return false;
-    return ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed));
+    return isAllowedOrigin(origin);
   }
   
   // In development, allow if Origin or Referer matches
-  if (origin && ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed))) {
+  if (isAllowedOrigin(origin)) {
     return true;
   }
-  if (referer && ALLOWED_ORIGINS.some(allowed => referer.startsWith(allowed))) {
+  if (referer && isAllowedOrigin(referer)) {
     return true;
   }
   
