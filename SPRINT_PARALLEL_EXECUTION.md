@@ -2904,7 +2904,194 @@ T53.9: Research Progress Indicator [S - 30min] (moved from T55.4)
 
 ---
 
-## Ready for Execution
+## Sprint 58: AI-Powered Company Research ✅ COMPLETED
+
+**Status:** ✅ All core tasks completed 2025-01-29
+**Tests:** 65 new tests (41 CompanyResearchService + 24 useCompanyResearch hook)
+**Commit:** Pending (ready for commit)
+
+**Goal:** Enable on-demand AI research of companies using Gemini API to populate Primo Lookalike scoring fields
+**Estimated Effort:** 6-8 hours
+**Priority:** 🔴 HIGH - Enables automated company qualification
+**Demoable Outcome:** Users can research companies on-demand, get facility count, industry, and footprint data automatically
+
+### Background: On-Demand Research
+Instead of manual data entry, Jake can:
+- Click "Research" on any company
+- Gemini AI researches the company
+- Results auto-populate enrichment fields
+- Primo Lookalike score calculated automatically
+
+### T58.1: CompanyResearchService ✅ COMPLETED [L - 3h]
+**Files:** `src/services/CompanyResearchService.ts` (new)
+**Status:** 666 lines, fully implemented with mock mode
+**Change:** Core AI research service:
+```typescript
+interface CompanyResearchService {
+  researchCompany(request: CompanyResearchRequest): Promise<CompanyResearchResult>;
+  batchResearchCompanies(companies: CompanyResearchRequest[]): Promise<BatchResearchResult>;
+  createResearchQueue(companies: EnrichedCompany[]): ResearchQueueItem[];
+  researchFromQueue(queue: ResearchQueueItem[]): Promise<BatchResearchResult>;
+}
+
+interface CompanyResearchResult {
+  success: boolean;
+  companyName: string;
+  researchedAt: Date;
+  data?: ResearchedCompanyData;
+  sources?: string[];
+  confidence?: ResearchConfidence;
+}
+
+interface ResearchedCompanyData {
+  facilityCount?: number;
+  industryCategory?: IndustryCategory;
+  distributionFootprint?: DistributionFootprint;
+  isYardIntensive?: boolean;
+  estimatedTruckVolume?: number;
+  headquarters?: string;
+  website?: string;
+  description?: string;
+  revenueEstimate?: string;
+}
+```
+**Features:**
+- Gemini API integration with retry logic
+- Mock mode for development/testing
+- Structured JSON response parsing
+- Type-safe with validation guards
+- Rate limiting for batch operations
+- Priority queue (Tier 1 first, high attendees first)
+
+**Tests:** 41 tests covering:
+- Prompt building with sanitization
+- JSON response parsing and validation
+- Mock data generation
+- Batch research with progress tracking
+- Queue creation and prioritization
+- Research summary and time estimation
+**Validation:** `npm test -- CompanyResearchService`
+
+### T58.2: useCompanyResearch Hook ✅ COMPLETED [M - 1.5h]
+**Files:** `src/hooks/useCompanyResearch.ts` (new)
+**Status:** 285 lines, React hook for UI integration
+**Change:** React hook for company research:
+```typescript
+interface UseCompanyResearchActions {
+  research(request: CompanyResearchRequest): Promise<CompanyResearchResult>;
+  researchAndSave(companyId: string, companyName: string): Promise<CompanyResearchResult>;
+  researchBatch(companies: CompanyResearchRequest[]): Promise<BatchResearchResult>;
+  buildQueue(companies: EnrichedCompany[]): void;
+  runQueue(maxItems?: number): Promise<BatchResearchResult>;
+  clearQueue(): void;
+  reset(): void;
+}
+
+// Computed values
+summary: ResearchSummary;  // { total, fullyResearched, partiallyResearched, notResearched }
+estimate: TimeEstimate;    // { estimatedMinutes, estimatedTokens, estimatedCost }
+```
+**Features:**
+- Loading state management
+- Error handling
+- Progress tracking for batch operations
+- Auto-save to CompanyEnrichmentService
+- Queue management with priority
+
+**Tests:** 24 tests covering:
+- Single company research
+- Batch research with progress
+- Queue building and processing
+- State management
+- Utility function re-exports
+**Validation:** `npm test -- useCompanyResearch`
+
+### T58.3: Code Review Fixes ✅ COMPLETED [S - 30min]
+**Files:** `src/services/CompanyResearchService.ts`
+**Status:** Applied all critical fixes from code review
+**Changes:**
+- Added production warning when running in mock mode
+- Added input sanitization for prompt injection prevention
+- Improved JSON parsing error messages with context
+- Added TODO for server-side API key routing
+
+### T58.4: Security & Best Practices Documentation [S - 15min]
+**Documentation:**
+- API key currently client-side (TODO: move to server)
+- Input sanitization prevents prompt injection
+- Mock mode detected with console warning in production
+- Rate limiting prevents API quota exhaustion
+
+### T58.5: Integration Tests ⏳ PENDING [M - 1h]
+**Files:** `src/__tests__/integration/companyResearch.test.ts` (new)
+**Change:** End-to-end integration tests:
+- Research → Enrichment → Primo Score flow
+- Queue processing with real company data
+- Error recovery scenarios
+**Tests:** 10+ integration tests
+**Validation:** `npm test -- integration/companyResearch`
+
+---
+
+## Sprint 59: Company Research UI (Depends on Sprint 58)
+
+**Goal:** Build UI components for the AI research workflow
+**Estimated Effort:** 5-7 hours
+**Priority:** 🟡 MEDIUM
+**Demoable Outcome:** Research button in UI, progress dashboard, bulk research
+
+### T59.1: Research Button Component [S - 1h]
+**Files:** `src/components/ResearchButton.tsx` (new)
+**Change:** Button that triggers AI research for a company:
+- "Research" / "Researching..." states
+- Success: Shows green check with confidence level
+- Error: Shows retry option
+- Tooltip: Shows estimated time and cost
+**Tests:** Button states, click handling
+**Validation:** `npm test -- ResearchButton`
+
+### T59.2: Research Results Panel [M - 2h]
+**Files:** `src/components/ResearchResultsPanel.tsx` (new)
+**Change:** Slide-out panel showing research results:
+- Company name and research timestamp
+- Parsed data fields (editable for manual override)
+- Confidence indicators per field
+- Sources list
+- "Accept & Save" / "Edit & Save" / "Discard" buttons
+**Tests:** Panel rendering, edit functionality
+**Validation:** Visual demo
+
+### T59.3: Bulk Research Dashboard [L - 2h]
+**Files:** `src/components/BulkResearchDashboard.tsx` (new)
+**Change:** Dashboard for bulk AI research:
+- Queue builder with filters (Tier, attendee count)
+- Time/cost estimate display
+- Start/Pause/Cancel controls
+- Progress bar with completed/remaining
+- Results summary (success/failed counts)
+**Tests:** Queue management, progress tracking
+**Validation:** Visual demo
+
+### T59.4: Research Queue Integration [M - 1h]
+**Files:** `src/App.tsx`
+**Change:** Integrate research functionality into main app:
+- Add "Research Companies" button to command palette
+- Add research queue to sidebar
+- Connect to useCompanyResearch hook
+**Tests:** Integration works end-to-end
+**Validation:** Visual demo - full workflow
+
+### T59.5: Server-Side API Key Routing [L - 2h]
+**Files:** `api/research/company.ts` (new)
+**Change:** Move Gemini API calls to server-side:
+- Create API endpoint for company research
+- Store GEMINI_API_KEY in Vercel env (server-only)
+- Update CompanyResearchService to call API endpoint
+- Add CORS and rate limiting
+**Tests:** API endpoint works, key not exposed
+**Validation:** Network tab shows no API key in requests
+
+---
 
 **Pre-Sprint 53 Checklist:**
 - [ ] Confirm Firestore access in dev environment
