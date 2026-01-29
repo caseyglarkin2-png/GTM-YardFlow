@@ -28,6 +28,11 @@ export interface Prospect {
   location?: string;
   createdAt?: number;
   updatedAt?: number;
+  
+  // Company-level Primo Lookalike fields (from EnrichedCompany)
+  companyFacilityCount?: number;
+  companyIndustry?: string;
+  companyPrimoScore?: number;
 }
 
 export interface MessageTemplate {

@@ -55,6 +55,14 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   // Enrichment fields
   employeeCount: ['employee count', 'employeecount', 'employees', 'employee_count'],
   annualRevenue: ['annual revenue', 'annualrevenue', 'revenue'],
+  
+  // Primo Lookalike fields (Sprint 53)
+  facilityCount: ['facility_count', 'facilitycount', 'facilities', 'num_facilities', 'locations', 'site_count', 'sites'],
+  industryCategory: ['industry_category', 'industrycategory', 'industry', 'sector', 'vertical', 'industry_type'],
+  distributionFootprint: ['distribution_footprint', 'footprint', 'geographic_coverage', 'coverage', 'geographic_scope'],
+  isYardIntensive: ['is_yard_intensive', 'yard_intensive', 'yardintensive', 'yard_operations'],
+  estimatedTruckVolume: ['estimated_truck_volume', 'truck_volume', 'daily_trucks', 'truck_movements'],
+  primoLookalikeScore: ['primo_lookalike_score', 'primo_score', 'primoscore', 'lookalike_score'],
 };
 
 // ============================================

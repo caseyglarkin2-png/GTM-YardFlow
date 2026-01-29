@@ -103,6 +103,14 @@ export const EnrichedCompanySchema = z.object({
   megaBoost: z.number().default(0),
   maxRevenue: z.number().optional(),
   
+  // Primo Lookalike fields (Sprint 53)
+  facilityCount: z.number().min(0).optional(),
+  industryCategory: z.enum(['beverage', 'cpg', 'food_manufacturing', 'cold_chain', 'distribution', 'manufacturing', 'other']).optional(),
+  distributionFootprint: z.enum(['local', 'regional', 'national', 'international']).optional(),
+  isYardIntensive: z.boolean().optional(),
+  estimatedTruckVolume: z.number().optional(),
+  primoLookalikeScore: z.number().min(0).max(100).optional(),
+  
   // Final scoring
   score: z.number().default(0),
   tier: CompanyTierSchema.default('Unscored'),
