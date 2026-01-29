@@ -87,10 +87,16 @@ import { useCommandPalette } from './hooks/useCommandPalette';
 import { useOfflineQueue } from './hooks/useOfflineQueue';
 import { usePresence, usePresenceViewTracker } from './hooks/usePresence';
 
+// --- Sprint 35 Hooks ---
+import { useDashboardData } from './hooks/useDashboardData';
+
 // --- Sprint 34 Components ---
 import { CommandPalette } from './components/CommandPalette';
 import { SyncStatus } from './components/SyncStatus';
 import { PresenceIndicator } from './components/PresenceIndicator';
+
+// --- Sprint 35 Components ---
+import { DateRangePicker } from './components/DateRangePicker';
 
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
@@ -180,8 +186,31 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [chatInput, setChatInput] = useState('');
   
-  // Dashboard State (Sprint 28)
-  const [_dashboardPeriod, _setDashboardPeriod] = useState<TimePeriod>('month');
+  // Dashboard State (Sprint 28, enhanced Sprint 35)
+  const [dashboardPeriod, setDashboardPeriod] = useState<TimePeriod>('month');
+  const [dashboardCustomRange, setDashboardCustomRange] = useState<{ start: Date; end: Date } | undefined>();
+  
+  // Calculate date range from period
+  const dashboardDateRange = useMemo(() => {
+    if (dashboardPeriod === 'custom' && dashboardCustomRange) {
+      return dashboardCustomRange;
+    }
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    let start: Date;
+    switch (dashboardPeriod) {
+      case 'today': start = new Date(now.getFullYear(), now.getMonth(), now.getDate()); break;
+      case 'week': start = new Date(now); start.setDate(start.getDate() - 7); break;
+      case 'quarter': start = new Date(now); start.setMonth(start.getMonth() - 3); break;
+      case 'year': start = new Date(now); start.setFullYear(start.getFullYear() - 1); break;
+      case 'month':
+      default: start = new Date(now); start.setMonth(start.getMonth() - 1); break;
+    }
+    return { start, end };
+  }, [dashboardPeriod, dashboardCustomRange]);
+  
+  // Dashboard data hook (Sprint 35)
+  const dashboard = useDashboardData(dashboardDateRange);
   
   // Import State (Sprint 29)
   const [showImportWizard, setShowImportWizard] = useState(false);
@@ -926,27 +955,70 @@ export default function App() {
         {/* Prospect list panel */}
         <div className="flex-1 overflow-y-auto" role="tabpanel" id="panel-prospects" aria-labelledby="tab-prospects">
           {activeTab === 'dashboard' ? (
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6" data-testid="dashboard-tab">
+              {/* Dashboard Header with DateRangePicker */}
               <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-md">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="h-5 w-5" />
-                  <span className="text-blue-100 text-xs font-medium uppercase tracking-wider">Analytics Dashboard</span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    <span className="text-blue-100 text-xs font-medium uppercase tracking-wider">Analytics Dashboard</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={dashboard.refetch}
+                      disabled={dashboard.isLoading}
+                      className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50"
+                      aria-label="Refresh data"
+                      data-testid="dashboard-refresh"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${dashboard.isLoading ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
                 </div>
                 <div className="text-2xl font-bold">GTM Performance</div>
-                <div className="text-blue-200 text-xs mt-2">Real-time metrics from your outreach campaigns</div>
+                <div className="text-blue-200 text-xs mt-2 flex items-center justify-between">
+                  <span>Real-time metrics from your outreach campaigns</span>
+                  {dashboard.lastUpdated && (
+                    <span className="text-blue-300">
+                      Updated {dashboard.lastUpdated.toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
               </div>
               
+              {/* Date Range Picker */}
+              <div className="bg-white rounded-lg border border-slate-200 p-3 flex items-center justify-between">
+                <DateRangePicker
+                  selectedPeriod={dashboardPeriod}
+                  customRange={dashboardCustomRange}
+                  onPeriodChange={setDashboardPeriod}
+                  onCustomRangeChange={setDashboardCustomRange}
+                />
+                <div className="text-xs text-slate-500">
+                  {dashboardDateRange.start.toLocaleDateString()} - {dashboardDateRange.end.toLocaleDateString()}
+                </div>
+              </div>
+              
+              {/* KPI Cards - use dashboard hook data if available, fall back to stats */}
               <div className="grid grid-cols-2 gap-4">
-                <KPICard metric={{ id: 'total', name: 'Total Prospects', value: { current: stats.total, previous: stats.total, change: 0, changePercent: 0, trend: 'flat' }, format: 'number' }} />
-                <KPICard metric={{ id: 'booked', name: 'Meetings Booked', value: { current: stats.booked, previous: Math.floor(stats.booked * 0.8), change: stats.booked - Math.floor(stats.booked * 0.8), changePercent: 25, trend: 'up' }, format: 'number' }} />
-                <KPICard metric={{ id: 'rate', name: 'Contact Rate', value: { current: (stats.contacted / stats.total) * 100, previous: 50, change: (stats.contacted / stats.total) * 100 - 50, changePercent: 10, trend: 'up' }, format: 'percent' }} />
-                <KPICard metric={{ id: 'tier1', name: 'Tier 1 Pipeline', value: { current: stats.tier1, previous: stats.tier1, change: 0, changePercent: 0, trend: 'flat' }, format: 'number' }} />
+                {dashboard.data.kpis.length > 0 ? (
+                  dashboard.data.kpis.slice(0, 4).map(kpi => (
+                    <KPICard key={kpi.id} metric={kpi} />
+                  ))
+                ) : (
+                  <>
+                    <KPICard metric={{ id: 'total', name: 'Total Prospects', value: { current: stats.total, previous: stats.total, change: 0, changePercent: 0, trend: 'flat' }, format: 'number' }} />
+                    <KPICard metric={{ id: 'booked', name: 'Meetings Booked', value: { current: stats.booked, previous: Math.floor(stats.booked * 0.8), change: stats.booked - Math.floor(stats.booked * 0.8), changePercent: 25, trend: 'up' }, format: 'number' }} />
+                    <KPICard metric={{ id: 'rate', name: 'Contact Rate', value: { current: (stats.contacted / stats.total) * 100, previous: 50, change: (stats.contacted / stats.total) * 100 - 50, changePercent: 10, trend: 'up' }, format: 'percent' }} />
+                    <KPICard metric={{ id: 'tier1', name: 'Tier 1 Pipeline', value: { current: stats.tier1, previous: stats.tier1, change: 0, changePercent: 0, trend: 'flat' }, format: 'number' }} />
+                  </>
+                )}
               </div>
 
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
                 <h3 className="text-sm font-bold text-slate-700 mb-4">Team Leaderboard</h3>
                 <Leaderboard
-                  data={[
+                  data={dashboard.data.team?.leaderboard ?? [
                     { userId: '1', userName: 'Me', totalActivities: 45, prospectsContacted: stats.contacted, dealsCreated: stats.booked, dealsWon: Math.floor(stats.booked * 0.5), revenue: stats.contacted * 10000, avgResponseTime: 2, rank: 1 },
                     { userId: '2', userName: 'Jake', totalActivities: 38, prospectsContacted: Math.floor(stats.contacted * 0.7), dealsCreated: Math.floor(stats.booked * 0.7), dealsWon: Math.floor(stats.booked * 0.35), revenue: stats.contacted * 8000, avgResponseTime: 3, rank: 2 },
                   ]}
