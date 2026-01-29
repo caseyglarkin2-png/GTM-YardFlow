@@ -61,60 +61,143 @@ HUBSPOT_CLIENT_SECRET=xxx  # Server-side token exchange
 
 ---
 
-## Sprint 45: Security Hardening & Test Coverage
+## Sprint 45: Security Hardening & Test Coverage ✅ COMPLETED
 
-**Goal:** Address remaining security issues, improve test coverage, and refactor for maintainability.
+**Status:** ✅ All tasks completed 2026-01-29
+**Tests:** 1969 passing (50 new security tests)
+**Commit:** 93585c7
 
-### T45.1: Upgrade to PBKDF2 Key Derivation [1h, HIGH]
-**Files:** `api/oauth/callback.ts`, `lib/crypto.ts`
-**Change:** Replace manual key truncation with PBKDF2 (100k iterations, SHA-256)
-**Validation:** Decryption/encryption works, tests pass
+### T45.1: Upgrade to PBKDF2 Key Derivation ✅
+**Status:** COMPLETED
+**Files:** `api/oauth/callback.ts`
+**Change:** Replaced manual key truncation with PBKDF2 (100k iterations, SHA-256)
 
-### T45.2: Add Timing-Safe HMAC Comparisons [30m, MEDIUM]
-**Files:** `api/email/unsubscribe.ts`, `api/track/click.ts`
+### T45.2: Add Timing-Safe HMAC Comparisons ✅
+**Status:** COMPLETED
+**Files:** `src/services/EmailComplianceService.ts`, `src/services/EmailTrackingService.ts`
 **Change:** Use `crypto.timingSafeEqual` for HMAC token checks
-**Validation:** Tokens compared in constant time, tests pass
 
-### T45.3: Add Expiry to Tracking Tokens [45m, MEDIUM]
-**Files:** `api/track/click.ts`, `lib/EmailTrackingService.ts`
-**Change:** Add 90-day expiry to tracking tokens, reject expired
-**Validation:** Expired tokens rejected, tests pass
+### T45.3: Add Expiry to Tracking Tokens ✅
+**Status:** COMPLETED
+**Files:** `src/services/EmailTrackingService.ts`
+**Change:** Added 90-day expiry to tracking tokens
 
-### T45.4: Add Security Headers (CSP, X-Frame) [30m, LOW]
-**Files:** `api/_middleware.ts`, `vercel.json`
-**Change:** Set Content-Security-Policy, X-Frame-Options headers
-**Validation:** Headers present in all API responses
+### T45.4: Add Security Headers (CSP, X-Frame) ✅
+**Status:** COMPLETED
+**Files:** `api/_middleware.ts`
+**Change:** Added CSP, X-Frame-Options, HSTS, and other security headers
 
-### T45.5: Centralize ALLOWED_ORIGINS [15m, LOW]
-**Files:** `lib/origins.ts`, update imports in API files
-**Change:** Move allowlist to shared module
-**Validation:** All endpoints import from shared file
+### T45.5: Centralize ALLOWED_ORIGINS ✅
+**Status:** COMPLETED
+**Files:** `lib/origins.ts`, updated imports in `api/email/send.ts`, `api/email/unsubscribe.ts`, `api/track/click.ts`
+**Change:** Created shared origins module with URL-based comparison (prevents subdomain attacks)
 
-### T45.6: Add Vercel Rate Limiting [30m, LOW]
-**Files:** `api/_middleware.ts`, `vercel.json`
-**Change:** Add per-IP rate limiting headers
-**Validation:** Excessive requests blocked, headers present
+### T45.6: Add Vercel Rate Limiting ✅
+**Status:** COMPLETED
+**Files:** `api/_middleware.ts`
+**Change:** Added rate limiting headers (advisory; actual enforcement in T47.2)
 
-### T45.7: Remove or Guard Debug Console Logs [15m, LOW]
-**Files:** `src/hooks/useHubSpot.ts` (lines 394, 565, 592, 615, 619)
-**Change:** Remove or wrap logs in `if (import.meta.env.DEV)`
-**Validation:** No sensitive logs in production build
+### T45.7: Remove or Guard Debug Console Logs ✅
+**Status:** COMPLETED
+**Files:** `src/hooks/useHubSpot.ts`
+**Change:** All console.log statements guarded with `import.meta.env.DEV`
 
-### T45.8: Add API Endpoint Unit Tests [3h, MEDIUM]
-**Files:** `api/__tests__/` (new)
-**Change:** Add vitest tests for all security-critical endpoints
-**Validation:** `npm test` includes API tests
+### T45.8: Add API Endpoint Unit Tests ✅
+**Status:** COMPLETED
+**Files:** `src/__tests__/api/` (4 new test files)
+- `csrf.test.ts` - 13 tests for CSRF protection
+- `encryption.test.ts` - 14 tests for AES-GCM/PBKDF2
+- `origins.test.ts` - 16 tests for origin validation
+- `tracking.test.ts` - 7 tests for token validation
 
 ---
 
-## Additional Recommendations (Sprint 46+)
+## Sprint 46: Architecture Improvements ✅ PARTIAL
 
-- Refactor `App.tsx` into tab components (<500 lines each)
-- Extract `useDateRange` hook
-- Add React Error Boundaries
-- Virtualize prospect list with `@tanstack/react-virtual`
-- Document all required env vars and security best practices in README
-- Add architecture decision records (ADRs) for security
+### T46.1: Extract useDateRange Hook ✅
+**Status:** COMPLETED
+**Files:** `src/hooks/useDateRange.ts`, `src/__tests__/hooks/useDateRange.test.ts`
+**Change:** Extracted date range logic from App.tsx, supports nullable and required patterns
+
+### T46.2: Virtualize Prospect List ⏳
+**Status:** NOT STARTED
+**Blocked by:** App.tsx refactor (T46.4)
+
+### T46.3: Add Error Boundaries ✅
+**Status:** COMPLETED
+**Files:** `src/components/ErrorBoundary.tsx`, `src/__tests__/components/ErrorBoundary.test.tsx`
+**Change:** Created ErrorBoundary component with tests
+
+### T46.4: Split App.tsx into Tab Components ⏳
+**Status:** NOT STARTED
+**Effort:** 4h
+
+---
+
+## Sprint 47: Security Finalization & Quality (Recommended)
+
+**Goal:** Address subagent review recommendations, complete remaining Sprint 46 tasks
+**Estimated Effort:** ~10 hours
+
+### Priority 1: Security Hardening (HIGH)
+
+#### T47.1: Use timingSafeEqual for OAuth State Validation [15m]
+**Files:** `api/oauth/callback.ts`
+**Change:** Replace custom byte comparison with `crypto.timingSafeEqual` for state validation
+**Validation:** State comparison is timing-safe
+
+#### T47.2: Implement Real Rate Limiting with Vercel KV [2h]
+**Files:** `api/_middleware.ts`, install `@upstash/ratelimit`
+**Change:** Replace advisory headers with actual per-IP rate limiting
+**Validation:** Excessive requests return 429
+
+#### T47.3: Add Structured Error Logging with Redaction [1h]
+**Files:** All API files
+**Change:** Create structured logger that redacts sensitive data (tokens, secrets)
+**Validation:** No sensitive data in Vercel logs
+
+### Priority 2: Code Quality (MEDIUM)
+
+#### T47.4: Extract Shared validateOrigin Function [30m]
+**Files:** `lib/validateOrigin.ts` (new), update `api/email/send.ts`, `api/email/unsubscribe.ts`
+**Change:** DRY up validateOrigin logic
+**Validation:** All endpoints use shared function
+
+#### T47.5: Add Middleware Unit Tests [1h]
+**Files:** `src/__tests__/api/middleware.test.ts` (new)
+**Change:** Test security header application, CORS handling
+**Validation:** Middleware tests pass
+
+#### T47.6: Create Centralized Rate Limit Config [30m]
+**Files:** `lib/config/rateLimits.ts` (new)
+**Change:** Move magic numbers to config with documentation
+**Validation:** All rate limits defined in one place
+
+#### T47.7: Add Token Lifecycle Integration Tests [1h]
+**Files:** `src/__tests__/api/tokenLifecycle.test.ts` (new)
+**Change:** End-to-end tests: create → validate → expire
+**Validation:** Full token flow covered
+
+### Priority 3: Feature Completion
+
+#### T47.8: Virtualize Prospect List [2h] (from T46.2)
+**Files:** `src/App.tsx`, install `@tanstack/react-virtual`
+**Change:** Virtualize prospect list for 5k+ items
+**Validation:** Smooth scrolling with 10k items
+
+#### T47.9: Split App.tsx into Tab Components [4h] (from T46.4)
+**Files:** Create `src/components/tabs/HitlistTab.tsx`, `DashboardTab.tsx`, `IntegrationsTab.tsx`
+**Change:** Reduce App.tsx from 2700 lines to <500
+**Validation:** All tabs work, tests pass
+
+---
+
+## Documentation Completed ✅
+
+- [README.md](README.md) - Project overview, quick start, security notes
+- [.env.example](.env.example) - Environment variable template
+- [docs/adr/001-security-architecture.md](docs/adr/001-security-architecture.md) - Security decisions
+- [docs/api/README.md](docs/api/README.md) - API endpoint documentation
 | E2E integrations.spec.ts | ✅ EXISTS | `e2e/integrations.spec.ts` |
 
 **Remaining Work:** Environment variable configuration, Vercel deployment settings, E2E validation
