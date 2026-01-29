@@ -79,7 +79,7 @@ import { Leaderboard } from './components/Leaderboard';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { PWAUpdateNotification } from './components/PWAUpdateNotification';
 import { OfflineBanner } from './components/OfflineBanner';
-import type { TimePeriod } from './types/analytics';
+import type { TimePeriod, DateRange } from './types/analytics';
 
 // --- Sprint 34 Hooks ---
 import { useHubSpot } from './hooks/useHubSpot';
@@ -169,6 +169,24 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<'Jake' | 'Me'>('Me');
   const [filter, setFilter] = useState('');
   const [tierFilter, setTierFilter] = useState<'All' | 'Tier 1' | 'Tier 2' | 'Tier 3'>('All');
+  // Hitlist date filter (Sprint 35 - T35.4)
+  const [hitlistDatePeriod, setHitlistDatePeriod] = useState<TimePeriod>('all');
+  const [hitlistCustomRange, setHitlistCustomRange] = useState<DateRange | undefined>(undefined);
+  const hitlistDateRange = useMemo(() => {
+    if (hitlistDatePeriod === 'custom' && hitlistCustomRange) {
+      return { start: hitlistCustomRange.start, end: hitlistCustomRange.end };
+    }
+    const now = new Date();
+    const dayMs = 24 * 60 * 60 * 1000;
+    switch (hitlistDatePeriod) {
+      case 'today': return { start: new Date(now.getTime() - 1 * dayMs), end: now };
+      case 'week': return { start: new Date(now.getTime() - 7 * dayMs), end: now };
+      case 'month': return { start: new Date(now.getTime() - 30 * dayMs), end: now };
+      case 'quarter': return { start: new Date(now.getTime() - 90 * dayMs), end: now };
+      case 'year': return { start: new Date(now.getTime() - 365 * dayMs), end: now };
+      default: return null;
+    }
+  }, [hitlistDatePeriod, hitlistCustomRange]);
   const [generatedMessage, setGeneratedMessage] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('dm_codev');
   const [showCopied, setShowCopied] = useState(false);
@@ -515,9 +533,15 @@ export default function App() {
       const matchesSearch = p.name.toLowerCase().includes(filter.toLowerCase()) || 
                             p.company.toLowerCase().includes(filter.toLowerCase());
       const matchesTier = tierFilter === 'All' || p.tier === tierFilter;
-      return matchesSearch && matchesTier;
+      // Date filter (Sprint 35 - T35.4)
+      let matchesDate = true;
+      if (hitlistDateRange && p.createdAt) {
+        const prospectDate = new Date(p.createdAt);
+        matchesDate = prospectDate >= hitlistDateRange.start && prospectDate <= hitlistDateRange.end;
+      }
+      return matchesSearch && matchesTier && matchesDate;
     }).sort((a, b) => b.score - a.score);
-  }, [prospects, filter, tierFilter]);
+  }, [prospects, filter, tierFilter, hitlistDateRange]);
 
   const currentTemplates = useMemo(() => {
     if (!selectedProspect) return [];
@@ -975,6 +999,15 @@ export default function App() {
                     {t}
                   </button>
                 ))}
+              </div>
+              {/* Date Range Picker (Sprint 35 - T35.4) */}
+              <div className="mt-2" data-testid="hitlist-date-filter">
+                <DateRangePicker
+                  selectedPeriod={hitlistDatePeriod}
+                  onPeriodChange={setHitlistDatePeriod}
+                  customRange={hitlistCustomRange}
+                  onCustomRangeChange={setHitlistCustomRange}
+                />
               </div>
             </>
           )}
