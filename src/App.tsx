@@ -89,6 +89,7 @@ import { usePresence, usePresenceViewTracker } from './hooks/usePresence';
 
 // --- Sprint 35 Hooks ---
 import { useDashboardData } from './hooks/useDashboardData';
+import { createAnalyticsAggregator, type ProspectData, type ActivityData } from './services/AnalyticsAggregator';
 
 // --- Sprint 34 Components ---
 import { CommandPalette } from './components/CommandPalette';
@@ -230,7 +231,24 @@ export default function App() {
   }, [dashboardPeriod, dashboardCustomRange]);
   
   // Dashboard data hook (Sprint 35)
-  const dashboard = useDashboardData(dashboardDateRange);
+  // Convert app prospects to aggregator format
+  const aggregator = useMemo(() => {
+    const prospectData: ProspectData[] = prospects.map(p => ({
+      id: p.id,
+      status: p.status,
+      source: p.source,
+      segment: p.tier,
+      assignee: p.lastEditedBy,
+      dealValue: p.score * 1000, // Approximate deal value from score
+      createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
+      updatedAt: p.updatedAt ? new Date(p.updatedAt).toISOString() : new Date().toISOString(),
+    }));
+    const activityData: ActivityData[] = []; // Activities would come from activity tracker
+    const userData = [{ id: 'me', name: currentUser }];
+    return createAnalyticsAggregator({ prospects: prospectData, activities: activityData, users: userData });
+  }, [prospects, currentUser]);
+  
+  const dashboard = useDashboardData(dashboardDateRange, { aggregator });
   const dashboardRef = useRef<HTMLDivElement>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
