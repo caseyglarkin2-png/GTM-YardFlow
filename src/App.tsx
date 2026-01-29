@@ -91,6 +91,9 @@ import { usePresence, usePresenceViewTracker } from './hooks/usePresence';
 import { useDashboardData } from './hooks/useDashboardData';
 import { createAnalyticsAggregator, type ProspectData, type ActivityData } from './services/AnalyticsAggregator';
 
+// --- Sprint 60 Services ---
+import { copyToClipboard as clipboardCopy } from './services/ClipboardService';
+
 // --- Sprint 34 Components ---
 import { CommandPalette } from './components/CommandPalette';
 import { SyncStatus } from './components/SyncStatus';
@@ -846,9 +849,12 @@ export default function App() {
         const remote = remoteData.find(r => r.originalId === p.id);
         return remote ? { ...p, status: remote.status ?? p.status, notes: remote.notes, lastEditedBy: remote.lastEditedBy } : p;
       }));
-    }, (error) => console.error("Snapshot error:", error));
+    }, (error) => {
+      console.error("Snapshot error:", error);
+      showError('Sync Error', 'Unable to sync with Firestore. Your changes may not be saved.');
+    });
     return () => unsubscribe();
-  }, [user]);
+  }, [user, showError]);
 
   // Update conversation manager when prospect changes
   useEffect(() => {
@@ -1059,7 +1065,10 @@ export default function App() {
         updatedAt: Timestamp.now(),
         name: selectedProspect.name
       }, { merge: true });
-    } catch (e) { console.error("Error saving status", e); }
+    } catch (e) { 
+      console.error("Error saving status", e);
+      showError('Save Failed', 'Could not save status change. Please try again.');
+    }
   };
 
   const currentTemplates = useMemo(() => {
@@ -1080,20 +1089,17 @@ export default function App() {
   const isShortDM = currentTemplate?.type === 'short_dm';
   const isOverLimit = isShortDM && charCount > 250;
 
-  const copyToClipboard = () => {
-    const textArea = document.createElement("textarea");
-    textArea.value = generatedMessage;
-    textArea.style.position = "fixed";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-      document.execCommand('copy');
+  const copyToClipboard = async () => {
+    const result = await clipboardCopy(generatedMessage);
+    if (result.success) {
       setShowCopied(true);
       setTimeout(() => setShowCopied(false), 2000);
       handleStatusUpdate('drafted');
-    } catch (err) { console.error('Fallback copy failed', err); }
-    document.body.removeChild(textArea);
+      showSuccess('Copied!', 'Message copied to clipboard');
+    } else {
+      console.error('Copy to clipboard failed:', result.error);
+      showError('Copy failed', result.error || 'Could not copy to clipboard');
+    }
   };
 
   // Send email to selected prospect

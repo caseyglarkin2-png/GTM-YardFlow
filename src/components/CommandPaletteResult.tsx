@@ -37,8 +37,10 @@ export const CommandPaletteResult: React.FC<CommandPaletteResultProps> = ({
 }) => {
   return (
     <div
+      id={`command-palette-option-${index}`}
       role="option"
       aria-selected={isSelected}
+      tabIndex={-1}
       onClick={() => onClick(result, index)}
       onMouseEnter={() => onMouseEnter(index)}
       className={`px-4 py-3 flex items-center cursor-pointer transition-colors ${
