@@ -18,7 +18,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
  */
 
 const RAILWAY_API_URL = process.env.RAILWAY_API_URL;
-const RAILWAY_API_SECRET = process.env.RAILWAY_API_SECRET;
+// Use RAILWAY_API_SECRET if set, otherwise fall back to CRON_SECRET (same as Railway's cron endpoints)
+const RAILWAY_API_SECRET = process.env.RAILWAY_API_SECRET || process.env.CRON_SECRET;
 
 // P0 Security Fix: Fail if RAILWAY_API_URL is not configured
 if (!RAILWAY_API_URL && process.env.NODE_ENV === 'production') {
@@ -295,9 +296,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       headers['X-Firebase-UID'] = Array.isArray(firebaseUid) ? firebaseUid[0] : firebaseUid;
     }
 
-    // Add Railway API secret if configured
+    // =============================================================================
+    // Sprint 102: Service-to-service authentication
+    // Add Railway API secret for server-to-server calls (bypasses user auth)
+    // Railway should check this header and allow requests from trusted Vercel proxy
+    // =============================================================================
     if (RAILWAY_API_SECRET) {
       headers['X-Railway-Secret'] = RAILWAY_API_SECRET;
+      // Also send as Authorization Bearer for endpoints that accept it
+      headers['Authorization'] = `Bearer ${RAILWAY_API_SECRET}`;
     }
 
     // Forward the request with timeout signal
