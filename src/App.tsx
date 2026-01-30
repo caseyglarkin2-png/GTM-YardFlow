@@ -103,6 +103,9 @@ import { createAnalyticsAggregator, type ProspectData, type ActivityData } from 
 // --- Sprint 60 Services ---
 import { copyToClipboard as clipboardCopy } from './services/ClipboardService';
 
+// --- Sprint 80-81 Railway Integration ---
+import { sendEmailViaRailway, isRailwayAvailable } from './services/RailwayEmailService';
+
 // --- Sprint 34 Components ---
 import { CommandPalette } from './components/CommandPalette';
 import { SyncStatus } from './components/SyncStatus';
@@ -1254,6 +1257,7 @@ export default function App() {
   };
 
   // Send email to selected prospect
+  // Sprint 81: Uses Railway first, falls back to Vercel
   const sendEmailToProspect = async () => {
     if (!selectedProspect) return;
     
@@ -1267,6 +1271,36 @@ export default function App() {
     setEmailSendStatus('idle');
 
     try {
+      // Sprint 81: Try Railway first for better email infrastructure
+      const railwayAvailable = await isRailwayAvailable();
+      
+      if (railwayAvailable) {
+        console.log('[Email] Sending via Railway backend');
+        const railwayResult = await sendEmailViaRailway({
+          to: selectedProspect.email,
+          toName: selectedProspect.name,
+          subject: `YardFlow for ${selectedProspect.company}`,
+          htmlBody: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            ${generatedMessage
+              .replace(/https:\/\/calendly\.com\/[^\s]+/g, url => `<a href="${url}" style="color: #2563eb; text-decoration: underline;">${url}</a>`)
+              .split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('')}
+          </div>`,
+          textBody: generatedMessage,
+          prospectId: selectedProspect.id,
+        });
+
+        if (railwayResult.success) {
+          setEmailSendStatus('success');
+          handleStatusUpdate('contacted');
+          setTimeout(() => setEmailSendStatus('idle'), 3000);
+          return;
+        }
+        
+        // Railway failed, fall through to Vercel
+        console.warn('[Email] Railway send failed, trying Vercel fallback:', railwayResult.error);
+      }
+
+      // Fallback to Vercel email endpoint
       const auth = await import('firebase/auth').then(m => m.getAuth());
       const user = auth.currentUser;
       

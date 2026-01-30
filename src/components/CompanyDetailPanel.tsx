@@ -116,30 +116,45 @@ export function CompanyDetailPanel({
             </div>
           </div>
           
-          {/* Research Button */}
-          {company.needsResearch && (
-            <button
-              onClick={() => onResearchClick?.(company)}
-              disabled={isResearching}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                isResearching
-                  ? 'bg-slate-100 text-slate-400 cursor-wait'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
-              }`}
+          {/* Research Buttons */}
+          <div className="flex items-center gap-2">
+            {/* Google Search - reliable fallback */}
+            <a
+              href={`https://www.google.com/search?q=how+many+facilities+does+${encodeURIComponent(company.company)}+have`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all text-sm"
+              title="Search Google for facility count"
             >
-              {isResearching ? (
-                <>
-                  <Clock className="h-4 w-4 animate-spin" />
-                  Researching...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  AI Research
-                </>
-              )}
-            </button>
-          )}
+              <Search className="h-4 w-4" />
+              Google
+            </a>
+            
+            {/* AI Research Button */}
+            {company.needsResearch && (
+              <button
+                onClick={() => onResearchClick?.(company)}
+                disabled={isResearching}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                  isResearching
+                    ? 'bg-slate-100 text-slate-400 cursor-wait'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                }`}
+              >
+                {isResearching ? (
+                  <>
+                    <Clock className="h-4 w-4 animate-spin" />
+                    Researching...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    AI Research
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -163,10 +178,16 @@ export function CompanyDetailPanel({
               )}
             </div>
             {company.facilityCount === null && (
-              <div className="text-[10px] text-amber-600 flex items-center gap-1 mt-1">
-                <AlertCircle className="h-3 w-3" />
-                Needs research
-              </div>
+              <a
+                href={`https://www.google.com/search?q=how+many+facilities+does+${encodeURIComponent(company.company)}+have`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-1 hover:underline"
+                title="Search Google"
+              >
+                <Search className="h-3 w-3" />
+                Look up on Google
+              </a>
             )}
           </div>
 
