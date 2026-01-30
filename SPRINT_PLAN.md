@@ -491,3 +491,70 @@ interface SyncResult {
 - [ ] Demo recorded or live demo works
 - [ ] Deployed to Vercel
 - [ ] Sprint plan updated with status
+
+---
+
+## Sprint 61: Railway Integration & Email Infrastructure
+**Status:** ✅ Complete (Integration) | 🔄 In Progress (Login Credentials)
+**Goal:** Integrate Railway backend for email infrastructure and fix email sending issues.
+**Date:** 2026-01-30
+
+### Problem Statement
+Emails were not sending from the GTM-YardFlow (Vercel) app because:
+1. Two separate platforms exist: Vercel (frontend) and Railway (backend)
+2. Email infrastructure (SendGrid, Redis, job queues) is on Railway
+3. No integration between the platforms existed
+
+### Solution Architecture
+```
+┌─────────────────────────┐     ┌────────────────────────────────────────┐
+│  GTM-YardFlow (Vercel)  │     │     YardFlow-Hitlist (Railway)         │
+│                         │     │                                        │
+│  ┌─────────────────┐    │     │  ┌──────────────────────────────────┐  │
+│  │  Frontend App   │    │     │  │  Next.js Backend                 │  │
+│  │  (React/Vite)   │    │     │  │  - NextAuth (credentials)        │  │
+│  └────────┬────────┘    │     │  │  - Prisma + Postgres             │  │
+│           │             │     │  │  - BullMQ + Redis                │  │
+│  ┌────────▼────────┐    │     │  │  - SendGrid email                │  │
+│  │  /api/railway/* │───────────▶│  │  - Sequences & Outreach         │  │
+│  │  (Proxy)        │    │     │  └──────────────────────────────────┘  │
+│  └─────────────────┘    │     │                                        │
+│                         │     │  Services: Main, Worker                │
+│  Firebase Auth          │     │  DB: 2 users, 2 events, 2,615 accounts │
+└─────────────────────────┘     └────────────────────────────────────────┘
+```
+
+### Completed Tasks ✅
+
+| Task | Description | Files |
+|------|-------------|-------|
+| T61.1 | Railway API Proxy | `/api/railway/[...path].ts` |
+| T61.2 | RailwayEmailService | `/src/services/RailwayEmailService.ts` |
+| T61.3 | Vercel Config Fix | `vercel.json` (API route rewrites) |
+| T61.4 | TypeScript Fixes | `CompanyResearchService.ts` |
+| T61.5 | Integration Docs | `/docs/RAILWAY_INTEGRATION.md` |
+| T61.6 | Health Verification | Railway API health: ✅ OK |
+
+### Pending Tasks 🔄
+
+| Task | Description | Blocker |
+|------|-------------|---------|
+| T61.7 | Login Credentials | Need AUTH_SECRET from Railway |
+| T61.8 | End-to-End Email Test | Depends on T61.7 |
+
+### Commits Made
+- `e9404d5` - fix: Exclude API routes from SPA rewrite in vercel.json
+- `fdd6e75` - fix: TypeScript errors in CompanyResearchService  
+- `a61836d` - feat: Add Railway backend integration for email infrastructure
+
+### Key URLs
+- Vercel: https://gtm-yard-flow.vercel.app
+- Railway: https://yardflow-hitlist-production-2f41.up.railway.app
+- Railway Health: https://yardflow-hitlist-production-2f41.up.railway.app/api/health
+
+### Next Steps
+1. Get AUTH_SECRET first 16 chars from Railway Variables tab
+2. Call seed endpoint: `curl -X POST ".../api/admin/seed?secret=<AUTH_SECRET_16>"`
+3. Login with: `casey@freightroll.com` / `FreightRoll2026!`
+4. Test email sending end-to-end
+

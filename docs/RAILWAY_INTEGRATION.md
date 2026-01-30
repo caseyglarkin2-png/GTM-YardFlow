@@ -154,8 +154,61 @@ curl -X POST https://yardflow-hitlist-production-2f41.up.railway.app/api/outreac
 - [ ] Test email sending end-to-end
 - [ ] Update deployment documentation
 
+## Login Credentials Issue
+
+### Current State
+The Railway database has **2 users** and **2,615 accounts**, but the login credentials are unknown.
+
+### Database Seed Endpoint
+Railway has a seed endpoint that can create/reset users:
+
+```bash
+# Check current seed status (public GET)
+curl https://yardflow-hitlist-production-2f41.up.railway.app/api/admin/seed
+
+# Response: {"status":"ok","counts":{"users":2,"events":2,"accounts":2615}}
+```
+
+### To Reset Users (POST requires AUTH_SECRET)
+```bash
+# Get first 16 chars of AUTH_SECRET from Railway Variables tab
+# Then call:
+curl -X POST "https://yardflow-hitlist-production-2f41.up.railway.app/api/admin/seed?secret=<first-16-chars-of-AUTH_SECRET>"
+```
+
+### Expected Credentials After Seed
+| Email | Password | Role |
+|-------|----------|------|
+| `casey@freightroll.com` | `FreightRoll2026!` | ADMIN |
+| `jake@freightroll.com` | `FreightRoll2026!` | ADMIN |
+
+### Alternative: Prisma Studio
+You can also reset passwords directly via Railway's Prisma Studio:
+1. Railway Dashboard → YardFlow-Hitlist service
+2. Click "Prisma Studio" or run: `npx prisma studio`
+3. Find users table, update password hash using bcrypt
+
+### Generate Password Hash
+```javascript
+const bcrypt = require('bcryptjs');
+bcrypt.hash('YourPassword123!', 10).then(console.log);
+```
+
+## Two-Platform Architecture
+
+### Why Two Platforms?
+- **GTM-YardFlow (Vercel)**: Firebase Auth, frontend-first, real-time sync
+- **YardFlow-Hitlist (Railway)**: Full backend, Postgres, Redis, job queues, email infrastructure
+
+### Integration Status ✅
+The platforms are now connected via API proxy:
+- Vercel: `/api/railway/*` → Railway: `/api/*`
+- Frontend service: `RailwayEmailService.ts`
+- Env var: `RAILWAY_API_URL` configured in Vercel
+
 ## Support
 
 - **Railway Dashboard**: https://railway.app/dashboard
 - **YardFlow-Hitlist Repo**: https://github.com/caseyglarkin2-png/YardFlow-Hitlist
 - **Production URL**: https://yardflow-hitlist-production-2f41.up.railway.app
+- **Vercel Frontend**: https://gtm-yard-flow.vercel.app
