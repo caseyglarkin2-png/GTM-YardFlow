@@ -9,10 +9,10 @@
  * 
  * This service provides a clean interface for the frontend to send emails
  * through Railway's infrastructure.
+ * 
+ * IMPORTANT: All requests go through the Vercel proxy at /api/railway/*
+ * This ensures proper request handling and security.
  */
-
-const RAILWAY_API_URL = import.meta.env.VITE_RAILWAY_API_URL || 
-  'https://yardflow-hitlist-production-2f41.up.railway.app';
 
 export interface RailwayEmailRequest {
   to: string;
@@ -43,10 +43,12 @@ export interface RailwayHealthResponse {
 
 /**
  * Check Railway backend health
+ * P0 Fix: Uses proxy endpoint instead of direct Railway URL
  */
 export async function checkRailwayHealth(): Promise<RailwayHealthResponse | null> {
   try {
-    const response = await fetch(`${RAILWAY_API_URL}/api/health`);
+    // Use the proxy endpoint for consistency and security
+    const response = await fetch('/api/railway/health');
     if (!response.ok) {
       console.error('Railway health check failed:', response.status);
       return null;
@@ -194,11 +196,12 @@ export async function enrichEmailViaRailway(
 
 /**
  * Get Railway platform info
+ * Note: The actual URL is handled by the proxy at /api/railway/*
  */
 export function getRailwayInfo() {
   return {
-    url: RAILWAY_API_URL,
-    isConfigured: Boolean(RAILWAY_API_URL),
+    proxyEndpoint: '/api/railway',
+    isConfigured: true, // Always true when using proxy
     features: [
       'Postgres Database',
       'Redis Job Queues',
