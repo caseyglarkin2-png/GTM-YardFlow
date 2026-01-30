@@ -34,6 +34,7 @@ interface CompanyListViewProps {
   onCompanySelect: (company: CompanyRow) => void;
   onContactSelect: (prospect: Prospect) => void;
   onResearchClick?: (company: CompanyRow) => void;
+  isResearching?: string | null; // Company name currently being researched
   selectedCompanyId?: string;
   searchTerm?: string;
   onSearchChange?: (term: string) => void;
@@ -63,6 +64,7 @@ export function CompanyListView({
   onCompanySelect,
   onContactSelect,
   onResearchClick,
+  isResearching,
   selectedCompanyId,
   searchTerm = '',
   onSearchChange,
@@ -219,11 +221,16 @@ export function CompanyListView({
                           e.stopPropagation();
                           onResearchClick?.(company);
                         }}
-                        className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] bg-amber-50 text-amber-600 rounded border border-amber-200 hover:bg-amber-100 transition-colors"
-                        title="Click to research"
+                        disabled={isResearching === company.company}
+                        className={`flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded border transition-colors ${
+                          isResearching === company.company 
+                            ? 'bg-blue-50 text-blue-500 border-blue-200 cursor-wait'
+                            : 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100'
+                        }`}
+                        title={isResearching === company.company ? 'Researching...' : 'Click to research'}
                       >
-                        <AlertCircle className="h-3 w-3" />
-                        Research
+                        <AlertCircle className={`h-3 w-3 ${isResearching === company.company ? 'animate-pulse' : ''}`} />
+                        {isResearching === company.company ? 'Researching...' : 'Research'}
                       </button>
                     )}
                   </div>
@@ -347,14 +354,26 @@ export function CompanyListView({
                           </span>
                         )}
                         {contact.email && (
-                          <span title="Has email">
-                            <Mail className="h-3.5 w-3.5 text-slate-400" />
-                          </span>
+                          <a 
+                            href={`mailto:${contact.email}`} 
+                            title={`Email ${contact.email}`}
+                            className="hover:text-blue-600 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Mail className="h-3.5 w-3.5 text-slate-400 hover:text-blue-600" />
+                          </a>
                         )}
                         {contact.linkedinUrl && (
-                          <span title="Has LinkedIn">
-                            <ExternalLink className="h-3.5 w-3.5 text-blue-400" />
-                          </span>
+                          <a 
+                            href={contact.linkedinUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            title="View LinkedIn Profile"
+                            className="hover:text-blue-600 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5 text-blue-400 hover:text-blue-600" />
+                          </a>
                         )}
                       </div>
                     </div>

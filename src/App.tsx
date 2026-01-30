@@ -78,6 +78,7 @@ import { CompanyListView } from './components/CompanyListView';
 import { CompanyDetailPanel } from './components/CompanyDetailPanel';
 import { ViewModeToggle, type ViewMode } from './components/ViewModeToggle';
 import { aggregateByCompany, type CompanyRow } from './services/CompanyAggregator';
+import { researchCompany, type CompanyResearchResult } from './services/CompanyResearchService';
 
 // --- Sprint 26-33 Components ---
 import { ImportWizard } from './components/ImportWizard';
@@ -327,6 +328,9 @@ export default function App() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailSendStatus, setEmailSendStatus] = useState<'idle' | 'success' | 'error' | 'no_email' | 'rate_limit'>('idle');
   const [emailErrorMessage, setEmailErrorMessage] = useState<string>('');
+  // Sprint 72: Company research state
+  const [isResearchingCompany, setIsResearchingCompany] = useState<string | null>(null);
+  const [_researchResults, setResearchResults] = useState<Map<string, CompanyResearchResult>>(new Map());
   const [loading, setLoading] = useState(true);
   const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false);
   
@@ -339,7 +343,7 @@ export default function App() {
   );
 
   // Toast Notifications
-  const { toasts, dismissToast, success: showSuccess, error: showError } = useToast();
+  const { toasts, dismissToast, success: showSuccess, error: showError, warning: showWarning, info: showInfo } = useToast();
 
   // Screen reader announcements
   const [announcement, setAnnouncement] = useState('');
@@ -1124,6 +1128,98 @@ export default function App() {
       showError('Save Failed', 'Could not save status change. Please try again.');
     }
   };
+
+  // Sprint 72: Handle AI company research
+  const handleCompanyResearch = useCallback(async (company: CompanyRow) => {
+    if (isResearchingCompany) {
+      showWarning('Research In Progress', 'Please wait for the current research to complete.');
+      return;
+    }
+    
+    setIsResearchingCompany(company.company);
+    showInfo('AI Research', `Researching ${company.company}...`);
+    
+    try {
+      const result = await researchCompany({
+        companyName: company.company,
+        researchDepth: 'standard',
+      });
+      
+      // Store result
+      setResearchResults(prev => new Map(prev).set(company.company, result));
+      
+      if (result.success && result.data) {
+        showSuccess('Research Complete', `Found data for ${company.company}: ${result.data.facilityCount ?? 'Unknown'} facilities, ${result.data.industryCategory ?? 'Unknown'} industry`);
+        
+        // Update prospects with research data if available
+        if (result.data.facilityCount !== undefined) {
+          setProspects(prev => prev.map(p => 
+            p.company === company.company 
+              ? { ...p, facilities: result.data!.facilityCount }
+              : p
+          ));
+        }
+      } else {
+        showWarning('Research Limited', result.error || 'Could not find complete data for this company.');
+      }
+    } catch (error) {
+      console.error('Research error:', error);
+      showError('Research Failed', 'Unable to research company. Please try again.');
+    } finally {
+      setIsResearchingCompany(null);
+    }
+  }, [isResearchingCompany, showInfo, showSuccess, showWarning, showError]);
+
+  // Sprint 72: Handle queue outreach for company contacts
+  const handleQueueOutreach = useCallback(async (company: CompanyRow, contacts: Prospect[]) => {
+    if (contacts.length === 0) {
+      showWarning('No Contacts', 'Please select contacts to queue for outreach.');
+      return;
+    }
+
+    const withEmail = contacts.filter(c => c.email);
+    const withoutEmail = contacts.filter(c => !c.email);
+
+    if (withEmail.length === 0) {
+      showWarning('No Emails', 'None of the selected contacts have email addresses.');
+      return;
+    }
+
+    // Update status to "drafted" for selected contacts (ready for outreach)
+    setProspects(prev => prev.map(p => 
+      contacts.some(c => c.id === p.id) 
+        ? { ...p, status: 'drafted' as const }
+        : p
+    ));
+
+    // Select the contacts to highlight them
+    contacts.forEach(c => toggleSelection(c.id));
+
+    // Track activity
+    contacts.forEach(contact => {
+      activityTracker.track({
+        type: 'status_change',
+        user: currentUser,
+        prospectId: contact.id,
+        prospectName: contact.name,
+        details: `Queued for outreach (${company.company})`
+      });
+    });
+    setRecentActivities(activityTracker.getRecent(15));
+
+    // Show success message
+    if (withoutEmail.length > 0) {
+      showSuccess(
+        'Queued for Outreach', 
+        `${withEmail.length} contacts queued. ${withoutEmail.length} skipped (no email).`
+      );
+    } else {
+      showSuccess('Queued for Outreach', `${withEmail.length} contacts from ${company.company} queued.`);
+    }
+
+    // Open bulk sequence modal for next step
+    setBulkActionModal('sequence');
+  }, [currentUser, toggleSelection, showSuccess, showWarning]);
 
   const currentTemplates = useMemo(() => {
     if (!selectedProspect) return [];
@@ -2108,10 +2204,8 @@ export default function App() {
               onContactSelect={(prospect) => {
                 setSelectedProspect(prospect);
               }}
-              onResearchClick={(company) => {
-                // TODO: Sprint 73 - Trigger AI research
-                console.log('Research requested for:', company.company);
-              }}
+              onResearchClick={handleCompanyResearch}
+              isResearching={isResearchingCompany}
               selectedCompanyId={selectedCompany?.id}
               searchTerm={filter}
               onSearchChange={setFilter}
@@ -2334,14 +2428,9 @@ export default function App() {
               // Switch to people view to show prospect details
               setViewMode('people');
             }}
-            onResearchClick={(company) => {
-              // TODO: Sprint 73 - Trigger AI research
-              console.log('Research requested for:', company.company);
-            }}
-            onQueueOutreach={(company, contacts) => {
-              // TODO: Sprint 75 - Queue outreach
-              console.log('Queue outreach for:', company.company, 'contacts:', contacts.length);
-            }}
+            onResearchClick={handleCompanyResearch}
+            isResearching={isResearchingCompany === selectedCompany?.company}
+            onQueueOutreach={handleQueueOutreach}
           />
         ) : viewMode === 'companies' && !selectedCompany ? (
           /* Sprint 72: Empty state for company view */
