@@ -1,10 +1,21 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
+// T100.1: Enable bundle analysis with ANALYZE=true npm run build
+var analyze = process.env.ANALYZE === 'true';
 export default defineConfig({
     plugins: [
         react(),
+        // T100.1: Bundle analyzer - generates stats.html when ANALYZE=true
+        analyze && visualizer({
+            filename: 'dist/stats.html',
+            open: false,
+            gzipSize: true,
+            brotliSize: true,
+            template: 'treemap',
+        }),
         VitePWA({
             registerType: 'autoUpdate',
             includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],

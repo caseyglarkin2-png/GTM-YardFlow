@@ -30,6 +30,7 @@ import {
   ExternalLink,
   Mail
 } from 'lucide-react';
+import { initErrorTracking, setUserContext } from './services/ErrorTracking';
 import { ConversationManagerSingleton } from './services/ConversationManager';
 import { buildSystemPrompt } from './services/SystemPromptBuilder';
 import { generateTemplate, refineTemplate } from './services/TemplateGenerator';
@@ -71,6 +72,9 @@ const app = hasFirebaseConfig ? initializeApp(firebaseConfig) : null;
 const auth = app ? getAuth(app) : null;
 const db = app ? getFirestore(app) : null;
 const appId = import.meta.env.VITE_FIREBASE_APP_ID || 'default-app-id';
+
+// T100.2: Initialize error tracking
+initErrorTracking();
 
 // --- Types ---
 import { Prospect, MessageTemplate, ChatMessage } from './types';
@@ -928,6 +932,16 @@ export default function App() {
       const unsubscribe = onAuthStateChanged(auth, (u) => {
         setUser(u);
         setLoading(false);
+        // T100.2: Set user context for error tracking
+        if (u) {
+          setUserContext({
+            id: u.uid,
+            email: u.email || undefined,
+            name: u.displayName || undefined,
+          });
+        } else {
+          setUserContext(null);
+        }
       });
       return () => unsubscribe();
     } else {
