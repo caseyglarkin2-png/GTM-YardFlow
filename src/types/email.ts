@@ -43,6 +43,10 @@ export interface EmailQueueItem {
   updatedAt: number;
   tenantId?: string;
   userId?: string;
+  
+  // Sequence execution fields
+  enrollmentId?: string;  // Sequence enrollment this email is part of
+  stepId?: string;        // Which step in the sequence
 }
 
 export interface SendGridWebhookEvent {

@@ -5,6 +5,7 @@ import { SendGridClient } from './SendGridClient';
 import { EmailComplianceService } from './EmailComplianceService';
 import { EmailTrackingService } from './EmailTrackingService';
 import { EmailWarmupService } from './EmailWarmupService';
+import { SequenceSchedulerService } from './SequenceSchedulerService';
 
 const QUEUE_COLLECTION = 'email_queue';
 const DEAD_LETTER_COLLECTION = 'email_dead_letter';
@@ -15,6 +16,8 @@ function currentMs(): number {
 }
 
 export class EmailQueueService {
+  private readonly sequenceScheduler: SequenceSchedulerService;
+
   constructor(
     private readonly db: Firestore,
     private readonly sendGrid: SendGridClient,
@@ -22,7 +25,9 @@ export class EmailQueueService {
     private readonly warmup: EmailWarmupService,
     private readonly tracking: EmailTrackingService,
     private readonly workerId: string = 'worker'
-  ) {}
+  ) {
+    this.sequenceScheduler = new SequenceSchedulerService(db);
+  }
 
   async enqueue(message: EmailMessage, options: { userId?: string; idempotencyKey?: string; scheduledAt?: number } = {}): Promise<EmailQueueItem> {
     const idempotencyKey = options.idempotencyKey;
@@ -154,6 +159,17 @@ export class EmailQueueService {
       await this.sendGrid.sendEmail(item.message);
       await this.warmup.recordSend(item.tenantId, 1);
       await ref.update({ status: 'sent', updatedAt: currentMs(), attempts: item.attempts });
+      
+      // Advance sequence if this is a sequence email
+      if (item.enrollmentId && item.stepId) {
+        try {
+          await this.sequenceScheduler.advanceStep(item.enrollmentId, item.stepId);
+        } catch (err) {
+          // Log but don't fail - email was sent successfully
+          console.error('Failed to advance sequence step:', err);
+        }
+      }
+      
       return { ...item, status: 'sent' };
     } catch (err) {
       await this.handleFailure(ref, item, err as Error);

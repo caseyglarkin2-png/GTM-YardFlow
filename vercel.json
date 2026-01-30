@@ -6,6 +6,10 @@
     {
       "path": "/api/cron/process-queue",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/execute-sequences",
+      "schedule": "*/5 * * * *"
     }
   ],
   "functions": {
@@ -13,6 +17,9 @@
       "maxDuration": 30
     },
     "api/cron/process-queue.ts": {
+      "maxDuration": 60
+    },
+    "api/cron/execute-sequences.ts": {
       "maxDuration": 60
     }
   },

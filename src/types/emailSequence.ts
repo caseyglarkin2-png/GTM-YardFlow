@@ -116,6 +116,8 @@ export const SequenceEnrollmentSchema = z.object({
   currentStepIndex: z.number().default(0),
   
   enrolledAt: z.string(),
+  lastSentAt: z.string().optional(),      // When last step was sent
+  nextSendAt: z.string().optional(),      // When next step should be sent (ISO timestamp)
   completedAt: z.string().optional(),
   pausedAt: z.string().optional(),
   pauseReason: z.string().optional(),
