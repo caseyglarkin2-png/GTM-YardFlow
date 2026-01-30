@@ -74,7 +74,7 @@ const appId = import.meta.env.VITE_FIREBASE_APP_ID || 'default-app-id';
 
 // --- Types ---
 import { Prospect, MessageTemplate, ChatMessage } from './types';
-import { HITLIST_PROSPECTS } from './data/hitlistData';
+// HITLIST_PROSPECTS now loaded via useProspectState hook
 
 // --- New Sprint 18-20 Components ---
 import { ROITab } from './components/ROITab';
@@ -98,6 +98,8 @@ import type { TimePeriod, DateRange } from './types/analytics';
 
 // --- Sprint 34 Hooks ---
 import { useHubSpot } from './hooks/useHubSpot';
+// --- Sprint 93: Prospect State Management ---
+import { useProspectState } from './hooks/useProspectState';
 import { useCommandPalette } from './hooks/useCommandPalette';
 import { useOfflineQueue } from './hooks/useOfflineQueue';
 import { usePresence, usePresenceViewTracker } from './hooks/usePresence';
@@ -290,7 +292,18 @@ ${CALENDAR_LINK}
 export default function App() {
   const [user, setUser] = useState<unknown>(null);
   const [activeTab, setActiveTab] = useState<'prospects' | 'stats' | 'assistant' | 'roi' | 'assets' | 'dashboard' | 'import' | 'integrations'>('prospects');
-  const [prospects, setProspects] = useState<Prospect[]>(HITLIST_PROSPECTS);
+  // Sprint 93: Use centralized prospect state hook with Railway/Firestore toggle
+  // The hook provides setProspects for direct updates, plus typed methods for common operations
+  // These typed methods (updateProspect, etc.) can be used for Railway-aware operations
+  const {
+    prospects,
+    setProspects,
+    // These methods are available for Railway-integrated updates when ready:
+    // isLoading: isProspectsLoading,
+    // updateProspect, updateProspectStatus, updateProspectEmail,
+    // deleteProspect, bulkDeleteProspects, bulkUpdateProspects, addProspects,
+    // dataSource: prospectDataSource,
+  } = useProspectState();
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
   const [currentUser, setCurrentUser] = useState<'Jake' | 'Me'>('Me');
   const [filter, setFilter] = useState('');
