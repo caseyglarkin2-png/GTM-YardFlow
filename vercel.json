@@ -13,6 +13,9 @@
     }
   ],
   "functions": {
+    "api/railway/[...path].ts": {
+      "maxDuration": 30
+    },
     "api/email/webhook.ts": {
       "maxDuration": 30
     },
