@@ -106,6 +106,9 @@ import { copyToClipboard as clipboardCopy } from './services/ClipboardService';
 // --- Sprint 80-81 Railway Integration ---
 import { sendEmailViaRailway, isRailwayAvailable } from './services/RailwayEmailService';
 
+// --- Sprint 81 Sequence Enrollment ---
+import { useSequenceEnrollment } from './hooks/useSequenceEnrollment';
+
 // --- Sprint 34 Components ---
 import { CommandPalette } from './components/CommandPalette';
 import { SyncStatus } from './components/SyncStatus';
@@ -349,6 +352,15 @@ export default function App() {
   // Toast Notifications
   const { toasts, dismissToast, success: showSuccess, error: showError, warning: showWarning, info: showInfo } = useToast();
 
+  // Sequence Enrollment (Sprint 81)
+  const { 
+    sequences, 
+    refreshSequences, 
+    enrollProspects, 
+    isEnrolling,
+    // enrollmentProgress - available for future progress UI
+  } = useSequenceEnrollment();
+
   // Screen reader announcements
   const [announcement, setAnnouncement] = useState('');
   const announce = useCallback((message: string) => {
@@ -505,87 +517,41 @@ export default function App() {
     setIsProcessingBulkAction(true);
 
     try {
-      // Register handler that calls the email API
-      bulkActionService.registerHandler('sequence', async (ids, value) => {
-        // Get prospect data for the selected IDs
-        const selectedProspects = prospects.filter(p => ids.includes(p.id));
-        
-        // For each prospect, enqueue an email via the API
-        const results = await Promise.allSettled(
-          selectedProspects.map(async (prospect) => {
-            // Get auth token if available
-            const token = auth?.currentUser ? await auth.currentUser.getIdToken() : null;
-            
-            if (!token) {
-              throw new Error('Not authenticated');
-            }
+      // Get prospect data for the selected IDs
+      const selectedProspects = prospects.filter(p => prospectIdsArray.includes(p.id));
+      
+      // Use the real sequence enrollment service
+      const results = await enrollProspects(selectedProspects, sequenceId);
+      
+      const succeeded = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
 
-            const response = await fetch('/api/email/send', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'X-Idempotency-Key': `seq-${value}-${prospect.id}-${Date.now()}`,
-              },
-              body: JSON.stringify({
-                id: `${value}-${prospect.id}-${Date.now()}`,
-                to: prospect.email,
-                toName: prospect.name,
-                subject: `Following up - ${prospect.company}`,
-                html: `<p>Hi ${prospect.name.split(' ')[0]},</p><p>I wanted to reach out about YardFlow...</p>`,
-                text: `Hi ${prospect.name.split(' ')[0]},\n\nI wanted to reach out about YardFlow...`,
-                metadata: {
-                  prospectId: prospect.id,
-                  sequenceId: value,
-                  stepIndex: 0,
-                },
-              }),
-            });
-
-            if (!response.ok) {
-              const error = await response.json();
-              throw new Error(error.error || 'Failed to send email');
-            }
-
-            return response.json();
-          })
-        );
-
-        const succeeded = results.filter(r => r.status === 'fulfilled').length;
-        const failed = results.filter(r => r.status === 'rejected').length;
-
-        return {
-          success: failed === 0,
-          type: 'sequence' as const,
-          processed: succeeded,
-          failed,
-          data: { sequenceId: value }
-        };
-      });
-
-      const result = await bulkActionService.execute({
-        type: 'sequence',
-        prospectIds: prospectIdsArray,
-        value: sequenceId
-      });
-
-      if (result.success) {
+      if (failed === 0) {
         clearSelection();
-        announce(`${result.processed} prospect${result.processed === 1 ? '' : 's'} assigned to sequence`);
-      } else if (result.processed > 0) {
-        announce(`Partial success: ${result.processed} assigned, ${result.failed} failed`);
+        showSuccess(
+          'Enrolled in Sequence',
+          `${succeeded} prospect${succeeded === 1 ? '' : 's'} enrolled. First email will send at 9:15 AM.`
+        );
+        announce(`${succeeded} prospect${succeeded === 1 ? '' : 's'} enrolled in sequence`);
+      } else if (succeeded > 0) {
+        showWarning(
+          'Partial Enrollment',
+          `${succeeded} enrolled, ${failed} failed (already enrolled or invalid email)`
+        );
+        announce(`Partial success: ${succeeded} enrolled, ${failed} failed`);
       } else {
-        announce('Failed to assign prospects to sequence');
+        showError('Enrollment Failed', 'Could not enroll any prospects. They may already be in this sequence.');
+        announce('Failed to enroll prospects in sequence');
       }
     } catch (error) {
-      console.error('Bulk sequence assignment failed', error);
-      showError('Sequence Assignment Failed', 'Unable to assign prospects to the selected sequence. Please try again.');
-      announce('Failed to assign prospects to sequence');
+      console.error('Bulk sequence enrollment failed', error);
+      showError('Enrollment Failed', 'Unable to enroll prospects. Please try again.');
+      announce('Failed to enroll prospects in sequence');
     } finally {
       setBulkActionModal(null);
       setIsProcessingBulkAction(false);
     }
-  }, [selectedProspectIds, prospects, clearSelection, announce, showError]);
+  }, [selectedProspectIds, prospects, enrollProspects, clearSelection, announce, showSuccess, showWarning, showError]);
 
   const handleBulkAddTag = useCallback(async (tags: string[]) => {
     const prospectIdsArray = Array.from(selectedProspectIds);
@@ -2964,6 +2930,9 @@ export default function App() {
         onClose={() => setBulkActionModal(null)}
         onConfirm={handleBulkAssignSequence}
         selectedCount={selectedCount}
+        sequences={sequences}
+        isLoading={isEnrolling}
+        onRetry={refreshSequences}
       />
 
       <BulkTagModal

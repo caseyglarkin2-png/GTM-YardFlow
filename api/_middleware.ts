@@ -5,7 +5,7 @@
  * Sprint 45 - T45.4 & T45.6
  */
 
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server'0;
 import type { NextRequest } from 'next/server';
 import { isAllowedOrigin, ALLOWED_ORIGINS } from '../lib/origins';
 
