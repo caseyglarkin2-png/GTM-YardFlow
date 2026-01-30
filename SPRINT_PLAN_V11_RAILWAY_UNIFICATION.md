@@ -232,11 +232,39 @@ export function shouldUseRailway(): boolean {
 - Email send → delivery time
 
 **Validation:**
-- [ ] Baseline documented with timestamps
-- [ ] Measurement methodology documented
-- [ ] Target improvements defined
+- [ ] P50/P95 latencies captured for: prospect list, search, enrollment create, email send
+- [ ] Each metric measured 3x and averaged
+- [ ] Measurement tool specified (Lighthouse, Performance API, custom script)
+- [ ] Target improvements defined (e.g., "Railway should be within 10% of Firestore")
+- [ ] Baseline stored in `docs/PERFORMANCE_BASELINE.md` with ISO timestamps
 
 **Commit:** `docs(perf): add performance baseline`
+
+---
+
+#### T90.6: Create Railway API Gap Remediation Plan [M - 2h]
+**Files:** `docs/RAILWAY_API_GAPS.md`
+
+**Description:** Based on T90.1 audit, create actionable tickets for any missing Railway endpoints. Each gap needs an owner and ETA.
+
+**Output:**
+```markdown
+# Railway API Gaps
+
+| Missing Endpoint | Required By Sprint | Priority | Owner | ETA | JIRA Ticket |
+|-----------------|-------------------|----------|-------|-----|-------------|
+| POST /api/prospects | Sprint 93 | P0 | @railway-team | Day 3 | YARD-xxx |
+| GET /api/sequences | Sprint 94 | P0 | @railway-team | Day 5 | YARD-xxx |
+```
+
+**Validation:**
+- [ ] Every missing endpoint has a ticket
+- [ ] Each ticket has owner and ETA
+- [ ] Blocking sprints explicitly linked
+- [ ] Railway team acknowledged and agreed to ETAs
+- [ ] Slack/email confirmation documented
+
+**Commit:** `docs(railway): create API gap remediation plan`
 
 ---
 
@@ -498,6 +526,55 @@ export function useRailwayStatus() {
 
 ---
 
+#### T91.5: Add Railway Client Unit Tests [M - 2h]
+**Files:** `src/services/__tests__/RailwayApiClient.test.ts`
+
+**Description:** Comprehensive unit tests for RailwayApiClient using MSW (Mock Service Worker).
+
+```typescript
+// src/services/__tests__/RailwayApiClient.test.ts
+import { setupServer } from 'msw/node';
+import { rest } from 'msw';
+import { railwayClient } from '../RailwayApiClient';
+
+const server = setupServer(
+  rest.get('/api/railway/health', (req, res, ctx) => {
+    return res(ctx.json({ status: 'healthy' }));
+  }),
+  // ... mock all endpoints
+);
+
+describe('RailwayApiClient', () => {
+  describe('health()', () => {
+    it('returns health status on success', async () => {
+      const result = await railwayClient.health();
+      expect(result.status).toBe('healthy');
+    });
+    
+    it('throws on 500 error', async () => {
+      server.use(rest.get('/api/railway/health', (_, res, ctx) => res(ctx.status(500))));
+      await expect(railwayClient.health()).rejects.toThrow('RailwayApiError');
+    });
+    
+    it('retries on transient failure', async () => { /* ... */ });
+    it('times out after 30s', async () => { /* ... */ });
+  });
+  
+  // Tests for each method...
+});
+```
+
+**Validation:**
+- [ ] Minimum 80% code coverage on RailwayApiClient
+- [ ] Tests for success, 4xx, 5xx, timeout, network error cases
+- [ ] Tests for retry logic (verify 3 retries on transient failures)
+- [ ] Tests for auth header attachment
+- [ ] All tests pass in CI
+
+**Commit:** `test(railway): add RailwayApiClient unit tests`
+
+---
+
 ### Sprint 92: Railway Proxy Improvements
 
 **Sprint Goal:** Improve the Vercel → Railway proxy for reliability and observability
@@ -657,6 +734,31 @@ export class ProxyCache {
 
 **Sprint Goal:** Read/write prospects from Railway instead of Firestore
 
+**⚠️ PREREQUISITE:** Run T93.0 migration script BEFORE starting other Sprint 93 tasks. Railway must have prospect data for hooks to work.
+
+#### T93.0: Execute Prospect Data Migration [S - 1h]
+**Files:** `scripts/migrateProspectsToRailway.ts` (created in T93.8)
+
+**Description:** Actually run the migration script to populate Railway with Firestore data. This is a manual execution step, not code development.
+
+**Steps:**
+1. Verify Railway API is accessible: `curl $RAILWAY_URL/health`
+2. Create fresh Firestore backup: `npm run backup:firestore`
+3. Run migration: `npx ts-node scripts/migrateProspectsToRailway.ts`
+4. Verify counts match
+
+**Validation:**
+- [ ] Railway /health returns 200
+- [ ] Fresh Firestore backup created
+- [ ] Migration script completes without errors
+- [ ] Prospect count in Railway matches Firestore
+- [ ] Spot-check 5 random records for data accuracy
+- [ ] Screenshot of Railway DB prospect count saved to `docs/migration-evidence/`
+
+**Commit:** `docs(migration): add prospect migration evidence`
+
+---
+
 #### T93.1: Create useProspects Hook with Railway Backend [M - 3h]
 **Files:** `src/hooks/useProspects.ts`
 
@@ -779,7 +881,9 @@ async function updateProspect(id: string, data: Partial<Prospect>) {
 - [ ] Status changes persist to Railway
 - [ ] Dual-write mode writes to both
 - [ ] Optimistic updates work
-- [ ] Error handling shows toast
+- [ ] Error handling shows toast AND reverts optimistic update within 200ms
+- [ ] API failure: UI reverts to previous state
+- [ ] Network error: retry with exponential backoff
 
 **Commit:** `feat(data): add Railway prospect mutations`
 
@@ -852,23 +956,36 @@ async searchProspects(query: string, filters?: {
 
 ---
 
-#### T93.4: Add Data Migration Script [M - 2h]
+#### T93.8: Add Data Migration Script [M - 3h]
 **Files:** `scripts/migrateProspectsToRailway.ts`
 
-**Description:** One-time script to export Firestore prospects and import to Railway.
+**Description:** One-time script to export Firestore prospects and import to Railway. Uses batch transactions with checkpointing for reliability.
 
 ```typescript
 // scripts/migrateProspectsToRailway.ts
+const BATCH_SIZE = 50;
+const CHECKPOINT_FILE = './migration-checkpoint.json';
+
 async function migrate() {
+  // Load checkpoint if exists (resume from crash)
+  const checkpoint = loadCheckpoint();
+  const startIndex = checkpoint?.lastIndex || 0;
+  
   console.log('Fetching prospects from Firestore...');
   const firestoreProspects = await getFirestoreProspects();
+  console.log(`Found ${firestoreProspects.length} prospects, starting at ${startIndex}`);
   
-  console.log(`Found ${firestoreProspects.length} prospects`);
-  
-  for (const prospect of firestoreProspects) {
-    const railwayData = transformToRailwaySchema(prospect);
-    await railwayClient.createProspect(railwayData);
-    console.log(`Migrated: ${prospect.name}`);
+  for (let i = startIndex; i < firestoreProspects.length; i += BATCH_SIZE) {
+    const batch = firestoreProspects.slice(i, i + BATCH_SIZE);
+    
+    // Batch upsert to Railway (idempotent)
+    const result = await railwayClient.batchUpsertProspects(
+      batch.map(p => ({ ...transformToRailwaySchema(p), firestoreId: p.id }))
+    );
+    
+    // Save checkpoint
+    saveCheckpoint({ lastIndex: i + batch.length, timestamp: new Date().toISOString() });
+    console.log(`Migrated ${i + batch.length}/${firestoreProspects.length}`);
   }
   
   console.log('Migration complete!');
@@ -877,11 +994,44 @@ async function migrate() {
 
 **Validation:**
 - [ ] Script runs without errors
-- [ ] All Firestore prospects appear in Railway
-- [ ] Data integrity verified (counts match)
-- [ ] Idempotent (re-running doesn't duplicate)
+- [ ] All Firestore prospects appear in Railway (count matches)
+- [ ] Checkpoint file created and updated during run
+- [ ] Interrupted script can resume from checkpoint
+- [ ] Re-running doesn't duplicate (upsert by firestoreId)
+- [ ] Data integrity: spot-check 10 random records for field accuracy
 
 **Commit:** `chore(data): add Firestore to Railway migration script`
+
+---
+
+#### T93.9: Create Railway→Firestore Reverse Sync Script [M - 2h]
+**Files:** `scripts/reverseSync.ts`
+
+**Description:** Emergency rollback script to sync Railway data back to Firestore if migration causes issues.
+
+```typescript
+// scripts/reverseSync.ts
+async function reverseSync() {
+  console.log('Fetching prospects from Railway...');
+  const railwayProspects = await railwayClient.getProspects({ limit: 10000 });
+  
+  console.log(`Syncing ${railwayProspects.data.length} prospects back to Firestore...`);
+  for (const prospect of railwayProspects.data) {
+    await setDoc(doc(db, 'prospects', prospect.firestoreId || prospect.id), 
+      transformToFirestoreSchema(prospect));
+  }
+  
+  console.log('Reverse sync complete!');
+}
+```
+
+**Validation:**
+- [ ] Script runs without errors
+- [ ] All Railway prospects appear in Firestore
+- [ ] Data integrity verified (counts match)
+- [ ] Original Firestore IDs preserved
+
+**Commit:** `chore(data): add Railway to Firestore reverse sync script`
 
 ---
 
@@ -956,23 +1106,78 @@ async function migrate() {
 
 ---
 
-#### T94.3: Replace useSequenceEnrollment with Railway Backend [L - 4h]
+#### T94.3a: Add Railway Enrollment API Calls [M - 2h]
 **Files:** `src/hooks/useSequenceEnrollment.ts`
 
-**Description:** Rewrite enrollment hook to use Railway API instead of Firestore.
+**Description:** Add Railway API calls for enrollment operations alongside existing Firestore code.
 
-**Changes:**
-- Remove Firestore `onSnapshot` listener
-- Add Railway API calls for enroll/pause/resume/cancel
-- Poll for enrollment updates (or add WebSocket later)
+```typescript
+async function enrollProspect(prospectId: string, sequenceId: string) {
+  if (featureFlags.RAILWAY_ENABLED) {
+    const result = await railwayClient.enrollProspect(prospectId, sequenceId);
+    if (result.success) {
+      setEnrollments(prev => [...prev, result.data]);
+      return result.data;
+    }
+  }
+  // Firestore fallback still in place
+}
+```
 
 **Validation:**
 - [ ] Enroll prospect → Railway API called
-- [ ] Enrollment status reflects in UI
-- [ ] Pause/resume/cancel work via Railway
-- [ ] Real-time updates within 5 seconds
+- [ ] Pause enrollment → Railway API called
+- [ ] Resume enrollment → Railway API called
+- [ ] Cancel enrollment → Railway API called
+- [ ] Feature flag controls which backend is used
 
-**Commit:** `refactor(data): migrate enrollments to Railway backend`
+**Commit:** `feat(data): add Railway enrollment API calls`
+
+---
+
+#### T94.3b: Add Enrollment Polling Mechanism [M - 1h]
+**Files:** `src/hooks/useSequenceEnrollment.ts`
+
+**Description:** Poll Railway for enrollment status updates since we're removing Firestore's real-time listener.
+
+```typescript
+useEffect(() => {
+  if (!featureFlags.RAILWAY_ENABLED) return;
+  
+  // Poll every 5 seconds for enrollment updates
+  const interval = setInterval(async () => {
+    const result = await railwayClient.getEnrollments();
+    if (result.success) {
+      setEnrollments(result.data);
+    }
+  }, 5000);
+  
+  return () => clearInterval(interval);
+}, []);
+```
+
+**Validation:**
+- [ ] Enrollment updates appear within 5 seconds
+- [ ] Polling stops when component unmounts
+- [ ] Polling is disabled when using Firestore
+- [ ] Network errors don't crash the polling loop
+
+**Commit:** `feat(data): add enrollment polling for Railway`
+
+---
+
+#### T94.3c: Remove Firestore Enrollment Listener [S - 1h]
+**Files:** `src/hooks/useSequenceEnrollment.ts`
+
+**Description:** Remove Firestore `onSnapshot` listener now that Railway polling is in place.
+
+**Validation:**
+- [ ] No `onSnapshot` for enrollments
+- [ ] No Firestore enrollment imports
+- [ ] Polling provides updates
+- [ ] Feature flag fallback still works for Firestore
+
+**Commit:** `refactor(data): remove Firestore enrollment listener`
 
 ---
 
@@ -987,6 +1192,38 @@ async function migrate() {
 - [ ] Build succeeds with no Firestore enrollment imports
 
 **Commit:** `refactor(data): remove Firestore enrollment storage`
+
+---
+
+#### T94.5: Document Enrollment State Machine [S - 1h]
+**Files:** `docs/ENROLLMENT_STATE_MACHINE.md`
+
+**Description:** Document the enrollment state transitions for debugging and onboarding.
+
+```markdown
+# Enrollment State Machine
+
+## States
+- `active` - Prospect receiving sequence emails
+- `paused` - Temporarily stopped (manual or bounce)
+- `completed` - All steps sent
+- `replied` - Prospect replied, sequence stopped
+- `bounced` - Email bounced, sequence stopped
+
+## Transitions
+active → paused (manual pause, bounce)
+active → completed (all steps sent)
+active → replied (reply detected)
+paused → active (manual resume)
+```
+
+**Validation:**
+- [ ] All states documented
+- [ ] All transitions documented with trigger
+- [ ] Diagram included (mermaid or ASCII)
+- [ ] Edge cases noted (e.g., what if paused + replied?)
+
+**Commit:** `docs(enrollment): add state machine documentation`
 
 ---
 
@@ -1141,7 +1378,7 @@ export function EmailQueueStatus() {
       <div className="text-sm">
         <span className="font-medium">{data.pending}</span> pending
         <span className="text-slate-500 ml-2">•</span>
-        <span className="ml-2">{data.sentToday}</span> sent today
+        <span className="ml-2">{data.sentToday}</span> sent today (UTC)
       </div>
     </div>
   );
@@ -1150,11 +1387,54 @@ export function EmailQueueStatus() {
 
 **Validation:**
 - [ ] Queue health indicator shows correctly
-- [ ] Pending count updates in real-time
-- [ ] Warning state when queue is slow
-- [ ] Error state when queue is stuck
+- [ ] Pending count updates every 30 seconds
+- [ ] Warning state when queue is slow (> 100 pending)
+- [ ] Error state when queue is stuck (oldest job > 5 min old)
+- [ ] Timezone clarified (UTC for "sent today")
 
 **Commit:** `feat(ux): add email queue status indicator`
+
+---
+
+#### T95.6: Add Email Dead Letter Queue UI [M - 2h]
+**Files:** `src/components/DeadLetterQueue.tsx`, `src/hooks/useDeadLetterQueue.ts`
+
+**Description:** Show failed emails with retry capability. Critical for email operations.
+
+```typescript
+// src/components/DeadLetterQueue.tsx
+export function DeadLetterQueue() {
+  const { failedEmails, retryEmail, discardEmail } = useDeadLetterQueue();
+  
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-medium text-red-600">
+        Failed Emails ({failedEmails.length})
+      </h3>
+      {failedEmails.map(email => (
+        <div key={email.id} className="p-3 bg-red-50 rounded-lg">
+          <div className="font-medium">{email.subject}</div>
+          <div className="text-sm text-slate-600">To: {email.prospectEmail}</div>
+          <div className="text-xs text-red-600">Error: {email.error}</div>
+          <div className="flex gap-2 mt-2">
+            <button onClick={() => retryEmail(email.id)}>Retry</button>
+            <button onClick={() => discardEmail(email.id)}>Discard</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+**Validation:**
+- [ ] Failed emails listed with error messages
+- [ ] Retry button re-queues email
+- [ ] Discard button removes from dead letter queue
+- [ ] Empty state when no failed emails
+- [ ] Count badge shows on parent nav/tab
+
+**Commit:** `feat(ux): add dead letter queue UI`
 
 ---
 
@@ -1263,6 +1543,53 @@ export function useEmailAnalytics(dateRange: { start: Date; end: Date }) {
 
 ---
 
+#### T96.5: Add Webhook Delivery Retry Logic [S - 1h]
+**Files:** `api/email/webhook.ts`
+
+**Description:** Handle cases where webhook forwarding to Railway fails.
+
+```typescript
+// api/email/webhook.ts
+async function forwardWithRetry(payload: unknown, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(`${RAILWAY_URL}/api/webhooks/sendgrid`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(5000)
+      });
+      
+      if (response.ok) return { success: true };
+      
+      // Don't retry on 4xx (client error)
+      if (response.status >= 400 && response.status < 500) {
+        return { success: false, error: 'Client error', status: response.status };
+      }
+    } catch (error) {
+      console.log(`Webhook forward attempt ${attempt} failed:`, error);
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 1000 * attempt)); // Exponential backoff
+      }
+    }
+  }
+  
+  // All retries failed - log to dead letter for manual processing
+  console.error('Webhook forwarding failed after retries:', payload);
+  return { success: false, error: 'Max retries exceeded' };
+}
+```
+
+**Validation:**
+- [ ] Transient failure → retries up to 3 times
+- [ ] 4xx errors → no retry (log and fail)
+- [ ] All retries failed → logged for manual review
+- [ ] Successful forward returns 200
+
+**Commit:** `feat(email): add webhook delivery retry logic`
+
+---
+
 ## 📋 PHASE 4: AUTH UNIFICATION (Sprints 97-98)
 
 ### Goal: Single auth source (Railway NextAuth), remove Firebase Auth
@@ -1318,8 +1645,52 @@ export class AuthBridge {
 - [ ] User migration happens transparently
 - [ ] No user loses access during migration
 - [ ] Feature flag controls fallback behavior
+- [ ] Test matrix verified: Firebase-only user ✓, Railway-only user ✓, migrated user ✓
 
 **Commit:** `feat(auth): add dual-auth bridge for safe migration`
+
+---
+
+#### T97.0.5: Create Firebase→Railway User Migration Script [M - 3h]
+**Files:** `scripts/migrateUsersToRailway.ts`
+
+**Description:** Migrate existing Firebase users to Railway NextAuth database so they don't lose access.
+
+```typescript
+// scripts/migrateUsersToRailway.ts
+import { getAuth } from 'firebase-admin/auth';
+
+async function migrateUsers() {
+  console.log('Fetching Firebase users...');
+  const listResult = await getAuth().listUsers(1000);
+  
+  console.log(`Found ${listResult.users.length} users`);
+  
+  for (const user of listResult.users) {
+    // Create user in Railway NextAuth
+    const railwayUser = await railwayClient.createUser({
+      email: user.email,
+      name: user.displayName,
+      firebaseUid: user.uid,
+      // Password will need to be reset or use OAuth
+    });
+    
+    console.log(`Migrated: ${user.email} -> ${railwayUser.id}`);
+  }
+  
+  console.log('User migration complete!');
+}
+```
+
+**Validation:**
+- [ ] Script runs without errors
+- [ ] All Firebase users created in Railway
+- [ ] User count matches (Firebase = Railway)
+- [ ] Email addresses preserved
+- [ ] Duplicate emails handled gracefully (skip or update)
+- [ ] Migration is idempotent
+
+**Commit:** `chore(auth): add Firebase to Railway user migration script`
 
 ---
 
@@ -1409,10 +1780,57 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
 ---
 
-#### T97.4: Remove Firebase Auth [L - 4h]
+#### T97.5: Railway Auth Production Soak Test [M - 2h]
+**Files:** `docs/AUTH_SOAK_TEST_RESULTS.md`
+
+**Description:** **SAFETY GATE.** Before removing Firebase Auth, verify Railway auth works in production for 24 hours. This is a manual verification step.
+
+**Procedure:**
+1. Deploy T97.0-T97.3 to production
+2. Enable Railway auth for 10% of traffic (feature flag)
+3. Monitor for 24 hours
+4. Check for: login failures, 500 errors, token refresh issues
+5. Document results
+
+**Checklist:**
+```markdown
+# Auth Soak Test Results - [DATE]
+
+## Traffic Split
+- Railway auth: 10%
+- Firebase fallback: 90%
+
+## Metrics (24h period)
+- Railway logins: ___
+- Railway login failures: ___
+- Firebase fallback logins: ___
+- 500 errors: ___
+- Token refresh events: ___
+- Token refresh failures: ___
+
+## Errors (paste any from logs)
+[None / list errors]
+
+## Decision
+[ ] PASS - Proceed with Firebase removal
+[ ] FAIL - Fix issues and re-test
+```
+
+**Validation:**
+- [ ] 24 hours of production traffic with Railway auth
+- [ ] Error rate < 0.1%
+- [ ] No users locked out
+- [ ] Token refresh working
+- [ ] Documentation saved to `docs/AUTH_SOAK_TEST_RESULTS.md`
+
+**Commit:** `docs(auth): add production soak test results`
+
+---
+
+#### T97.6: Remove Firebase Auth [L - 4h]
 **Files:** `src/App.tsx`, various
 
-**Description:** Remove all Firebase Auth code and dependencies.
+**Description:** Remove all Firebase Auth code and dependencies. **ONLY PROCEED AFTER T97.5 PASSES.**
 
 **Changes:**
 - Remove `firebase/auth` imports
@@ -1421,10 +1839,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 - Remove `firebase` package if no longer needed
 
 **Validation:**
+- [ ] T97.5 soak test passed
 - [ ] No Firebase auth imports
 - [ ] App works with Railway auth only
 - [ ] Build succeeds
-- [ ] Bundle size reduced
+- [ ] Bundle size reduced (~50-100KB less)
+- [ ] No user reports of login issues within 2 hours of deploy
 
 **Commit:** `refactor(auth): remove Firebase Auth`
 
@@ -1598,34 +2018,60 @@ export function ConnectionStatus() {
 **Validation:**
 - [ ] Green indicator when connected
 - [ ] Amber indicator when reconnecting
-- [ ] Red indicator on persistent failure
+- [ ] Red indicator on persistent failure (> 3 consecutive failures)
 - [ ] Latency displayed when available
-- [ ] Positioned in app header
+- [ ] Positioned in app header (top right)
 
 **Commit:** `feat(ux): add Railway connection status indicator`
 
 ---
 
+#### T99.6: Deprecate Firestore Security Rules [S - 30m]
+**Files:** `firestore.rules`, `firestore.indexes.json`
+
+**Description:** Archive Firestore configuration files since we no longer use Firestore.
+
+```bash
+mkdir -p archive/firestore
+mv firestore.rules archive/firestore/
+mv firestore.indexes.json archive/firestore/
+echo "# Archived on $(date) - Migrated to Railway PostgreSQL" > archive/firestore/README.md
+```
+
+**Validation:**
+- [ ] `firestore.rules` moved to archive
+- [ ] `firestore.indexes.json` moved to archive
+- [ ] README explains why archived
+- [ ] Git history preserved
+
+**Commit:** `chore(cleanup): archive Firestore configuration`
+
+---
+
 ### Sprint 100: Performance & Polish
 
-**Sprint Goal:** Optimize for production
+**Sprint Goal:** Optimize for production, add observability, final E2E verification
 
 #### T100.1: Analyze Bundle Size [M - 2h]
-**Files:** `vite.config.ts`
+**Files:** `vite.config.ts`, `docs/BUNDLE_ANALYSIS.md`
 
-**Description:** Use bundle analyzer to identify large dependencies.
+**Description:** Use bundle analyzer to identify large dependencies. Document results.
 
 ```bash
 npm run build -- --analyze
 ```
 
-**Target:** Under 500KB gzipped for main bundle.
+**Target:** 
+- `main.js` < 300KB gzipped
+- `vendor.js` < 200KB gzipped
+- Lazy-loaded routes not counted in initial bundle
 
 **Validation:**
 - [ ] Bundle analyzer report generated
-- [ ] Largest chunks identified
-- [ ] No unnecessary dependencies
-- [ ] Code splitting working
+- [ ] Largest chunks identified and documented
+- [ ] Firebase completely gone from bundle
+- [ ] Code splitting working for routes
+- [ ] Results saved to `docs/BUNDLE_ANALYSIS.md`
 
 **Commit:** `chore(perf): analyze and document bundle size`
 
@@ -1661,15 +2107,86 @@ npm run build -- --analyze
 
 ---
 
-#### T100.4: Final Integration Test [L - 4h]
-**Files:** `e2e/railway-integration.spec.ts`
+#### T100.4a: Add Auth E2E Tests [M - 1h]
+**Files:** `e2e/auth.spec.ts`
 
-**Description:** End-to-end test of complete workflow via Railway.
+**Description:** E2E tests for authentication flows.
 
 ```typescript
-// e2e/railway-integration.spec.ts
-test.describe('Railway Integration', () => {
-  test('complete workflow', async ({ page }) => {
+test.describe('Auth', () => {
+  test('login with valid credentials', async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('[name=email]', 'test@example.com');
+    await page.fill('[name=password]', 'password');
+    await page.click('button[type=submit]');
+    await expect(page.getByTestId('dashboard')).toBeVisible();
+  });
+  
+  test('login with invalid credentials shows error', async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('[name=email]', 'wrong@example.com');
+    await page.fill('[name=password]', 'wrong');
+    await page.click('button[type=submit]');
+    await expect(page.getByText('Invalid credentials')).toBeVisible();
+  });
+  
+  test('logout redirects to login', async ({ page, authContext }) => {
+    await page.goto('/');
+    await page.click('[data-testid=logout]');
+    await expect(page).toHaveURL('/login');
+  });
+});
+```
+
+**Validation:**
+- [ ] Login success test passes
+- [ ] Login failure test passes
+- [ ] Logout test passes
+- [ ] Protected route redirect test passes
+
+**Commit:** `test(e2e): add auth E2E tests`
+
+---
+
+#### T100.4b: Add Prospect CRUD E2E Tests [M - 1h]
+**Files:** `e2e/prospects.spec.ts`
+
+**Description:** E2E tests for prospect operations.
+
+**Validation:**
+- [ ] Create prospect test passes
+- [ ] Update prospect test passes
+- [ ] Search prospect test passes
+- [ ] Status change test passes
+
+**Commit:** `test(e2e): add prospect CRUD E2E tests`
+
+---
+
+#### T100.4c: Add Email Workflow E2E Tests [M - 1h]
+**Files:** `e2e/email.spec.ts`
+
+**Description:** E2E tests for email and sequence operations.
+
+**Validation:**
+- [ ] Send email test passes
+- [ ] Enroll in sequence test passes
+- [ ] Pause enrollment test passes
+- [ ] View email analytics test passes
+
+**Commit:** `test(e2e): add email workflow E2E tests`
+
+---
+
+#### T100.4d: Full Journey Integration Test [M - 1h]
+**Files:** `e2e/full-journey.spec.ts`
+
+**Description:** End-to-end test of complete user workflow via Railway.
+
+```typescript
+// e2e/full-journey.spec.ts
+test.describe('Full Journey', () => {
+  test('complete sales workflow', async ({ page }) => {
     // 1. Login via Railway auth
     await page.goto('/login');
     await page.fill('[name=email]', 'test@example.com');
@@ -1679,27 +2196,109 @@ test.describe('Railway Integration', () => {
     // 2. View prospects from Railway
     await expect(page.getByTestId('prospect-list')).toBeVisible();
     
-    // 3. Enroll prospect in sequence
+    // 3. Create new prospect
+    await page.click('[data-testid=add-prospect]');
+    await page.fill('[name=name]', 'Test Prospect');
+    await page.fill('[name=email]', 'test.prospect@example.com');
+    await page.click('[data-testid=save-prospect]');
+    
+    // 4. Enroll prospect in sequence
     await page.click('[data-testid=prospect-row]:first-child');
     await page.click('[data-testid=start-sequence]');
     await page.click('[data-testid=sequence-cold-outreach]');
     
-    // 4. Verify enrollment
+    // 5. Verify enrollment
     await expect(page.getByText('Enrolled in Cold Outreach')).toBeVisible();
     
-    // 5. Check email was queued
-    // (Railway API call verification)
+    // 6. Check email queue status shows pending
+    await expect(page.getByTestId('queue-status')).toContainText('pending');
   });
 });
 ```
 
 **Validation:**
-- [ ] E2E test passes
+- [ ] E2E test passes end-to-end
 - [ ] All Railway API calls work
-- [ ] Auth flow works end-to-end
+- [ ] Auth flow works
 - [ ] Email queuing works
+- [ ] Test completes in < 60 seconds
 
-**Commit:** `test(e2e): add Railway integration test`
+**Commit:** `test(e2e): add full journey integration test`
+
+---
+
+#### T100.5: Add Railway Health Monitoring Dashboard [M - 2h]
+**Files:** `docs/MONITORING_SETUP.md`, Railway dashboard configuration
+
+**Description:** Set up monitoring and alerting for Railway services.
+
+**Metrics to track:**
+- Railway API latency (P50, P95, P99)
+- Railway API error rate
+- BullMQ queue depth
+- PostgreSQL connection pool usage
+- Redis memory usage
+
+**Alerts to configure:**
+- API latency > 1s for 5 minutes
+- Error rate > 1% for 5 minutes
+- Queue depth > 100 for 10 minutes
+- Database connections > 80% for 5 minutes
+
+**Validation:**
+- [ ] Health check endpoint monitored (uptime service)
+- [ ] Latency tracking configured
+- [ ] Error rate alerting configured
+- [ ] Queue depth alerting configured
+- [ ] Alert notification channel configured (Slack/email)
+- [ ] Documentation saved to `docs/MONITORING_SETUP.md`
+
+**Commit:** `chore(ops): add Railway monitoring configuration`
+
+---
+
+#### T100.6: Update CI/CD Pipeline [M - 2h]
+**Files:** `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`
+
+**Description:** Update CI/CD to remove Firebase steps and add Railway health checks.
+
+**Changes:**
+- Remove Firebase deploy steps
+- Remove Firebase emulator from tests
+- Add Railway health check before deploy
+- Add post-deploy verification
+- Update environment variables
+
+```yaml
+# .github/workflows/deploy.yml
+jobs:
+  deploy:
+    steps:
+      - name: Pre-deploy Railway health check
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" $RAILWAY_URL/health)
+          if [ "$response" != "200" ]; then
+            echo "Railway unhealthy, aborting deploy"
+            exit 1
+          fi
+      
+      - name: Deploy to Vercel
+        run: vercel deploy --prod
+      
+      - name: Post-deploy verification
+        run: |
+          sleep 30
+          curl -f $VERCEL_URL/api/railway/health
+```
+
+**Validation:**
+- [ ] CI passes without Firebase
+- [ ] Railway health check runs before deploy
+- [ ] Post-deploy verification passes
+- [ ] No Firebase environment variables in CI
+- [ ] Build time improved (no Firebase setup)
+
+**Commit:** `ci: update pipeline for Railway architecture`
 
 ---
 
@@ -1707,27 +2306,38 @@ test.describe('Railway Integration', () => {
 
 | Sprint | Phase | Goal | Tasks | Est. Hours |
 |--------|-------|------|-------|------------|
-| 90 | Foundation | Safety & audit | 5 | 7h |
-| 91 | API Client | Railway API client foundation | 4 | 10h |
+| 90 | Foundation | Safety & audit | 6 | 11h |
+| 91 | API Client | Railway API client foundation | 5 | 12h |
 | 92 | API Client | Proxy improvements | 4 | 8h |
-| 93 | Data Migration | Prospect migration | 7 | 14h |
-| 94 | Data Migration | Sequence/enrollment migration | 4 | 11h |
-| 95 | Email | Email queue migration | 5 | 13h |
-| 96 | Email | Tracking & webhooks | 4 | 7h |
-| 97 | Auth | Auth migration | 5 | 15h |
+| 93 | Data Migration | Prospect migration | 10 | 18h |
+| 94 | Data Migration | Sequence/enrollment migration | 6 | 11h |
+| 95 | Email | Email queue migration | 6 | 15h |
+| 96 | Email | Tracking & webhooks | 5 | 8h |
+| 97 | Auth | Auth migration | 7 | 20h |
 | 98 | Auth | Session management | 4 | 7h |
-| 99 | Cleanup | Firebase removal | 5 | 8h |
-| 100 | Cleanup | Performance & polish | 4 | 10h |
+| 99 | Cleanup | Firebase removal | 6 | 9h |
+| 100 | Cleanup | Performance & polish | 8 | 14h |
 
-**Total: 51 tasks, ~110 hours**
+**Total: 67 tasks, ~133 hours**
 
-**Key Changes from V10:**
-- Added Sprint 90 (Phase 0: Foundation) with safety tasks
-- Broke down T93.2 (large 4h task) into 4 atomic tasks (T93.2-T93.5)
-- Added 4 UI/UX tasks: T93.6 (skeletons), T95.5 (queue status), T97.0 (dual-auth), T99.5 (connection indicator)
-- Updated T92.2 to use Redis (distributed) instead of in-memory Map
-- Updated T95.3 with distributed lock to prevent dual-execution
-- Added T97.0 dual-auth bridge for safe auth migration
+**Key Changes from Review:**
+- Fixed duplicate T93.4 → renamed to T93.8
+- Added T90.6 (API gap remediation plan)
+- Added T91.5 (Railway client unit tests)
+- Added T93.0 (execute migration as prerequisite)
+- Added T93.9 (reverse sync for rollback)
+- Split T94.3 into T94.3a, T94.3b, T94.3c
+- Added T94.5 (enrollment state machine docs)
+- Added T95.6 (dead letter queue UI)
+- Added T96.5 (webhook retry logic)
+- Added T97.0.5 (user migration script)
+- Added T97.5 (production soak test)
+- Renumbered T97.4 → T97.6
+- Added T99.6 (archive Firestore config)
+- Split T100.4 into T100.4a-d
+- Added T100.5 (monitoring dashboard)
+- Added T100.6 (CI/CD update)
+- Improved validation criteria throughout
 
 ---
 
@@ -1737,17 +2347,35 @@ test.describe('Railway Integration', () => {
 2. **Single Auth:** Railway NextAuth is only auth source
 3. **Email via Railway:** All emails queued through BullMQ
 4. **Data in PostgreSQL:** All CRUD via Railway API
-5. **Bundle < 500KB:** Main bundle under 500KB gzipped
+5. **Bundle < 500KB:** main.js < 300KB, vendor.js < 200KB gzipped
 6. **E2E Passing:** Integration tests pass against Railway
 7. **UX Polish:** Loading skeletons, connection indicators, queue status visible
+8. **Observability:** Monitoring and alerting configured
+9. **Documentation:** Architecture docs updated
 
 ---
 
 ## 🚀 DEPLOYMENT CHECKLIST
 
+### Pre-Migration (Sprint 90)
 - [ ] Firestore backup created (T90.2)
 - [ ] Railway API endpoints verified (T90.1)
+- [ ] Missing endpoint tickets created (T90.6)
 - [ ] Feature flags tested (T90.4)
+- [ ] Performance baseline documented (T90.5)
+
+### Data Migration (Sprint 93-94)
+- [ ] Prospect migration script tested in staging
+- [ ] Sequence migration script tested in staging
+- [ ] User migration script tested in staging
+- [ ] Reverse sync script tested and ready
+
+### Auth Migration (Sprint 97)
+- [ ] Dual-auth bridge tested
+- [ ] 24h production soak test passed (T97.5)
+- [ ] No user lockouts reported
+
+### Final (Sprint 99-100)
 - [ ] Railway backend deployed and healthy
 - [ ] PostgreSQL migrated with all data
 - [ ] Redis/BullMQ queues running
@@ -1756,4 +2384,24 @@ test.describe('Railway Integration', () => {
 - [ ] Vercel env vars updated (remove Firebase, add Railway)
 - [ ] DNS configured for production
 - [ ] SSL certificates valid
-- [ ] Monitoring/alerting configured
+- [ ] Monitoring/alerting configured (T100.5)
+- [ ] CI/CD updated (T100.6)
+- [ ] All E2E tests passing
+
+---
+
+## 📅 SPRINT DEMO SCRIPTS
+
+| Sprint | Demo | Expected Outcome |
+|--------|------|------------------|
+| 90 | Run backup, show feature flag toggle, show baseline doc | Safety measures in place |
+| 91 | Call `railwayClient.health()` in console, show typed response | API client ready |
+| 92 | Fire 150 req/min → show 429, disconnect Railway → circuit opens | Proxy is production-grade |
+| 93 | Toggle flag → prospects from Railway, create prospect → shows in DB | Prospects migrated |
+| 94 | Show sequences from Railway, enroll prospect, pause enrollment | Sequences migrated |
+| 95 | Send email → show in BullMQ, show queue status component | Email queue working |
+| 96 | Send email → open → show event in Railway, show analytics | Tracking working |
+| 97 | Login with Railway, show JWT cookie, Firebase fallback works | Auth migrated safely |
+| 98 | Login → close tab → reopen → still logged in, logout works | Sessions robust |
+| 99 | `npm run build` → no Firebase, show bundle size reduction | Firebase removed |
+| 100 | E2E suite passes, Sentry dashboard, monitoring alerts | Production ready |
