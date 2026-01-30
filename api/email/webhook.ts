@@ -11,6 +11,48 @@ const compliance = new EmailComplianceService(db, sendGrid);
 const webhook = new EventWebhook();
 const MAX_AGE_SECONDS = 5 * 60;
 
+// Railway URL for webhook forwarding
+const RAILWAY_URL = process.env.RAILWAY_API_URL || 'https://api.railway.internal';
+
+/**
+ * T96.1/T96.5: Forward webhook events to Railway with retry logic
+ */
+async function forwardToRailway(
+  events: SendGridWebhookEvent[], 
+  signature: string, 
+  maxRetries = 3
+): Promise<{ success: boolean; error?: string }> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(`${RAILWAY_URL}/api/webhooks/sendgrid`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Original-Signature': signature,
+        },
+        body: JSON.stringify(events),
+        signal: AbortSignal.timeout(5000),
+      });
+      
+      if (response.ok) return { success: true };
+      
+      // Don't retry on 4xx (client error)
+      if (response.status >= 400 && response.status < 500) {
+        return { success: false, error: `Client error: ${response.status}` };
+      }
+    } catch (error) {
+      console.log(`Webhook forward attempt ${attempt} failed:`, error);
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 1000 * attempt)); // Exponential backoff
+      }
+    }
+  }
+  
+  // All retries failed - log for manual review
+  console.error('Webhook forwarding failed after retries');
+  return { success: false, error: 'Max retries exceeded' };
+}
+
 /**
  * Get raw body payload for signature verification.
  * Vercel may parse JSON automatically, so we handle both cases.
@@ -104,18 +146,25 @@ async function processEvent(event: SendGridWebhookEvent): Promise<void> {
   const emailId = event.custom_args?.emailId || event.sg_message_id || '';
   const prospectEmail = event.email || '';
   
+  // T96.4: Skip Firestore email_events writes when Railway is handling events
+  // Railway now stores these events centrally - this is fallback only
+  const useFirestoreEvents = process.env.USE_FIRESTORE_EMAIL_EVENTS === 'true';
+  
   switch (event.event) {
     case 'delivered':
       await markQueueStatus(emailId, 'sent');
       break;
     case 'open':
     case 'click':
-      await db.collection('email_events').doc(`${event.event}:${emailId}:${event.sg_event_id || event.timestamp}`).set({
-        type: event.event,
-        emailId,
-        at: event.timestamp * 1000,
-        url: event.url,
-      }, { merge: true });
+      // T96.4: Only write to Firestore if Railway is not primary
+      if (useFirestoreEvents) {
+        await db.collection('email_events').doc(`${event.event}:${emailId}:${event.sg_event_id || event.timestamp}`).set({
+          type: event.event,
+          emailId,
+          at: event.timestamp * 1000,
+          url: event.url,
+        }, { merge: true });
+      }
       break;
     case 'bounce': {
       const bounceType = compliance.classifyBounce(event);
@@ -205,10 +254,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       res.status(400).json({ error: 'Invalid events payload' });
       return;
     }
+    
+    // T96.1: Forward to Railway for centralized processing
+    const forwardResult = await forwardToRailway(events, signature);
+    if (!forwardResult.success) {
+      console.warn('Railway forwarding failed:', forwardResult.error);
+      // Continue processing locally as fallback
+    }
+    
+    // Process locally for backwards compatibility (will be removed after full migration)
     for (const event of events) {
       await processEvent(event);
     }
-    res.status(200).json({ received: events.length });
+    res.status(200).json({ received: events.length, forwarded: forwardResult.success });
   } catch (err) {
     res.status(500).json({ error: 'Failed to process webhook', detail: (err as Error).message });
   }
