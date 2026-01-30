@@ -326,10 +326,33 @@ export function parseResearchResponse(rawResponse: string): {
     throw new Error(`Failed to parse research response JSON: ${errorMessage}. Raw: ${jsonStr.substring(0, 200)}...`);
   }
 
+  // Type-safe accessors
+  const getString = (key: string): string | undefined => {
+    const val = parsed[key];
+    return typeof val === 'string' ? val : undefined;
+  };
+  const getNumber = (key: string): number | undefined => {
+    const val = parsed[key];
+    return typeof val === 'number' ? val : undefined;
+  };
+  const getBoolean = (key: string): boolean | undefined => {
+    const val = parsed[key];
+    return typeof val === 'boolean' ? val : undefined;
+  };
+  const getStringArray = (key: string): string[] | undefined => {
+    const val = parsed[key];
+    return Array.isArray(val) && val.every(v => typeof v === 'string') ? val : undefined;
+  };
+  const getConfidenceObj = (): Record<string, string> => {
+    const val = parsed.confidence;
+    return typeof val === 'object' && val !== null ? val as Record<string, string> : {};
+  };
+
   // Validate and normalize industry category
   let industryCategory: IndustryCategory | undefined;
-  if (parsed.industryCategory) {
-    const normalized = parsed.industryCategory.toLowerCase().replace(/[^a-z_]/g, '');
+  const rawIndustryCategory = getString('industryCategory');
+  if (rawIndustryCategory) {
+    const normalized = rawIndustryCategory.toLowerCase().replace(/[^a-z_]/g, '');
     if (isValidIndustryCategory(normalized)) {
       industryCategory = normalized;
     }
@@ -337,45 +360,47 @@ export function parseResearchResponse(rawResponse: string): {
 
   // Validate and normalize distribution footprint
   let distributionFootprint: DistributionFootprint | undefined;
-  if (parsed.distributionFootprint) {
-    const normalized = parsed.distributionFootprint.toLowerCase().replace(/[^a-z]/g, '');
+  const rawDistributionFootprint = getString('distributionFootprint');
+  if (rawDistributionFootprint) {
+    const normalized = rawDistributionFootprint.toLowerCase().replace(/[^a-z]/g, '');
     if (isValidDistributionFootprint(normalized)) {
       distributionFootprint = normalized;
     }
   }
 
   const data: ResearchedCompanyData = {
-    facilityCount: typeof parsed.facilityCount === 'number' ? parsed.facilityCount : undefined,
-    facilityCountSource: parsed.facilityCountSource,
+    facilityCount: getNumber('facilityCount'),
+    facilityCountSource: getString('facilityCountSource'),
     industryCategory,
-    industryCategoryReasoning: parsed.industryCategoryReasoning,
+    industryCategoryReasoning: getString('industryCategoryReasoning'),
     distributionFootprint,
-    distributionFootprintReasoning: parsed.distributionFootprintReasoning,
-    isYardIntensive: typeof parsed.isYardIntensive === 'boolean' ? parsed.isYardIntensive : undefined,
-    isYardIntensiveReasoning: parsed.isYardIntensiveReasoning,
-    estimatedTruckVolume: typeof parsed.estimatedTruckVolume === 'number' ? parsed.estimatedTruckVolume : undefined,
-    headquarters: parsed.headquarters,
-    website: parsed.website,
-    description: parsed.description,
-    parentCompany: parsed.parentCompany,
-    keyProducts: Array.isArray(parsed.keyProducts) ? parsed.keyProducts : undefined,
-    revenueEstimate: parsed.revenueEstimate,
+    distributionFootprintReasoning: getString('distributionFootprintReasoning'),
+    isYardIntensive: getBoolean('isYardIntensive'),
+    isYardIntensiveReasoning: getString('isYardIntensiveReasoning'),
+    estimatedTruckVolume: getNumber('estimatedTruckVolume'),
+    headquarters: getString('headquarters'),
+    website: getString('website'),
+    description: getString('description'),
+    parentCompany: getString('parentCompany'),
+    keyProducts: getStringArray('keyProducts'),
+    revenueEstimate: getString('revenueEstimate'),
   };
 
-  const sources: string[] = Array.isArray(parsed.sources) ? parsed.sources : [];
+  const sources: string[] = getStringArray('sources') || [];
 
+  const confidenceObj = getConfidenceObj();
   const confidence: ResearchConfidence = {
-    overall: ['high', 'medium', 'low'].includes(parsed.confidence?.overall) 
-      ? parsed.confidence.overall 
+    overall: ['high', 'medium', 'low'].includes(confidenceObj.overall) 
+      ? confidenceObj.overall as 'high' | 'medium' | 'low'
       : 'low',
-    facilityCount: ['verified', 'estimated', 'unknown'].includes(parsed.confidence?.facilityCount)
-      ? parsed.confidence.facilityCount
+    facilityCount: ['verified', 'estimated', 'unknown'].includes(confidenceObj.facilityCount)
+      ? confidenceObj.facilityCount as 'verified' | 'estimated' | 'unknown'
       : 'unknown',
-    industryCategory: ['verified', 'inferred', 'unknown'].includes(parsed.confidence?.industryCategory)
-      ? parsed.confidence.industryCategory
+    industryCategory: ['verified', 'inferred', 'unknown'].includes(confidenceObj.industryCategory)
+      ? confidenceObj.industryCategory as 'verified' | 'inferred' | 'unknown'
       : 'unknown',
-    distributionFootprint: ['verified', 'inferred', 'unknown'].includes(parsed.confidence?.distributionFootprint)
-      ? parsed.confidence.distributionFootprint
+    distributionFootprint: ['verified', 'inferred', 'unknown'].includes(confidenceObj.distributionFootprint)
+      ? confidenceObj.distributionFootprint as 'verified' | 'inferred' | 'unknown'
       : 'unknown',
   };
 

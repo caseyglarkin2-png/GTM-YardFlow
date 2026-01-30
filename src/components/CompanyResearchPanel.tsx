@@ -11,7 +11,6 @@ import { useState, useCallback } from 'react';
 import {
   useCompanyResearch,
   type CompanyResearchResult,
-  type ResearchedCompanyData,
 } from '../hooks/useCompanyResearch';
 import type { EnrichedCompany } from '../types/marketing';
 
