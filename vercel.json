@@ -2,9 +2,18 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "crons": [
+    {
+      "path": "/api/cron/process-queue",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "functions": {
     "api/email/webhook.ts": {
       "maxDuration": 30
+    },
+    "api/cron/process-queue.ts": {
+      "maxDuration": 60
     }
   },
   "headers": [

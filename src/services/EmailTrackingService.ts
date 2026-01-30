@@ -12,16 +12,24 @@ function currentMs(): number {
 
 export class EmailTrackingService {
   private readonly baseUrl: string;
-  private readonly secret: string;
+  private _secret?: string;
+  private readonly providedSecret?: string;
 
   constructor(private readonly db: Firestore, baseUrl?: string, secret?: string) {
     const root = baseUrl || process.env.TRACKING_BASE_URL || process.env.PUBLIC_BASE_URL || process.env.VERCEL_URL || '';
     this.baseUrl = root.startsWith('http') ? root : `https://${root}`;
-    const trackingSecret = secret || process.env.TRACKING_SECRET;
-    if (!trackingSecret) {
-      throw new Error('TRACKING_SECRET environment variable is required');
+    // Store provided secret but don't throw if missing - will throw on first use
+    this.providedSecret = secret;
+  }
+
+  private get secret(): string {
+    if (!this._secret) {
+      this._secret = this.providedSecret || process.env.TRACKING_SECRET;
+      if (!this._secret) {
+        throw new Error('TRACKING_SECRET environment variable is required');
+      }
     }
-    this.secret = trackingSecret;
+    return this._secret;
   }
 
   injectTracking(message: EmailMessage): EmailMessage {

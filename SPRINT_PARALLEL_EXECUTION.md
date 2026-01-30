@@ -1,3 +1,420 @@
+# 🚨 CRITICAL: Email Infrastructure Fix - Sprint 58 (NEW)
+
+## Diagnosis Summary (2026-01-29)
+
+**Problem:** Emails are being queued but **never processed**. The email shows "sent" in the UI but sits in Firestore forever.
+
+### Root Cause Analysis
+| Issue | Severity | Status |
+|-------|----------|--------|
+| No cron job to process email queue | 🔴 P0 | Emails never leave queue |
+| Missing SENDGRID_API_KEY env var | 🔴 P0 | SendGrid throws on module load |
+| Missing TRACKING_SECRET env var | 🔴 P0 | EmailTrackingService throws on import |
+| Missing UNSUBSCRIBE_HMAC_SECRET env var | 🔴 P0 | EmailComplianceService throws on import |
+| Missing SENDGRID_FROM_EMAIL env var | 🔴 P0 | SendGridClient throws "Missing sender email" |
+| Undefined `bodyIncludesOneClick` function | 🟠 P1 | Unsubscribe endpoint crashes |
+| No Firestore indexes for queue queries | 🟠 P1 | Will fail at scale |
+| Warmup starts at 20/day (strict for new accounts) | 🟡 P2 | May block testing |
+
+### Data Available for Import
+- **3,313 enriched contacts** with email addresses in `Name,First_Name,Last_Name,Company,J.txt`
+- **221 speaker contacts** in `Manifest Contacts 2026 from App (1).xlsx - Speakers (Enriched).csv`
+- Fields: Name, Email, Confidence (verified/high/medium/low), PersonScore
+
+---
+
+## Sprint 58: Email Infrastructure Fixes (PRIORITY 1)
+
+**Goal:** Make email sending actually work end-to-end
+**Time:** 6-8 hours
+**Blocking:** All email functionality
+
+### T58.0: Configure Environment Variables (MANUAL - 15min)
+**Type:** Configuration
+**Owner:** User (Vercel Dashboard)
+
+Add these to Vercel Dashboard → Settings → Environment Variables:
+```bash
+SENDGRID_API_KEY=SG.your_actual_key_here
+SENDGRID_FROM_EMAIL=outreach@yardflow.io  # Must be verified in SendGrid
+SENDGRID_WEBHOOK_PUBLIC_KEY=MFkw...  # From SendGrid webhook settings
+TRACKING_SECRET=$(openssl rand -hex 32)
+UNSUBSCRIBE_HMAC_SECRET=$(openssl rand -hex 32)
+PUBLIC_BASE_URL=https://your-app.vercel.app
+BYPASS_EMAIL_WARMUP=true  # For testing only - remove in production
+```
+
+**Validation:** 
+- [ ] All 7 env vars set in Vercel
+- [ ] Redeploy triggered after adding
+
+---
+
+### T58.1: Create Email Queue Processing Cron (2h)
+**Type:** Feature
+**Files:** 
+- `api/cron/process-queue.ts` (NEW)
+- `vercel.json` (UPDATE)
+
+**Implementation:**
+```typescript
+// api/cron/process-queue.ts
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getAdminDb } from '../../lib/firebaseAdmin';
+import { EmailQueueService } from '../../src/services/EmailQueueService';
+import { EmailComplianceService } from '../../src/services/EmailComplianceService';
+import { EmailWarmupService } from '../../src/services/EmailWarmupService';
+import { EmailTrackingService } from '../../src/services/EmailTrackingService';
+import { SendGridClient } from '../../src/services/SendGridClient';
+import { createLogger } from '../../lib/logger';
+
+const log = createLogger('cron-process-queue');
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Verify this is a Vercel cron call
+  const authHeader = req.headers.authorization;
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const db = getAdminDb();
+    const sendGrid = new SendGridClient();
+    const compliance = new EmailComplianceService(db, sendGrid);
+    const warmup = new EmailWarmupService(db);
+    const tracking = new EmailTrackingService(db);
+    const queue = new EmailQueueService(db, sendGrid, compliance, warmup, tracking, 'cron-worker');
+
+    const processed = await queue.processBatch(25);
+    const sent = processed.filter(p => p.status === 'sent').length;
+    const failed = processed.filter(p => p.status === 'failed').length;
+    
+    log.info('Queue processed', { total: processed.length, sent, failed });
+    
+    return res.status(200).json({ 
+      processed: processed.length, 
+      sent, 
+      failed,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    log.error('Cron processing failed', err as Error);
+    return res.status(500).json({ error: 'Processing failed' });
+  }
+}
+```
+
+**vercel.json update:**
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/process-queue",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
+```
+
+**Tests:**
+- [ ] Unit test for cron handler
+- [ ] Integration test: enqueue → process → verify sent status
+
+**Validation:**
+- [ ] Cron appears in Vercel Dashboard → Settings → Cron Jobs
+- [ ] Emails process within 5 minutes of sending
+
+---
+
+### T58.2: Fix Lazy Loading for Tracking/Compliance Services (1h)
+**Type:** Bug Fix
+**Files:** 
+- `src/services/EmailTrackingService.ts`
+- `src/services/EmailComplianceService.ts`
+
+**Problem:** Services throw on construction if env vars missing, crashing the entire API endpoint.
+
+**Fix:** Make secret loading lazy:
+```typescript
+// EmailTrackingService.ts
+export class EmailTrackingService {
+  private _secret?: string;
+  
+  private get secret(): string {
+    if (!this._secret) {
+      this._secret = process.env.TRACKING_SECRET;
+      if (!this._secret) {
+        throw new Error('TRACKING_SECRET not configured');
+      }
+    }
+    return this._secret;
+  }
+  
+  // Remove constructor throw, use getter instead
+}
+```
+
+**Tests:**
+- [ ] Service can be instantiated without env vars
+- [ ] Throws on first actual use if env vars missing
+- [ ] Clear error message points to missing variable
+
+---
+
+### T58.3: Fix Undefined Function in Unsubscribe (15min)
+**Type:** Bug Fix
+**Files:** `api/email/unsubscribe.ts`
+
+**Problem:** Calls `bodyIncludesOneClick(req)` which doesn't exist.
+
+**Fix:**
+```typescript
+// Replace line 62
+// FROM: if (!bodyIncludesOneClick(req)) {
+// TO:
+import { isListUnsubscribeOneClick } from '../../lib/validateOrigin';
+// ...
+if (!isListUnsubscribeOneClick(req)) {
+```
+
+**Validation:**
+- [ ] TypeScript compiles without errors
+- [ ] Unsubscribe endpoint returns 200 for valid POST
+
+---
+
+### T58.4: Add Firestore Composite Indexes (30min)
+**Type:** Configuration
+**Files:** `firestore.indexes.json`
+
+**Add indexes for queue queries:**
+```json
+{
+  "indexes": [
+    {
+      "collectionGroup": "email_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "scheduledAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "email_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "idempotencyKey", "order": "ASCENDING" }
+      ]
+    }
+  ]
+}
+```
+
+**Deploy:** `firebase deploy --only firestore:indexes`
+
+---
+
+### T58.5: Add `from` Field to Zod Schema (15min)
+**Type:** Bug Fix
+**Files:** `api/email/send.ts`
+
+**Fix:** Add optional from with env fallback:
+```typescript
+const EmailMessageSchema = z.object({
+  // ... existing fields
+  from: z.string().email().optional().default(process.env.SENDGRID_FROM_EMAIL || ''),
+});
+```
+
+---
+
+### T58.6: Add Email Send Health Check Endpoint (30min)
+**Type:** Feature
+**Files:** `api/email/health.ts` (NEW)
+
+```typescript
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const checks = {
+    sendgridApiKey: !!process.env.SENDGRID_API_KEY,
+    sendgridFromEmail: !!process.env.SENDGRID_FROM_EMAIL,
+    trackingSecret: !!process.env.TRACKING_SECRET,
+    unsubscribeSecret: !!process.env.UNSUBSCRIBE_HMAC_SECRET,
+    firebaseConfigured: !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
+  };
+  
+  const healthy = Object.values(checks).every(Boolean);
+  
+  return res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'healthy' : 'unhealthy',
+    checks,
+    timestamp: new Date().toISOString()
+  });
+}
+```
+
+**Validation:**
+- [ ] `/api/email/health` returns 200 when all configured
+- [ ] Returns 503 with specific missing items when not
+
+---
+
+## Sprint 59: Bulk Email Import (PRIORITY 2)
+
+**Goal:** Import 3,313 enriched contacts with emails
+**Time:** 4-5 hours
+**Depends on:** Sprint 58 (email infrastructure working)
+
+### T59.1: Create Bulk Import Script (2h)
+**Type:** Feature
+**Files:** 
+- `scripts/importEnrichedEmails.ts` (NEW)
+- `src/services/BulkImportService.ts` (NEW)
+
+**Implementation:**
+```typescript
+// scripts/importEnrichedEmails.ts
+import { parse } from 'csv-parse/sync';
+import { readFileSync } from 'fs';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+
+interface EnrichedContact {
+  Name: string;
+  First_Name: string;
+  Last_Name: string;
+  Company: string;
+  Job_Title: string;
+  Category: string;
+  PersonScore: string;
+  Enriched_Email: string;
+  Confidence: string;
+  Match_Type: string;
+}
+
+async function importContacts() {
+  const csvPath = process.argv[2] || 'Name,First_Name,Last_Name,Company,J.txt';
+  const content = readFileSync(csvPath, 'utf-8');
+  const records = parse(content, { columns: true, skip_empty_lines: true }) as EnrichedContact[];
+  
+  console.log(`Found ${records.length} contacts`);
+  
+  // Filter to only those with emails
+  const withEmails = records.filter(r => r.Enriched_Email && r.Enriched_Email.includes('@'));
+  console.log(`${withEmails.length} have valid emails`);
+  
+  // Group by confidence
+  const byConfidence = {
+    verified: withEmails.filter(r => r.Confidence === 'verified'),
+    high: withEmails.filter(r => r.Confidence === 'high'),
+    medium: withEmails.filter(r => r.Confidence === 'medium'),
+    low: withEmails.filter(r => r.Confidence === 'low'),
+  };
+  
+  console.log('By confidence:', Object.entries(byConfidence).map(([k, v]) => `${k}: ${v.length}`).join(', '));
+  
+  // Import to Firestore in batches
+  const db = getFirestore();
+  const BATCH_SIZE = 100;
+  
+  for (let i = 0; i < withEmails.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    const chunk = withEmails.slice(i, i + BATCH_SIZE);
+    
+    for (const contact of chunk) {
+      // Find matching prospect by name + company
+      const prospectQuery = await db.collection('prospects')
+        .where('name', '==', contact.Name)
+        .where('company', '==', contact.Company)
+        .limit(1)
+        .get();
+      
+      if (!prospectQuery.empty) {
+        const doc = prospectQuery.docs[0];
+        batch.update(doc.ref, {
+          email: contact.Enriched_Email,
+          emailConfidence: contact.Confidence,
+          personScore: parseInt(contact.PersonScore) || 0,
+          enrichedAt: new Date().toISOString(),
+        });
+      }
+    }
+    
+    await batch.commit();
+    console.log(`Processed ${Math.min(i + BATCH_SIZE, withEmails.length)}/${withEmails.length}`);
+  }
+}
+
+importContacts().catch(console.error);
+```
+
+**Tests:**
+- [ ] Script handles missing emails gracefully
+- [ ] Script handles duplicate names
+- [ ] Progress is logged
+
+---
+
+### T59.2: Add Import UI to Dashboard (2h)
+**Type:** Feature
+**Files:** 
+- `src/components/ImportEnrichedData.tsx` (NEW)
+- Wire into App.tsx
+
+**Features:**
+- File upload for CSV
+- Preview of data before import
+- Progress bar during import
+- Summary of imported/skipped/errors
+
+---
+
+### T59.3: Add Email Column to Prospects Table (30min)
+**Type:** Feature
+**Files:** `src/App.tsx` (prospect table section)
+
+**Add email display with confidence badge:**
+```tsx
+<td className="px-4 py-2">
+  {prospect.email ? (
+    <div className="flex items-center gap-2">
+      <span className="text-sm">{prospect.email}</span>
+      <EmailConfidenceBadge confidence={prospect.emailConfidence} />
+    </div>
+  ) : (
+    <span className="text-gray-400 text-sm">No email</span>
+  )}
+</td>
+```
+
+---
+
+### T59.4: Add Bulk Email Send Action (1h)
+**Type:** Feature
+**Files:** `src/components/BulkActionsToolbar.tsx`
+
+**Add "Send Email to Selected" action:**
+- Only enabled when all selected have emails
+- Shows warning for low-confidence emails
+- Respects warmup limits (shows count vs. limit)
+
+---
+
+## Validation Checklist
+
+### After Sprint 58 (Email Infrastructure)
+- [ ] `/api/email/health` returns all green checks
+- [ ] Send test email → appears in SendGrid activity log within 5 min
+- [ ] Unsubscribe link works without 500 error
+- [ ] Rate limiting works (try sending 101 emails)
+
+### After Sprint 59 (Bulk Import)
+- [ ] 3,313 contacts imported successfully
+- [ ] Emails visible in prospect table
+- [ ] Confidence badges show correctly
+- [ ] Can send bulk email to high-confidence contacts
+
+---
+
 # HubSpot OAuth (add in Vercel Dashboard)
 HUBSPOT_CLIENT_SECRET=your_secret
 

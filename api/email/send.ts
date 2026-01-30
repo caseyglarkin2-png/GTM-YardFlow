@@ -20,6 +20,7 @@ const EmailMessageSchema = z.object({
   subject: z.string().min(1, 'Subject is required').max(998, 'Subject too long'),
   html: z.string().optional(),
   text: z.string().min(1, 'Message body is required'),
+  from: z.string().email().optional(), // Optional, falls back to env var
   scheduledAt: z.number().optional(),
   metadata: z.object({
     prospectId: z.string().optional(),
@@ -29,13 +30,26 @@ const EmailMessageSchema = z.object({
   }).optional(),
 });
 
-const db = getAdminDb();
-const auth = getAdminAuth();
-const sendGrid = new SendGridClient();
-const compliance = new EmailComplianceService(db, sendGrid);
-const warmup = new EmailWarmupService(db);
-const tracking = new EmailTrackingService(db);
-const queue = new EmailQueueService(db, sendGrid, compliance, warmup, tracking, 'api-send');
+// Lazy-loaded services to prevent crashes on module import if env vars are missing
+let _db: ReturnType<typeof getAdminDb> | null = null;
+let _auth: ReturnType<typeof getAdminAuth> | null = null;
+let _queue: EmailQueueService | null = null;
+let _compliance: EmailComplianceService | null = null;
+
+function getServices() {
+  if (!_db) _db = getAdminDb();
+  if (!_auth) _auth = getAdminAuth();
+  
+  if (!_queue) {
+    const sendGrid = new SendGridClient();
+    _compliance = new EmailComplianceService(_db, sendGrid);
+    const warmup = new EmailWarmupService(_db);
+    const tracking = new EmailTrackingService(_db);
+    _queue = new EmailQueueService(_db, sendGrid, _compliance, warmup, tracking, 'api-send');
+  }
+  
+  return { db: _db, auth: _auth, queue: _queue, compliance: _compliance! };
+}
 
 const RATE_LIMIT = 100;
 const WINDOW_MS = 60 * 1000;
@@ -49,7 +63,7 @@ function validateOrigin(req: VercelRequest): boolean {
   });
 }
 
-async function enforceRateLimit(userId: string): Promise<void> {
+async function enforceRateLimit(db: ReturnType<typeof getAdminDb>, userId: string): Promise<void> {
   const ref = db.collection('email_rate_limits').doc(userId);
   await db.runTransaction(async tx => {
     const snap = await tx.get(ref);
@@ -94,6 +108,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
+  // Initialize services lazily (prevents crashes on missing env vars at import time)
+  let services: ReturnType<typeof getServices>;
+  try {
+    services = getServices();
+  } catch (err) {
+    log.error('Failed to initialize email services', err as Error);
+    res.status(503).json({ error: 'Email service unavailable', detail: (err as Error).message });
+    return;
+  }
+
+  const { db, auth, queue, compliance } = services;
+
   let userId: string;
   try {
     const decoded = await auth.verifyIdToken(token);
@@ -106,7 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const userLog = log.withUser(userId);
 
   try {
-    await enforceRateLimit(userId);
+    await enforceRateLimit(db, userId);
   } catch (err) {
     const message = (err as Error).message;
     if (message === 'RATE_LIMITED') {
@@ -122,8 +148,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   let message: EmailMessage;
   try {
     message = parseMessage(req);
-  } catch {
-    res.status(400).json({ error: 'Invalid payload' });
+  } catch (err) {
+    res.status(400).json({ error: 'Invalid payload', detail: (err as Error).message });
     return;
   }
 
@@ -137,6 +163,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const bypassWarmup = process.env.BYPASS_EMAIL_WARMUP === 'true' || process.env.VERCEL_ENV === 'development';
   
   if (!bypassWarmup) {
+    // Get warmup service from queue internals or create fresh
+    const warmup = new EmailWarmupService(db);
     const warmupCheck = await warmup.canSend(message.metadata?.tenantId, 1);
     if (!warmupCheck.allowed) {
       userLog.warn('Warmup limit hit', { reason: warmupCheck.reason, remaining: warmupCheck.remaining });

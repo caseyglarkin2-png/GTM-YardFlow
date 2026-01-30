@@ -7,12 +7,25 @@ import { EmailWarmupService } from '../../src/services/EmailWarmupService';
 import { EmailTrackingService } from '../../src/services/EmailTrackingService';
 import { SendGridClient } from '../../src/services/SendGridClient';
 
-const db = getAdminDb();
-const sendGrid = new SendGridClient();
-const compliance = new EmailComplianceService(db, sendGrid);
-const warmup = new EmailWarmupService(db);
-const tracking = new EmailTrackingService(db);
-const queue = new EmailQueueService(db, sendGrid, compliance, warmup, tracking, 'api-unsubscribe');
+// Lazy-loaded services to prevent crashes on missing env vars
+let _services: {
+  db: ReturnType<typeof getAdminDb>;
+  compliance: EmailComplianceService;
+  queue: EmailQueueService;
+} | null = null;
+
+function getServices() {
+  if (!_services) {
+    const db = getAdminDb();
+    const sendGrid = new SendGridClient();
+    const compliance = new EmailComplianceService(db, sendGrid);
+    const warmup = new EmailWarmupService(db);
+    const tracking = new EmailTrackingService(db);
+    const queue = new EmailQueueService(db, sendGrid, compliance, warmup, tracking, 'api-unsubscribe');
+    _services = { db, compliance, queue };
+  }
+  return _services;
+}
 
 // CSRF validation for unsubscribe
 // Uses shared validateRequestOrigin with List-Unsubscribe One-Click support
@@ -23,7 +36,7 @@ function validateOriginOrListUnsubscribe(req: VercelRequest): boolean {
   });
 }
 
-async function resolveEmailAddress(emailId: string): Promise<string | null> {
+async function resolveEmailAddress(db: ReturnType<typeof getAdminDb>, emailId: string): Promise<string | null> {
   const snap = await db.collection('email_queue').doc(emailId).get();
   const data = snap.data() as { message?: { to?: string } } | undefined;
   return data?.message?.to || null;
@@ -35,6 +48,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(403).json({ error: 'Invalid origin' });
     return;
   }
+
+  // Initialize services lazily
+  let services: ReturnType<typeof getServices>;
+  try {
+    services = getServices();
+  } catch (err) {
+    res.status(503).json({ error: 'Service unavailable', detail: (err as Error).message });
+    return;
+  }
+  
+  const { db, compliance, queue } = services;
 
   const token = (req.query.token as string | undefined) || (req.body?.token as string | undefined);
   if (!token) {
@@ -59,12 +83,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  if (!bodyIncludesOneClick(req)) {
+  if (!isListUnsubscribeOneClick(req)) {
     res.status(400).json({ error: 'Missing List-Unsubscribe confirmation' });
     return;
   }
 
-  const email = await resolveEmailAddress(validation.emailId);
+  const email = await resolveEmailAddress(db, validation.emailId);
   if (!email) {
     res.status(404).json({ error: 'Email not found' });
     return;
