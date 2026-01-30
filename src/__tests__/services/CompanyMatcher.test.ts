@@ -27,8 +27,6 @@ const createMockCompany = (overrides: Partial<Company> = {}): Company => ({
   domain: overrides.domain || 'acme.com',
   linkedinUrl: overrides.linkedinUrl || 'https://linkedin.com/company/acme',
   industry: overrides.industry || 'Technology',
-  size: overrides.size || '100-500',
-  location: overrides.location || 'San Francisco, CA',
   ...overrides,
 });
 

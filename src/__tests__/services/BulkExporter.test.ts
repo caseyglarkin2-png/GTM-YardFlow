@@ -32,10 +32,12 @@ describe('BulkExporter', () => {
       company: 'Acme Corp',
       title: 'CEO',
       phone: '555-1234',
-      linkedInUrl: 'https://linkedin.com/in/johndoe',
+      linkedinUrl: 'https://linkedin.com/in/johndoe',
       tier: 'Tier 1',
       status: 'new',
-      priority: 'high',
+      score: 80,
+      isOps: false,
+      isExec: true,
       source: 'Manifest',
       tags: ['hot', 'decision-maker'],
       notes: 'Important contact',
@@ -47,10 +49,12 @@ describe('BulkExporter', () => {
       company: 'Tech Inc',
       title: 'CTO',
       phone: '555-5678',
-      linkedInUrl: 'https://linkedin.com/in/janesmith',
+      linkedinUrl: 'https://linkedin.com/in/janesmith',
       tier: 'Tier 2',
       status: 'contacted',
-      priority: 'medium',
+      score: 70,
+      isOps: false,
+      isExec: true,
       source: 'LinkedIn',
       tags: ['tech'],
       notes: '',
@@ -388,9 +392,10 @@ describe('BulkExporter', () => {
     });
 
     it('should format Date values', () => {
+      const timestamp = new Date('2024-01-15T10:30:00Z').getTime();
       const prospect: Prospect = {
         ...sampleProspects[0],
-        createdAt: new Date('2024-01-15T10:30:00Z'),
+        createdAt: timestamp,
       };
 
       const field: ExportField = {
@@ -401,7 +406,8 @@ describe('BulkExporter', () => {
       };
 
       const value = exporter.getFieldValue(prospect, field);
-      expect(value).toMatch(/2024-01-15/);
+      // createdAt is stored as timestamp number, exported as string
+      expect(value).toBe(String(timestamp));
     });
 
     it('should use custom formatter', () => {
@@ -589,7 +595,9 @@ describe('BulkExporter', () => {
         title: '',
         tier: '',
         status: 'new',
-        priority: 'low',
+        score: 0,
+        isOps: false,
+        isExec: false,
       };
 
       const result = await exporter.export([prospect], { format: 'csv' });

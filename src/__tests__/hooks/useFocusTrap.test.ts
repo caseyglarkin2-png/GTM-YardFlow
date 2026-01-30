@@ -40,7 +40,7 @@ describe('useFocusTrap', () => {
 
   it('should not trap focus when isOpen is false', () => {
     const { result } = renderHook(() => useFocusTrap(false));
-    result.current.current = container;
+    Object.defineProperty(result.current, 'current', { value: container, writable: true });
     
     // Simulate tab key - should not be prevented
     const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true });
@@ -56,7 +56,7 @@ describe('useFocusTrap', () => {
       { initialProps: { isOpen: false } }
     );
     
-    result.current.current = container;
+    Object.defineProperty(result.current, 'current', { value: container, writable: true });
     
     // Open the trap
     rerender({ isOpen: true });
@@ -71,7 +71,7 @@ describe('useFocusTrap', () => {
   it('should call onEscape when Escape key is pressed', () => {
     const onEscape = vi.fn();
     const { result } = renderHook(() => useFocusTrap(true, { onEscape }));
-    result.current.current = container;
+    Object.defineProperty(result.current, 'current', { value: container, writable: true });
     
     // Simulate Escape key
     const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
@@ -82,7 +82,7 @@ describe('useFocusTrap', () => {
 
   it('should trap Tab key at last element', async () => {
     const { result } = renderHook(() => useFocusTrap(true, { autoFocus: false }));
-    result.current.current = container;
+    Object.defineProperty(result.current, 'current', { value: container, writable: true });
     
     // Focus the last button
     button3.focus();
@@ -99,7 +99,7 @@ describe('useFocusTrap', () => {
 
   it('should trap Shift+Tab at first element', async () => {
     const { result } = renderHook(() => useFocusTrap(true, { autoFocus: false }));
-    result.current.current = container;
+    Object.defineProperty(result.current, 'current', { value: container, writable: true });
     
     // Focus the first button
     button1.focus();
@@ -126,7 +126,7 @@ describe('useFocusTrap', () => {
       { initialProps: { isOpen: false } }
     );
     
-    result.current.current = container;
+    Object.defineProperty(result.current, 'current', { value: container, writable: true });
     
     // Open the trap
     rerender({ isOpen: true });
@@ -149,7 +149,7 @@ describe('useFocusTrap', () => {
       { initialProps: { isOpen: false } }
     );
     
-    result.current.current = container;
+    Object.defineProperty(result.current, 'current', { value: container, writable: true });
     
     // Open the trap
     rerender({ isOpen: true });
@@ -168,7 +168,7 @@ describe('useFocusTrap', () => {
       { initialProps: { isOpen: false } }
     );
     
-    result.current.current = container;
+    Object.defineProperty(result.current, 'current', { value: container, writable: true });
     
     // Open the trap
     rerender({ isOpen: true });
@@ -189,7 +189,7 @@ describe('useFocusTrap', () => {
     
     // Make container focusable
     container.tabIndex = -1;
-    result.current.current = container;
+    Object.defineProperty(result.current, 'current', { value: container, writable: true });
     
     // Open the trap - should not throw
     rerender({ isOpen: true });
@@ -212,7 +212,7 @@ describe('useFocusTrap', () => {
     const { result } = renderHook(() => 
       useFocusTrap(true, { allowNestedModals: true, autoFocus: false })
     );
-    result.current.current = container;
+    Object.defineProperty(result.current, 'current', { value: container, writable: true });
     
     // Focus the nested button
     nestedButton.focus();

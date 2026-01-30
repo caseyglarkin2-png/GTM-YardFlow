@@ -21,7 +21,9 @@ describe('BulkDeleteService', () => {
       title: 'CEO',
       tier: 'Tier 1',
       status: 'new',
-      priority: 'high',
+      score: 80,
+      isOps: false,
+      isExec: true,
     },
     {
       id: '2',
@@ -31,7 +33,9 @@ describe('BulkDeleteService', () => {
       title: 'CTO',
       tier: 'Tier 2',
       status: 'contacted',
-      priority: 'medium',
+      score: 70,
+      isOps: false,
+      isExec: true,
     },
     {
       id: '3',
@@ -41,7 +45,9 @@ describe('BulkDeleteService', () => {
       title: 'Founder',
       tier: 'Tier 1',
       status: 'new',
-      priority: 'high',
+      score: 75,
+      isOps: false,
+      isExec: true,
     },
   ];
 

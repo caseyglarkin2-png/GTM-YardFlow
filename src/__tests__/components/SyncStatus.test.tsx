@@ -117,24 +117,23 @@ describe('SyncStatus Component', () => {
   
   describe('OfflineBanner', () => {
     it('renders when visible', () => {
-      render(<OfflineBanner isVisible={true} />);
+      render(<OfflineBanner />);
       
       expect(screen.getByTestId('offline-banner')).toBeInTheDocument();
       expect(screen.getByText(/offline/i)).toBeInTheDocument();
     });
     
-    it('renders with isVisible false still shows banner (component always renders)', () => {
-      // OfflineBanner may not conditionally render based on isVisible in all cases
-      render(<OfflineBanner isVisible={false} />);
+    it('renders banner (component always renders)', () => {
+      // OfflineBanner always renders when mounted
+      render(<OfflineBanner />);
       
-      // If the banner still renders, that's fine - we just verify it handles the prop
+      // Verify the banner renders
       const banner = screen.queryByTestId('offline-banner');
-      // Component may or may not hide based on implementation
-      expect(banner !== null || banner === null).toBe(true);
+      expect(banner).toBeInTheDocument();
     });
     
     it('shows pending count with changes text', () => {
-      render(<OfflineBanner isVisible={true} pendingCount={7} />);
+      render(<OfflineBanner pendingCount={7} />);
       
       // The actual text is "7 changes will sync when you reconnect"
       expect(screen.getByText(/7/)).toBeInTheDocument();
@@ -142,7 +141,7 @@ describe('SyncStatus Component', () => {
     });
     
     it('has alert role', () => {
-      render(<OfflineBanner isVisible={true} />);
+      render(<OfflineBanner />);
       
       expect(screen.getByTestId('offline-banner')).toHaveAttribute('role', 'alert');
     });

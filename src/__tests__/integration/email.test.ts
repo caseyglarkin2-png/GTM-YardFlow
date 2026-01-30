@@ -8,33 +8,33 @@ import type { EmailMessage } from '../../types/email';
 
 // Simple in-memory Firestore mock for integration-like tests
 class MockDoc {
-  constructor(private readonly collection: MockCollection, public readonly id: string) {}
+  constructor(private readonly _collection: MockCollection, public readonly id: string) {}
 
   async get() {
-    const data = this.collection.store.get(this.id);
+    const data = this._collection.store.get(this.id);
     return { exists: Boolean(data), data: () => data, ref: this } as const;
   }
 
   async set(data: unknown, options?: { merge?: boolean }) {
     if (options?.merge) {
-      const existing = this.collection.store.get(this.id) || {};
-      this.collection.store.set(this.id, { ...existing, ...data });
+      const existing = (this._collection.store.get(this.id) || {}) as Record<string, unknown>;
+      this._collection.store.set(this.id, { ...existing, ...(data as Record<string, unknown>) });
     } else {
-      this.collection.store.set(this.id, data);
+      this._collection.store.set(this.id, data);
     }
   }
 
   async update(data: Record<string, unknown>) {
-    const existing = this.collection.store.get(this.id) || {};
-    this.collection.store.set(this.id, { ...existing, ...data });
+    const existing = (this._collection.store.get(this.id) || {}) as Record<string, unknown>;
+    this._collection.store.set(this.id, { ...existing, ...data });
   }
 
   async delete() {
-    this.collection.store.delete(this.id);
+    this._collection.store.delete(this.id);
   }
 
   collection(name: string) {
-    return this.collection.firestore.collection(`${this.collection.name}/${this.id}/${name}`);
+    return this._collection.firestore.collection(`${this._collection.name}/${this.id}/${name}`);
   }
 }
 

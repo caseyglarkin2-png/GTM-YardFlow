@@ -84,14 +84,14 @@ describe('ResearchButton', () => {
     it('calls researchCompany on click', async () => {
       mockResearchCompany.mockResolvedValueOnce({
         success: true,
+        companyName: 'Acme Corp',
+        researchedAt: new Date(),
         data: {
-          companyName: 'Acme Corp',
           facilityCount: 5,
-          industryCategory: 'Manufacturing',
-          distributionFootprint: 'Regional',
+          industryCategory: 'manufacturing',
+          distributionFootprint: 'regional',
           isYardIntensive: true,
-          estimatedTruckVolume: 'High',
-          confidence: 0.85,
+          estimatedTruckVolume: 50,
         },
       });
 
@@ -106,14 +106,14 @@ describe('ResearchButton', () => {
     it('saves enrichment data on successful research', async () => {
       mockResearchCompany.mockResolvedValueOnce({
         success: true,
+        companyName: 'Acme Corp',
+        researchedAt: new Date(),
         data: {
-          companyName: 'Acme Corp',
           facilityCount: 5,
-          industryCategory: 'Manufacturing',
-          distributionFootprint: 'Regional',
+          industryCategory: 'manufacturing',
+          distributionFootprint: 'regional',
           isYardIntensive: true,
-          estimatedTruckVolume: 'High',
-          confidence: 0.85,
+          estimatedTruckVolume: 50,
         },
       });
 
@@ -123,10 +123,10 @@ describe('ResearchButton', () => {
       await waitFor(() => {
         expect(mockSetEnrichmentData).toHaveBeenCalledWith('company-123', {
           facilityCount: 5,
-          industryCategory: 'Manufacturing',
-          distributionFootprint: 'Regional',
+          industryCategory: 'manufacturing',
+          distributionFootprint: 'regional',
           isYardIntensive: true,
-          estimatedTruckVolume: 'High',
+          estimatedTruckVolume: 50,
         });
       });
     });
@@ -135,14 +135,14 @@ describe('ResearchButton', () => {
       const onComplete = vi.fn();
       mockResearchCompany.mockResolvedValueOnce({
         success: true,
+        companyName: 'Acme Corp',
+        researchedAt: new Date(),
         data: {
-          companyName: 'Acme Corp',
           facilityCount: 5,
-          industryCategory: 'Manufacturing',
-          distributionFootprint: 'Regional',
+          industryCategory: 'manufacturing',
+          distributionFootprint: 'regional',
           isYardIntensive: true,
-          estimatedTruckVolume: 'High',
-          confidence: 0.85,
+          estimatedTruckVolume: 50,
         },
       });
 
@@ -160,6 +160,8 @@ describe('ResearchButton', () => {
       const onError = vi.fn();
       mockResearchCompany.mockResolvedValueOnce({
         success: false,
+        companyName: 'Acme Corp',
+        researchedAt: new Date(),
         error: 'API error',
       });
 
@@ -189,14 +191,14 @@ describe('ResearchButton', () => {
       mockResearchCompany.mockImplementation(() => 
         new Promise(resolve => setTimeout(() => resolve({
           success: true,
+          companyName: 'Acme Corp',
+          researchedAt: new Date(),
           data: {
-            companyName: 'Acme Corp',
             facilityCount: 5,
-            industryCategory: 'Manufacturing',
-            distributionFootprint: 'Regional',
+            industryCategory: 'manufacturing',
+            distributionFootprint: 'regional',
             isYardIntensive: true,
-            estimatedTruckVolume: 'High',
-            confidence: 0.85,
+            estimatedTruckVolume: 50,
           },
         }), 100))
       );
@@ -211,14 +213,14 @@ describe('ResearchButton', () => {
       mockResearchCompany.mockImplementation(() => 
         new Promise(resolve => setTimeout(() => resolve({
           success: true,
+          companyName: 'Acme Corp',
+          researchedAt: new Date(),
           data: {
-            companyName: 'Acme Corp',
             facilityCount: 5,
-            industryCategory: 'Manufacturing',
-            distributionFootprint: 'Regional',
+            industryCategory: 'manufacturing',
+            distributionFootprint: 'regional',
             isYardIntensive: true,
-            estimatedTruckVolume: 'High',
-            confidence: 0.85,
+            estimatedTruckVolume: 50,
           },
         }), 100))
       );
@@ -235,14 +237,14 @@ describe('ResearchButton', () => {
       mockResearchCompany.mockImplementation(() => 
         new Promise(resolve => setTimeout(() => resolve({
           success: true,
+          companyName: 'Acme Corp',
+          researchedAt: new Date(),
           data: {
-            companyName: 'Acme Corp',
             facilityCount: 5,
-            industryCategory: 'Manufacturing',
-            distributionFootprint: 'Regional',
+            industryCategory: 'manufacturing',
+            distributionFootprint: 'regional',
             isYardIntensive: true,
-            estimatedTruckVolume: 'High',
-            confidence: 0.85,
+            estimatedTruckVolume: 50,
           },
         }), 100))
       );
@@ -257,14 +259,14 @@ describe('ResearchButton', () => {
       mockResearchCompany.mockImplementation(() => 
         new Promise(resolve => setTimeout(() => resolve({
           success: true,
+          companyName: 'Acme Corp',
+          researchedAt: new Date(),
           data: {
-            companyName: 'Acme Corp',
             facilityCount: 5,
-            industryCategory: 'Manufacturing',
-            distributionFootprint: 'Regional',
+            industryCategory: 'manufacturing',
+            distributionFootprint: 'regional',
             isYardIntensive: true,
-            estimatedTruckVolume: 'High',
-            confidence: 0.85,
+            estimatedTruckVolume: 50,
           },
         }), 100))
       );
@@ -284,14 +286,14 @@ describe('ResearchButton', () => {
     it('shows success state after research completes', async () => {
       mockResearchCompany.mockResolvedValueOnce({
         success: true,
+        companyName: 'Acme Corp',
+        researchedAt: new Date(),
         data: {
-          companyName: 'Acme Corp',
           facilityCount: 5,
-          industryCategory: 'Manufacturing',
-          distributionFootprint: 'Regional',
+          industryCategory: 'manufacturing',
+          distributionFootprint: 'regional',
           isYardIntensive: true,
-          estimatedTruckVolume: 'High',
-          confidence: 0.85,
+          estimatedTruckVolume: 50,
         },
       });
 
@@ -306,14 +308,14 @@ describe('ResearchButton', () => {
     it('shows success state in full variant', async () => {
       mockResearchCompany.mockResolvedValueOnce({
         success: true,
+        companyName: 'Acme Corp',
+        researchedAt: new Date(),
         data: {
-          companyName: 'Acme Corp',
           facilityCount: 5,
-          industryCategory: 'Manufacturing',
-          distributionFootprint: 'Regional',
+          industryCategory: 'manufacturing',
+          distributionFootprint: 'regional',
           isYardIntensive: true,
-          estimatedTruckVolume: 'High',
-          confidence: 0.85,
+          estimatedTruckVolume: 50,
         },
       });
 
@@ -328,14 +330,14 @@ describe('ResearchButton', () => {
     it('applies success styling', async () => {
       mockResearchCompany.mockResolvedValueOnce({
         success: true,
+        companyName: 'Acme Corp',
+        researchedAt: new Date(),
         data: {
-          companyName: 'Acme Corp',
           facilityCount: 5,
-          industryCategory: 'Manufacturing',
-          distributionFootprint: 'Regional',
+          industryCategory: 'manufacturing',
+          distributionFootprint: 'regional',
           isYardIntensive: true,
-          estimatedTruckVolume: 'High',
-          confidence: 0.85,
+          estimatedTruckVolume: 50,
         },
       });
 
@@ -361,6 +363,8 @@ describe('ResearchButton', () => {
       const onError = vi.fn();
       mockResearchCompany.mockResolvedValueOnce({
         success: false,
+        companyName: 'Acme Corp',
+        researchedAt: new Date(),
       });
 
       render(<ResearchButton {...defaultProps} onError={onError} />);

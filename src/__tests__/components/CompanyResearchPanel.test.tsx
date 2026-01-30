@@ -11,6 +11,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CompanyResearchPanel } from '../../components/CompanyResearchPanel';
 import * as useCompanyResearchModule from '../../hooks/useCompanyResearch';
+import type { CompanyResearchResult } from '../../services/CompanyResearchService';
 
 // Mock the hook
 vi.mock('../../hooks/useCompanyResearch', () => ({
@@ -26,6 +27,8 @@ describe('CompanyResearchPanel', () => {
 
   const defaultHookReturn = {
     research: mockResearch,
+    researchAndSave: vi.fn(),
+    researchBatch: vi.fn(),
     buildQueue: mockBuildQueue,
     runQueue: mockRunQueue,
     clearQueue: mockClearQueue,
@@ -35,11 +38,11 @@ describe('CompanyResearchPanel', () => {
     lastResult: null,
     error: null,
     queue: [] as { companyName: string; priority: number; status: string }[],
-    queueProgress: { current: 0, total: 0, percentage: 0 },
-    batchProgress: { current: 0, total: 0, percentage: 0 },
-    batchResults: [] as unknown[],
-    summary: null as { total: number; fullyResearched: number; partiallyResearched: number; notResearched: number } | null,
-    estimate: { estimatedMinutes: 0, estimatedCost: '$0.00' },
+    queueProgress: { completed: 0, total: 0 },
+    batchProgress: { completed: 0, total: 0 },
+    batchResults: null as { total: number; successful: number; failed: number; results: CompanyResearchResult[] } | null,
+    summary: null as { total: number; fullyResearched: number; partiallyResearched: number; notResearched: number; byTier: Record<string, { total: number; researched: number }> } | null,
+    estimate: { estimatedMinutes: 0, estimatedTokens: 0, estimatedCost: '$0.00' },
   };
 
   beforeEach(() => {
@@ -144,13 +147,16 @@ describe('CompanyResearchPanel', () => {
           researchedAt: new Date('2024-01-15'),
           data: {
             facilityCount: 5,
-            industryCategory: 'Manufacturing',
-            distributionFootprint: 'Regional',
+            industryCategory: 'manufacturing',
+            distributionFootprint: 'regional',
             isYardIntensive: true,
-            estimatedTruckVolume: 'High',
+            estimatedTruckVolume: 50,
           },
           confidence: {
             overall: 'high' as const,
+            facilityCount: 'verified' as const,
+            industryCategory: 'verified' as const,
+            distributionFootprint: 'verified' as const,
           },
         },
       });
@@ -181,6 +187,7 @@ describe('CompanyResearchPanel', () => {
           fullyResearched: 5,
           partiallyResearched: 3,
           notResearched: 2,
+          byTier: {},
         },
       });
 
@@ -216,7 +223,7 @@ describe('CompanyResearchPanel', () => {
           { companyName: 'Company A', priority: 1, status: 'pending' },
           { companyName: 'Company B', priority: 2, status: 'pending' },
         ],
-        estimate: { estimatedMinutes: 4, estimatedCost: '$0.02' },
+        estimate: { estimatedMinutes: 4, estimatedCost: '$0.02', estimatedTokens: 1000 },
       });
 
       render(<CompanyResearchPanel {...defaultProps} />);

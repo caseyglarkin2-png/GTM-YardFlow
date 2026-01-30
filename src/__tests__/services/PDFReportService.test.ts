@@ -54,7 +54,9 @@ describe('PDFReportService', () => {
       title: 'CEO',
       tier: 'Tier 1',
       status: 'contacted',
-      priority: 'high',
+      score: 80,
+      isOps: false,
+      isExec: true,
     },
     {
       id: '2',
@@ -64,7 +66,9 @@ describe('PDFReportService', () => {
       title: 'CTO',
       tier: 'Tier 2',
       status: 'meeting_booked',
-      priority: 'medium',
+      score: 70,
+      isOps: false,
+      isExec: true,
     },
   ];
 
@@ -347,7 +351,9 @@ describe('PDFReportService', () => {
         title: 'C'.repeat(100),
         tier: 'Tier 1',
         status: 'new',
-        priority: 'high',
+        score: 80,
+        isOps: false,
+        isExec: true,
       };
 
       const result = await service.generateReport(

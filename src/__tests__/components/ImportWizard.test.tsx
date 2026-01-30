@@ -22,6 +22,9 @@ const mockProspect = (overrides: Partial<Prospect> = {}): Prospect => ({
   linkedinUrl: 'https://linkedin.com/in/existing',
   status: 'new',
   tier: '1',
+  score: 0,
+  isOps: false,
+  isExec: false,
   source: 'manual',
   tags: [],
   notes: '',
@@ -35,8 +38,6 @@ const mockCompany = (overrides: Partial<Company> = {}): Company => ({
   name: 'Acme Corp',
   domain: 'acme.com',
   industry: 'Technology',
-  size: '100-500',
-  location: 'San Francisco, CA',
   ...overrides,
 });
 

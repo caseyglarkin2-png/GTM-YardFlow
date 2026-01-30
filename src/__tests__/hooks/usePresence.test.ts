@@ -242,9 +242,9 @@ describe('usePresenceViewTracker', () => {
 
     expect(mockSetCurrentView).toHaveBeenCalledWith('prospects', 'doc-123');
 
-    rerender({ view: 'dashboard', docId: undefined });
+    rerender({ view: 'dashboard', docId: '' });
 
-    expect(mockSetCurrentView).toHaveBeenCalledWith('dashboard', undefined);
+    expect(mockSetCurrentView).toHaveBeenCalledWith('dashboard', '');
   });
 
   it('should not set view when service is null', () => {
