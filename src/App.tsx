@@ -116,7 +116,7 @@ import { createAnalyticsAggregator, type ProspectData, type ActivityData } from 
 import { copyToClipboard as clipboardCopy } from './services/ClipboardService';
 
 // --- Sprint 80-81 Railway Integration ---
-import { sendEmailViaRailway, isRailwayAvailable } from './services/RailwayEmailService';
+import { sendEmailViaRailway } from './services/RailwayEmailService';
 
 // --- Sprint 81 Sequence Enrollment ---
 import { useSequenceEnrollment } from './hooks/useSequenceEnrollment';
@@ -1417,7 +1417,7 @@ export default function App() {
   };
 
   // Send email to selected prospect
-  // Sprint 101: Uses feature flags to determine Railway vs Vercel path
+  // Sprint 102: Railway is primary path, Vercel is fallback
   const sendEmailToProspect = async () => {
     if (!selectedProspect) return;
     
@@ -1432,42 +1432,41 @@ export default function App() {
     setEmailSendStatus('idle');
 
     try {
-      // Sprint 101: Check feature flags first (Railway requires NextAuth, we use Firebase)
-      const railwayAvailable = await isRailwayAvailable();
-      console.log(`[Email] Email path: ${railwayAvailable ? 'Railway' : 'Vercel'} → ${selectedProspect.email}`);
+      // Sprint 102: Try Railway first (doesn't require Firebase auth)
+      console.log(`[Email] Attempting Railway path → ${selectedProspect.email}`);
       
-      if (railwayAvailable) {
-        console.log('[Email] Sending via Railway backend');
-        const railwayResult = await sendEmailViaRailway({
-          to: selectedProspect.email,
-          toName: selectedProspect.name,
-          subject: `YardFlow for ${selectedProspect.company}`,
-          htmlBody: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            ${generatedMessage
-              .replace(/https:\/\/calendly\.com\/[^\s]+/g, url => `<a href="${url}" style="color: #2563eb; text-decoration: underline;">${url}</a>`)
-              .split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('')}
-          </div>`,
-          textBody: generatedMessage,
-          prospectId: selectedProspect.id,
-        });
+      const railwayResult = await sendEmailViaRailway({
+        to: selectedProspect.email,
+        toName: selectedProspect.name,
+        subject: `YardFlow for ${selectedProspect.company}`,
+        htmlBody: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          ${generatedMessage
+            .replace(/https:\/\/calendly\.com\/[^\s]+/g, url => `<a href="${url}" style="color: #2563eb; text-decoration: underline;">${url}</a>`)
+            .split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('')}
+        </div>`,
+        textBody: generatedMessage,
+        prospectId: selectedProspect.id,
+      });
 
-        if (railwayResult.success) {
-          setEmailSendStatus('success');
-          handleStatusUpdate('contacted');
-          setTimeout(() => setEmailSendStatus('idle'), 3000);
-          return;
-        }
-        
-        // Railway failed, fall through to Vercel
-        console.warn('[Email] Railway send failed, trying Vercel fallback:', railwayResult.error);
+      if (railwayResult.success) {
+        console.log('[Email] Railway send successful:', railwayResult.messageId);
+        setEmailSendStatus('success');
+        handleStatusUpdate('contacted');
+        setTimeout(() => setEmailSendStatus('idle'), 3000);
+        return;
       }
-
-      // Fallback to Vercel email endpoint
-      const auth = await import('firebase/auth').then(m => m.getAuth());
-      const user = auth.currentUser;
+      
+      // Railway failed, try Vercel fallback
+      console.warn('[Email] Railway failed, trying Vercel fallback:', railwayResult.error);
+      
+      // Check if we have Firebase auth for Vercel fallback
+      const authModule = await import('firebase/auth');
+      const authInstance = authModule.getAuth();
+      const user = authInstance?.currentUser;
       
       if (!user) {
-        throw new Error('You must be logged in to send emails');
+        // No Firebase auth available - show the Railway error
+        throw new Error(railwayResult.error || 'Email service unavailable. Please try again.');
       }
 
       const token = await user.getIdToken();
