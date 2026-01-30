@@ -26,7 +26,8 @@ import {
   Upload,
   Link2,
   TrendingUp,
-  Building2
+  Building2,
+  ExternalLink
 } from 'lucide-react';
 import { ConversationManagerSingleton } from './services/ConversationManager';
 import { buildSystemPrompt } from './services/SystemPromptBuilder';
@@ -1622,6 +1623,17 @@ export default function App() {
               <h1 className="font-bold text-lg tracking-tight text-slate-800">YardFlow <span className="text-blue-600">Hub</span></h1>
             </div>
             <div className="flex items-center gap-2">
+              {/* Sprint 79.5: Railway Dashboard Link */}
+              <a
+                href="https://yardflow-hitlist-production-2f41.up.railway.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-slate-500 hover:text-blue-600 transition-colors px-2 py-1 rounded hover:bg-blue-50 flex items-center gap-1"
+                title="Open Railway dashboard for email & sequences"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Railway
+              </a>
               <SyncStatus 
                 status={offlineQueue.status} 
                 pendingCount={offlineQueue.pendingCount}
@@ -2866,6 +2878,18 @@ export default function App() {
                             </div>
                           )}
                         </div>
+                        {/* Sprint 79.5: Railway redirect for immediate email sending */}
+                        <a
+                          href={`https://yardflow-hitlist-production-2f41.up.railway.app/people?search=${encodeURIComponent(selectedProspect?.email || selectedProspect?.name || '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center px-3 py-2 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Send email via Railway dashboard (backup option)"
+                          onClick={() => showInfo('Railway Opened', 'Send email from Railway dashboard, then return here.')}
+                        >
+                          <ExternalLink className="h-3 w-3 mr-1" />
+                          Send via Railway →
+                        </a>
                       </div>
                     </div>
                   </div>
