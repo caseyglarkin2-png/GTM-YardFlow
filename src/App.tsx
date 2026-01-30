@@ -1409,7 +1409,7 @@ export default function App() {
   };
 
   // Send email to selected prospect
-  // Sprint 81: Uses Railway first, falls back to Vercel
+  // Sprint 101: Uses feature flags to determine Railway vs Vercel path
   const sendEmailToProspect = async () => {
     if (!selectedProspect) return;
     
@@ -1423,8 +1423,9 @@ export default function App() {
     setEmailSendStatus('idle');
 
     try {
-      // Sprint 81: Try Railway first for better email infrastructure
+      // Sprint 101: Check feature flags first (Railway requires NextAuth, we use Firebase)
       const railwayAvailable = await isRailwayAvailable();
+      console.log(`[Email] Email path: ${railwayAvailable ? 'Railway' : 'Vercel'} → ${selectedProspect.email}`);
       
       if (railwayAvailable) {
         console.log('[Email] Sending via Railway backend');

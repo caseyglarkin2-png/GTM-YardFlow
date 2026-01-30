@@ -12,7 +12,12 @@
  * 
  * IMPORTANT: All requests go through the Vercel proxy at /api/railway/*
  * This ensures proper request handling and security.
+ * 
+ * NOTE (Sprint 101): Railway email requires NextAuth session, not Firebase tokens.
+ * Until auth bridge is complete, we use feature flags to route to Vercel instead.
  */
+
+import { shouldUseRailwayEmail } from '../config/featureFlags';
 
 export interface RailwayEmailRequest {
   to: string;
@@ -61,9 +66,19 @@ export async function checkRailwayHealth(): Promise<RailwayHealthResponse | null
 }
 
 /**
- * Check if Railway backend is available
+ * Check if Railway backend is available for email operations
+ * 
+ * Sprint 101 Fix: Check feature flags FIRST before checking health.
+ * Railway is healthy but requires NextAuth session (not Firebase tokens).
+ * Until auth bridge is complete, route emails through Vercel instead.
  */
 export async function isRailwayAvailable(): Promise<boolean> {
+  // Check feature flag system - requires RAILWAY_ENABLED AND RAILWAY_EMAIL_ENABLED
+  if (!shouldUseRailwayEmail()) {
+    console.log('[Email] Railway email disabled via feature flag, using Vercel fallback');
+    return false;
+  }
+  
   const health = await checkRailwayHealth();
   return health?.status === 'healthy';
 }
