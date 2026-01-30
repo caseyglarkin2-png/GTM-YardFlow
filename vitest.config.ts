@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@': '/workspaces/GTM-YardFlow/src',
       'virtual:pwa-register': '/workspaces/GTM-YardFlow/src/__tests__/mocks/pwa-register.ts',
     },
   },

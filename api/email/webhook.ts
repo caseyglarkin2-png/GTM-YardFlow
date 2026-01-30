@@ -36,13 +36,74 @@ async function markQueueStatus(emailId: string, status: string, lastError?: stri
   await ref.set({ status, lastError, updatedAt: Date.now() }, { merge: true });
 }
 
-async function pauseSequences(emailId: string): Promise<void> {
-  if (!emailId) return;
-  await db.collection('sequence_pauses').doc(emailId).set({ reason: 'bounce', pausedAt: Date.now() }, { merge: true });
+/**
+ * Sprint 82.1/82.2: Pause sequence enrollments based on event type
+ * Finds the enrollment associated with this email and pauses it
+ */
+async function pauseEnrollmentByEmail(
+  emailId: string, 
+  prospectEmail: string, 
+  reason: 'reply' | 'bounce' | 'unsubscribe' | 'spam',
+  newStatus: 'paused' | 'replied' | 'bounced' | 'unsubscribed' = 'paused'
+): Promise<void> {
+  try {
+    // Try to find enrollment by email ID (from queue item metadata)
+    let enrollmentId: string | null = null;
+    
+    if (emailId) {
+      // Look up the queue item to get enrollment ID
+      const queueDoc = await db.collection('email_queue').doc(emailId).get();
+      if (queueDoc.exists) {
+        enrollmentId = queueDoc.data()?.enrollmentId;
+      }
+    }
+    
+    // If we have enrollmentId, pause that specific enrollment
+    if (enrollmentId) {
+      const enrollmentRef = db.collection('sequenceEnrollments').doc(enrollmentId);
+      const enrollmentDoc = await enrollmentRef.get();
+      
+      if (enrollmentDoc.exists && enrollmentDoc.data()?.status === 'active') {
+        await enrollmentRef.update({
+          status: newStatus,
+          pausedAt: new Date().toISOString(),
+          pauseReason: reason,
+          nextSendAt: null,
+        });
+        console.log(`Paused enrollment ${enrollmentId} due to ${reason}`);
+      }
+      return;
+    }
+    
+    // Fallback: Find active enrollment by prospect email
+    if (prospectEmail) {
+      const enrollmentsSnap = await db
+        .collection('sequenceEnrollments')
+        .where('prospectEmail', '==', prospectEmail)
+        .where('status', '==', 'active')
+        .limit(1)
+        .get();
+      
+      if (!enrollmentsSnap.empty) {
+        const doc = enrollmentsSnap.docs[0];
+        await doc.ref.update({
+          status: newStatus,
+          pausedAt: new Date().toISOString(),
+          pauseReason: reason,
+          nextSendAt: null,
+        });
+        console.log(`Paused enrollment ${doc.id} for ${prospectEmail} due to ${reason}`);
+      }
+    }
+  } catch (err) {
+    console.error(`Failed to pause enrollment for ${reason}:`, err);
+  }
 }
 
 async function processEvent(event: SendGridWebhookEvent): Promise<void> {
   const emailId = event.custom_args?.emailId || event.sg_message_id || '';
+  const prospectEmail = event.email || '';
+  
   switch (event.event) {
     case 'delivered':
       await markQueueStatus(emailId, 'sent');
@@ -59,7 +120,7 @@ async function processEvent(event: SendGridWebhookEvent): Promise<void> {
     case 'bounce': {
       const bounceType = compliance.classifyBounce(event);
       await compliance.addToSuppressionList({
-        email: event.email,
+        email: prospectEmail,
         reason: 'bounce',
         bounceType,
         createdAt: Date.now(),
@@ -67,20 +128,37 @@ async function processEvent(event: SendGridWebhookEvent): Promise<void> {
         metadata: { status: event.status, sg_event_id: event.sg_event_id },
       });
       await markQueueStatus(emailId, 'failed', event.reason);
+      
+      // Sprint 82.2: Pause enrollment on bounce
       if (bounceType === 'hard') {
-        await pauseSequences(emailId);
+        await pauseEnrollmentByEmail(emailId, prospectEmail, 'bounce', 'bounced');
+      } else {
+        // Soft bounce - just pause, will resume later
+        await pauseEnrollmentByEmail(emailId, prospectEmail, 'bounce', 'paused');
       }
       break;
     }
     case 'spamreport':
-    case 'unsubscribe':
       await compliance.addToSuppressionList({
-        email: event.email,
-        reason: event.event === 'spamreport' ? 'spam' : 'unsubscribe',
+        email: prospectEmail,
+        reason: 'spam',
         createdAt: Date.now(),
         source: 'webhook',
       });
-      await markQueueStatus(emailId, 'canceled', event.event);
+      await markQueueStatus(emailId, 'canceled', 'spam');
+      // Sprint 82.3: Cancel enrollment on spam report
+      await pauseEnrollmentByEmail(emailId, prospectEmail, 'spam', 'unsubscribed');
+      break;
+    case 'unsubscribe':
+      await compliance.addToSuppressionList({
+        email: prospectEmail,
+        reason: 'unsubscribe',
+        createdAt: Date.now(),
+        source: 'webhook',
+      });
+      await markQueueStatus(emailId, 'canceled', 'unsubscribe');
+      // Sprint 82.3: Cancel enrollment on unsubscribe
+      await pauseEnrollmentByEmail(emailId, prospectEmail, 'unsubscribe', 'unsubscribed');
       break;
     default:
       break;

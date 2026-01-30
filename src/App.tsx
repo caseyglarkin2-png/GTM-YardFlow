@@ -27,7 +27,8 @@ import {
   Link2,
   TrendingUp,
   Building2,
-  ExternalLink
+  ExternalLink,
+  Mail
 } from 'lucide-react';
 import { ConversationManagerSingleton } from './services/ConversationManager';
 import { buildSystemPrompt } from './services/SystemPromptBuilder';
@@ -44,10 +45,15 @@ import {
   getFirestore, 
   collection, 
   query, 
+  where,
+  orderBy,
+  limit,
   onSnapshot, 
+  getDocs,
   Timestamp, 
   doc,
-  setDoc
+  setDoc,
+  serverTimestamp
 } from 'firebase/firestore';
 
 // --- Firebase Configuration ---
@@ -108,6 +114,11 @@ import { sendEmailViaRailway, isRailwayAvailable } from './services/RailwayEmail
 
 // --- Sprint 81 Sequence Enrollment ---
 import { useSequenceEnrollment } from './hooks/useSequenceEnrollment';
+import { SequenceEnrollmentBadge } from './components/SequenceEnrollmentBadge';
+import { useReplyNotifications } from './hooks/useReplyNotifications';
+
+// --- Sprint 84: Sequence Performance ---
+import { SequencePerformancePanel } from './components/SequencePerformancePanel';
 
 // --- Sprint 34 Components ---
 import { CommandPalette } from './components/CommandPalette';
@@ -149,6 +160,9 @@ import { BulkExporter } from './services/BulkExporter';
 import { BulkDeleteService } from './services/BulkDeleteService';
 import { BulkActionService } from './services/BulkActionService';
 import { useMultiSelect } from './services/MultiSelectService';
+
+// --- Sprint 84: Meeting Attribution ---
+import { recordMeeting, getMeetingStats } from './services/MeetingAttributionService';
 
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
@@ -305,6 +319,15 @@ export default function App() {
   // Email editing state
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [editingEmailValue, setEditingEmailValue] = useState('');
+  // Sprint 81.3: Sequence enrollment dropdown
+  const [isSequenceDropdownOpen, setIsSequenceDropdownOpen] = useState(false);
+  // Sprint 84.1: Meeting booking modal
+  const [showMeetingModal, setShowMeetingModal] = useState(false);
+  const [meetingDate, setMeetingDate] = useState('');
+  const [meetingNotes, setMeetingNotes] = useState('');
+  const [isBookingMeeting, setIsBookingMeeting] = useState(false);
+  // Sprint 84.3: Meeting stats for dashboard
+  const [meetingStats, setMeetingStats] = useState<{ thisWeek: number; lastWeek: number; total: number }>({ thisWeek: 0, lastWeek: 0, total: 0 });
   // Hitlist date filter (Sprint 35 - T35.4)
   const [hitlistDatePeriod, setHitlistDatePeriod] = useState<TimePeriod>('all');
   const [hitlistCustomRange, setHitlistCustomRange] = useState<DateRange | undefined>(undefined);
@@ -356,10 +379,28 @@ export default function App() {
   const { 
     sequences, 
     refreshSequences, 
-    enrollProspects, 
+    enrollments: _enrollments, // Used in real-time updates, accessed via getEnrollmentForProspect
+    getEnrollmentForProspect,
+    enrollProspects,
+    pauseEnrollment,
+    resumeEnrollment,
+    cancelEnrollment: _cancelEnrollment, // Available for SequenceManagerPanel
     isEnrolling,
     // enrollmentProgress - available for future progress UI
   } = useSequenceEnrollment();
+
+  // Sprint 83.6: Real-time reply notifications
+  useReplyNotifications({
+    showToast: (type, title, message) => {
+      if (type === 'success') showSuccess(title, message);
+      else showInfo(title, message);
+    },
+    onNewReply: (reply) => {
+      // Could add additional handling here, like highlighting the prospect
+      console.log('New reply received:', reply);
+    },
+    enabled: !!user, // Only listen when authenticated
+  });
 
   // Screen reader announcements
   const [announcement, setAnnouncement] = useState('');
@@ -510,6 +551,23 @@ export default function App() {
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [activeTab, selectAll, clearSelection, hasSelection, prospectIds.length, announce]);
+
+  // Sprint 84.3: Load meeting stats for dashboard
+  useEffect(() => {
+    const loadMeetingStats = async () => {
+      try {
+        const stats = await getMeetingStats();
+        setMeetingStats(stats);
+      } catch (err) {
+        console.error('Failed to load meeting stats:', err);
+      }
+    };
+    
+    loadMeetingStats();
+    // Refresh every 60 seconds
+    const interval = setInterval(loadMeetingStats, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // --- Bulk Action Handlers (wired to BulkActionService) ---
   const handleBulkAssignSequence = useCallback(async (sequenceId: string) => {
@@ -1098,6 +1156,107 @@ export default function App() {
       showError('Save Failed', 'Could not save status change. Please try again.');
     }
   };
+
+  // Sprint 81.3: Handle single prospect sequence enrollment
+  const handleEnrollInSequence = useCallback(async (sequenceId: string) => {
+    if (!selectedProspect) return;
+    
+    setIsSequenceDropdownOpen(false);
+    
+    const selectedSequence = sequences.find(s => s.id === sequenceId);
+    const sequenceName = selectedSequence?.name || 'sequence';
+    
+    showInfo('Enrolling...', `Starting ${sequenceName} for ${selectedProspect.name}`);
+    
+    try {
+      const results = await enrollProspects([selectedProspect], sequenceId);
+      const result = results[0];
+      
+      if (result?.success) {
+        showSuccess('Sequence Started', `${selectedProspect.name} enrolled in ${sequenceName}. First email scheduled.`);
+        announce(`Enrolled in ${sequenceName}`);
+      } else {
+        showWarning('Enrollment Issue', result?.error || 'Could not enroll prospect');
+      }
+    } catch (err) {
+      console.error('Failed to enroll prospect:', err);
+      showError('Enrollment Failed', 'Could not start sequence. Please try again.');
+    }
+  }, [selectedProspect, sequences, enrollProspects, showInfo, showSuccess, showWarning, showError, announce]);
+
+  // Sprint 84.1: Handle meeting booking with attribution
+  const handleBookMeeting = useCallback(async () => {
+    if (!selectedProspect || !meetingDate) {
+      showWarning('Missing Info', 'Please select a meeting date.');
+      return;
+    }
+    
+    setIsBookingMeeting(true);
+    
+    try {
+      // Get enrollment if exists for attribution
+      const enrollment = getEnrollmentForProspect(selectedProspect.id);
+      
+      // Find the most recent email sent to this prospect for first-touch attribution
+      let firstTouchEmailId: string | undefined;
+      let firstTouchTemplateId: string | undefined;
+      
+      if (db) {
+        const emailsQuery = query(
+          collection(db, 'email_events'),
+          where('prospectId', '==', selectedProspect.id),
+          where('type', '==', 'sent'),
+          orderBy('timestamp', 'desc'),
+          limit(1)
+        );
+        
+        const emailsSnapshot = await getDocs(emailsQuery);
+      
+        if (!emailsSnapshot.empty) {
+          const emailDoc = emailsSnapshot.docs[0].data();
+          firstTouchEmailId = emailDoc.emailId;
+          firstTouchTemplateId = emailDoc.templateId;
+        }
+      }
+      
+      // Record the meeting with full attribution
+      await recordMeeting({
+        prospectId: selectedProspect.id,
+        prospectName: selectedProspect.name,
+        companyName: selectedProspect.company,
+        meetingDate: new Date(meetingDate),
+        notes: meetingNotes || undefined,
+        sequenceId: enrollment?.sequenceId,
+        sequenceName: enrollment?.sequenceName,
+        enrollmentId: enrollment?.enrollmentId,
+        stepNumber: enrollment?.currentStepIndex,
+        firstTouchEmailId,
+        firstTouchTemplateId,
+      });
+      
+      // Also update prospect status to meeting_booked
+      if (db) {
+        await setDoc(doc(db, 'prospects', selectedProspect.id), {
+          status: 'meeting_booked',
+          meetingDate: new Date(meetingDate),
+          lastModified: serverTimestamp()
+        }, { merge: true });
+      }
+      
+      showSuccess('Meeting Booked! 🎉', `Meeting with ${selectedProspect.name} recorded for ${new Date(meetingDate).toLocaleDateString()}`);
+      announce('Meeting booked successfully');
+      
+      // Reset modal state
+      setShowMeetingModal(false);
+      setMeetingDate('');
+      setMeetingNotes('');
+    } catch (err) {
+      console.error('Failed to book meeting:', err);
+      showError('Booking Failed', 'Could not record meeting. Please try again.');
+    } finally {
+      setIsBookingMeeting(false);
+    }
+  }, [selectedProspect, meetingDate, meetingNotes, getEnrollmentForProspect, showWarning, showSuccess, showError, announce]);
 
   // Sprint 72: Handle AI company research
   const handleCompanyResearch = useCallback(async (company: CompanyRow) => {
@@ -1993,7 +2152,18 @@ export default function App() {
                   ) : (
                     <>
                       <KPICard metric={{ id: 'total', name: 'Total Prospects', value: { current: stats.total, previous: stats.total, change: 0, changePercent: 0, trend: 'flat' }, format: 'number' }} />
-                      <KPICard metric={{ id: 'booked', name: 'Meetings Booked', value: { current: stats.booked, previous: Math.floor(stats.booked * 0.8), change: stats.booked - Math.floor(stats.booked * 0.8), changePercent: 25, trend: 'up' }, format: 'number' }} />
+                      <KPICard metric={{ 
+                        id: 'booked', 
+                        name: 'Meetings This Week', 
+                        value: { 
+                          current: meetingStats.thisWeek, 
+                          previous: meetingStats.lastWeek, 
+                          change: meetingStats.thisWeek - meetingStats.lastWeek, 
+                          changePercent: meetingStats.lastWeek > 0 ? Math.round(((meetingStats.thisWeek - meetingStats.lastWeek) / meetingStats.lastWeek) * 100) : 0, 
+                          trend: meetingStats.thisWeek > meetingStats.lastWeek ? 'up' : meetingStats.thisWeek < meetingStats.lastWeek ? 'down' : 'flat' 
+                        }, 
+                        format: 'number' 
+                      }} />
                       <KPICard metric={{ id: 'rate', name: 'Contact Rate', value: { current: (stats.contacted / stats.total) * 100, previous: 50, change: (stats.contacted / stats.total) * 100 - 50, changePercent: 10, trend: 'up' }, format: 'percent' }} />
                       <KPICard metric={{ id: 'tier1', name: 'Tier 1 Pipeline', value: { current: stats.tier1, previous: stats.tier1, change: 0, changePercent: 0, trend: 'flat' }, format: 'number' }} />
                     </>
@@ -2014,6 +2184,11 @@ export default function App() {
                     ]}
                   />
                 </div>
+              )}
+
+              {/* Sprint 84.4: Sequence Performance Report */}
+              {!dashboard.isLoading && (
+                <SequencePerformancePanel />
               )}
 
               {/* Charts Row (Sprint 35 - T35.3) - with skeleton loading */}
@@ -2318,6 +2493,13 @@ export default function App() {
                         {prospect.status === 'meeting_booked' ? 'BOOKED' : prospect.status.replace('_', ' ')}
                       </span>
                     </div>
+                    {/* Sprint 81.2: Sequence Enrollment Badge */}
+                    <div className="w-20 text-right flex-shrink-0">
+                      <SequenceEnrollmentBadge 
+                        enrollment={getEnrollmentForProspect(prospect.id)} 
+                        compact 
+                      />
+                    </div>
                   </div>
                 );
               })}
@@ -2583,7 +2765,7 @@ export default function App() {
                     </button>
                   )}
                 </div>
-                <div className="mt-4 flex items-center space-x-4">
+                <div className="mt-4 flex items-center space-x-4 flex-wrap gap-y-2">
                    <div className="text-xs text-slate-500">
                       <span className="font-semibold text-slate-700">Hitlist Score:</span> {selectedProspect.score}
                    </div>
@@ -2607,6 +2789,92 @@ export default function App() {
                         </button>
                       ))}
                    </div>
+                   
+                   {/* Sprint 81.3: One-click sequence enrollment dropdown */}
+                   <div className="relative">
+                     {(() => {
+                       const enrollment = getEnrollmentForProspect(selectedProspect.id);
+                       if (enrollment) {
+                         // Show current enrollment status with actions
+                         return (
+                           <div className="flex items-center gap-2">
+                             <SequenceEnrollmentBadge enrollment={enrollment} />
+                             {enrollment.status === 'paused' ? (
+                               <button
+                                 onClick={() => resumeEnrollment(enrollment.enrollmentId)}
+                                 className="text-xs text-green-600 hover:text-green-800 font-medium px-2 py-1 rounded border border-green-200 hover:bg-green-50"
+                                 title="Resume sequence"
+                               >
+                                 Resume
+                               </button>
+                             ) : enrollment.status === 'active' ? (
+                               <button
+                                 onClick={() => pauseEnrollment(enrollment.enrollmentId, 'manual')}
+                                 className="text-xs text-amber-600 hover:text-amber-800 font-medium px-2 py-1 rounded border border-amber-200 hover:bg-amber-50"
+                                 title="Pause sequence"
+                               >
+                                 Pause
+                               </button>
+                             ) : null}
+                           </div>
+                         );
+                       }
+                       
+                       // Show sequence selection dropdown
+                       return (
+                         <>
+                           <button
+                             onClick={() => {
+                               refreshSequences();
+                               setIsSequenceDropdownOpen(!isSequenceDropdownOpen);
+                             }}
+                             className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                           >
+                             <Mail className="h-3 w-3" />
+                             Start Sequence
+                             <ChevronDown className={`h-3 w-3 transition-transform ${isSequenceDropdownOpen ? 'rotate-180' : ''}`} />
+                           </button>
+                           
+                           {isSequenceDropdownOpen && (
+                             <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-lg shadow-lg border border-slate-200 z-50 py-1">
+                               {sequences.length === 0 ? (
+                                 <div className="px-3 py-2 text-xs text-slate-500">
+                                   No sequences available
+                                 </div>
+                               ) : (
+                                 sequences.filter(s => s.status === 'active').map(seq => (
+                                   <button
+                                     key={seq.id}
+                                     onClick={() => handleEnrollInSequence(seq.id)}
+                                     className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors"
+                                   >
+                                     <div className="font-medium text-slate-800">{seq.name}</div>
+                                     <div className="text-xs text-slate-500">
+                                       {seq.stepCount} steps • {seq.activeProspects} active
+                                     </div>
+                                   </button>
+                                 ))
+                               )}
+                             </div>
+                           )}
+                         </>
+                       );
+                     })()}
+                   </div>
+                   
+                   {/* Sprint 84.1: Log Meeting Button */}
+                   <button
+                     onClick={() => {
+                       setMeetingDate('');
+                       setMeetingNotes('');
+                       setShowMeetingModal(true);
+                     }}
+                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-green-600 border border-green-200 rounded-lg hover:bg-green-50 transition-colors"
+                     title="Log a meeting with this prospect"
+                   >
+                     <CheckCircle className="h-3 w-3" />
+                     Log Meeting
+                   </button>
                 </div>
               </div>
               
@@ -2957,6 +3225,105 @@ export default function App() {
         selectedProspects={selectedProspects}
         isProcessing={isProcessingBulkAction}
       />
+
+      {/* Sprint 84.1: Meeting Booking Modal */}
+      {showMeetingModal && selectedProspect && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setShowMeetingModal(false)}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 m-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-800">Log Meeting</h3>
+              <button
+                onClick={() => setShowMeetingModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Prospect
+                </label>
+                <div className="px-3 py-2 bg-slate-50 rounded-lg border border-slate-200 text-sm">
+                  <div className="font-medium text-slate-800">{selectedProspect.name}</div>
+                  <div className="text-xs text-slate-500">{selectedProspect.company}</div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Meeting Date *
+                </label>
+                <input
+                  type="datetime-local"
+                  value={meetingDate}
+                  onChange={(e) => setMeetingDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Notes (optional)
+                </label>
+                <textarea
+                  value={meetingNotes}
+                  onChange={(e) => setMeetingNotes(e.target.value)}
+                  placeholder="Meeting context, topics discussed..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
+                />
+              </div>
+              
+              {/* Attribution Preview */}
+              {(() => {
+                const enrollment = getEnrollmentForProspect(selectedProspect.id);
+                return enrollment ? (
+                  <div className="bg-blue-50 rounded-lg p-3 text-xs">
+                    <div className="font-medium text-blue-800 mb-1">Attribution Preview</div>
+                    <div className="text-blue-600">
+                      Sequence: {enrollment.sequenceName} (Step {enrollment.currentStepIndex + 1}/{enrollment.totalSteps})
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowMeetingModal(false)}
+                className="flex-1 px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBookMeeting}
+                disabled={!meetingDate || isBookingMeeting}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isBookingMeeting ? (
+                  <>
+                    <Loader className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    Book Meeting
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
