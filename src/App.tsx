@@ -125,6 +125,7 @@ import { useReplyNotifications } from './hooks/useReplyNotifications';
 
 // --- Sprint 84: Sequence Performance ---
 import { SequencePerformancePanel } from './components/SequencePerformancePanel';
+import { SequenceManagerPanel } from './components/SequenceManagerPanel';
 
 // --- Sprint 34 Components ---
 import { CommandPalette } from './components/CommandPalette';
@@ -295,7 +296,7 @@ ${CALENDAR_LINK}
 
 export default function App() {
   const [user, setUser] = useState<unknown>(null);
-  const [activeTab, setActiveTab] = useState<'prospects' | 'stats' | 'assistant' | 'roi' | 'assets' | 'dashboard' | 'import' | 'integrations'>('prospects');
+  const [activeTab, setActiveTab] = useState<'prospects' | 'stats' | 'assistant' | 'roi' | 'assets' | 'dashboard' | 'import' | 'integrations' | 'sequences'>('prospects');
   // Sprint 93: Use centralized prospect state hook with Railway/Firestore toggle
   // The hook provides setProspects for direct updates, plus typed methods for common operations
   // These typed methods (updateProspect, etc.) can be used for Railway-aware operations
@@ -1187,6 +1188,13 @@ export default function App() {
   // Sprint 81.3: Handle single prospect sequence enrollment
   const handleEnrollInSequence = useCallback(async (sequenceId: string) => {
     if (!selectedProspect) return;
+
+    if (!selectedProspect.email) {
+      showWarning('Missing Email', 'Add an email address before enrolling in a sequence.');
+      announce('Enrollment blocked: missing email');
+      setIsSequenceDropdownOpen(false);
+      return;
+    }
     
     setIsSequenceDropdownOpen(false);
     
@@ -1415,6 +1423,7 @@ export default function App() {
     
     if (!selectedProspect.email) {
       setEmailSendStatus('no_email');
+      showWarning('Missing Email', 'Add an email address before sending.');
       setTimeout(() => setEmailSendStatus('idle'), 3000);
       return;
     }
@@ -1858,6 +1867,16 @@ export default function App() {
                className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'prospects' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
              >
                <Users className="h-3 w-3 mr-1" aria-hidden="true" /> Hitlist
+             </button>
+             <button 
+               onClick={() => { setActiveTab('sequences'); announce('Sequences tab selected'); }} 
+               role="tab"
+               aria-selected={activeTab === 'sequences'}
+               aria-controls="panel-sequences"
+               id="tab-sequences"
+               className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'sequences' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
+             >
+               <Mail className="h-3 w-3 mr-1" aria-hidden="true" /> Sequences
              </button>
              <button 
                onClick={() => { setActiveTab('import'); announce('Import tab selected'); }} 
@@ -2314,6 +2333,23 @@ export default function App() {
                 </div>
               </div>
               </LoadingOverlay>
+            </div>
+          ) : activeTab === 'sequences' ? (
+            <div id="panel-sequences" role="tabpanel" aria-labelledby="tab-sequences" className="h-full">
+              <SequenceManagerPanel 
+                onProspectClick={(prospectId) => {
+                  const prospect = prospects.find(p => p.id === prospectId);
+                  if (prospect) {
+                    setSelectedProspect(prospect);
+                    setActiveTab('prospects');
+                  }
+                }}
+                showToast={(type, title, message) => {
+                  if (type === 'success') showSuccess(title, message);
+                  else if (type === 'error') showError(title, message);
+                  else showInfo(title, message);
+                }}
+              />
             </div>
           ) : activeTab === 'import' ? (
             <ImportTab onOpenImportWizard={() => setShowImportWizard(true)} />

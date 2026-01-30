@@ -278,6 +278,15 @@ export function useSequenceEnrollment(): UseSequenceEnrollmentReturn {
     sequenceId: string
   ): Promise<EnrollmentResult> => {
     const enrollmentId = uuidv4();
+
+    if (!prospect.email) {
+      return {
+        prospectId: prospect.id,
+        prospectName: prospect.name,
+        success: false,
+        error: 'Missing email address',
+      };
+    }
     
     // Try Railway first if enabled
     if (featureFlags.RAILWAY_ENABLED) {
