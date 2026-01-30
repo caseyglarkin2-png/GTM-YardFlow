@@ -25,7 +25,8 @@ import {
   LayoutDashboard,
   Upload,
   Link2,
-  TrendingUp
+  TrendingUp,
+  Building2
 } from 'lucide-react';
 import { ConversationManagerSingleton } from './services/ConversationManager';
 import { buildSystemPrompt } from './services/SystemPromptBuilder';
@@ -71,6 +72,12 @@ import { HITLIST_PROSPECTS } from './data/hitlistData';
 // --- New Sprint 18-20 Components ---
 import { ROITab } from './components/ROITab';
 import { AssetsPanel } from './components/AssetsPanel';
+
+// --- Sprint 72: Company-Centric View ---
+import { CompanyListView } from './components/CompanyListView';
+import { CompanyDetailPanel } from './components/CompanyDetailPanel';
+import { ViewModeToggle, type ViewMode } from './components/ViewModeToggle';
+import { aggregateByCompany, type CompanyRow } from './services/CompanyAggregator';
 
 // --- Sprint 26-33 Components ---
 import { ImportWizard } from './components/ImportWizard';
@@ -266,6 +273,27 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<'Jake' | 'Me'>('Me');
   const [filter, setFilter] = useState('');
   const [tierFilter, setTierFilter] = useState<'All' | 'Tier 1' | 'Tier 2' | 'Tier 3'>('All');
+  // Sprint 72: View mode toggle (company vs person view) with localStorage persistence
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    try {
+      const saved = localStorage.getItem('yardflow-view-mode');
+      return (saved === 'people' || saved === 'companies') ? saved : 'companies';
+    } catch {
+      return 'companies';
+    }
+  });
+  const [selectedCompany, setSelectedCompany] = useState<CompanyRow | null>(null);
+  const [companySortBy, setCompanySortBy] = useState<'score' | 'facilities' | 'contacts' | 'roi'>(() => {
+    try {
+      const saved = localStorage.getItem('yardflow-company-sort');
+      if (saved === 'score' || saved === 'facilities' || saved === 'contacts' || saved === 'roi') {
+        return saved;
+      }
+      return 'score';
+    } catch {
+      return 'score';
+    }
+  });
   // Email editing state
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [editingEmailValue, setEditingEmailValue] = useState('');
@@ -361,6 +389,15 @@ export default function App() {
       })
       .sort((a, b) => b.score - a.score);
   }, [prospects, filter, tierFilter, hitlistDateRange]);
+
+  // --- Sprint 72: Aggregate prospects by company for company-centric view ---
+  const aggregatedCompanies = useMemo(() => {
+    return aggregateByCompany(filteredProspects, undefined, {
+      sortBy: companySortBy,
+      sortDirection: 'desc',
+      searchTerm: filter,
+    });
+  }, [filteredProspects, companySortBy, filter]);
   
   // --- Sprint 36: Bulk Selection State (using useMultiSelect hook) ---
   const prospectIds = useMemo(() => filteredProspects.map(p => p.id), [filteredProspects]);
@@ -409,6 +446,23 @@ export default function App() {
       announce(`${selectedCount} prospect${selectedCount === 1 ? '' : 's'} selected`);
     }
   }, [selectedCount, announce]);
+
+  // Sprint 72: Persist view mode and sort preference
+  useEffect(() => {
+    try {
+      localStorage.setItem('yardflow-view-mode', viewMode);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [viewMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('yardflow-company-sort', companySortBy);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [companySortBy]);
 
   // Global keyboard shortcuts for bulk selection (Cmd/Ctrl+A, Escape)
   useEffect(() => {
@@ -1608,6 +1662,16 @@ export default function App() {
                   onCustomRangeChange={setHitlistCustomRange}
                 />
               </div>
+
+              {/* Sprint 72: View Mode Toggle (Company vs People) */}
+              <div className="mt-3" data-testid="view-mode-toggle">
+                <ViewModeToggle
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                  peopleCount={filteredProspects.length}
+                  companyCount={aggregatedCompanies.length}
+                />
+              </div>
               
               {/* Saved Filters UI - Wiring in SavedFiltersService */}
               <div className="mt-3 relative" data-testid="saved-filters">
@@ -2030,6 +2094,30 @@ export default function App() {
                <p className="mb-2">This assistant is connected to the YardFlow Strategy Brain.</p>
                <p className="text-xs text-slate-400">Context loaded: RFQ Deck, Hitlist Logic, Manifest Outreach Doc</p>
              </div>
+          ) : viewMode === 'companies' ? (
+            /* Sprint 72: Company-centric view */
+            <CompanyListView
+              companies={aggregatedCompanies}
+              onCompanySelect={(company) => {
+                setSelectedCompany(company);
+                // Also select first contact for detail panel
+                if (company.contacts.length > 0) {
+                  setSelectedProspect(company.contacts[0]);
+                }
+              }}
+              onContactSelect={(prospect) => {
+                setSelectedProspect(prospect);
+              }}
+              onResearchClick={(company) => {
+                // TODO: Sprint 73 - Trigger AI research
+                console.log('Research requested for:', company.company);
+              }}
+              selectedCompanyId={selectedCompany?.id}
+              searchTerm={filter}
+              onSearchChange={setFilter}
+              sortBy={companySortBy}
+              onSortChange={setCompanySortBy}
+            />
           ) : (
             <div role="grid" aria-label="Prospect list" aria-multiselectable="true" className="divide-y divide-slate-100">
               <div
@@ -2137,7 +2225,7 @@ export default function App() {
           )}
         </div>
         
-        {activeTab === 'prospects' && (
+        {activeTab === 'prospects' && viewMode === 'people' && (
           <div className="p-3 border-t border-slate-200 bg-slate-50 text-[10px] text-slate-400 text-center">
             {filteredProspects.length} Targets Loaded
           </div>
@@ -2236,6 +2324,40 @@ export default function App() {
             <AssetsPanel 
               selectedProspect={selectedProspect}
             />
+          </div>
+        ) : viewMode === 'companies' && selectedCompany ? (
+          /* Sprint 72: Company Detail Panel when in company view */
+          <CompanyDetailPanel
+            company={selectedCompany}
+            onContactSelect={(prospect) => {
+              setSelectedProspect(prospect);
+              // Switch to people view to show prospect details
+              setViewMode('people');
+            }}
+            onResearchClick={(company) => {
+              // TODO: Sprint 73 - Trigger AI research
+              console.log('Research requested for:', company.company);
+            }}
+            onQueueOutreach={(company, contacts) => {
+              // TODO: Sprint 75 - Queue outreach
+              console.log('Queue outreach for:', company.company, 'contacts:', contacts.length);
+            }}
+          />
+        ) : viewMode === 'companies' && !selectedCompany ? (
+          /* Sprint 72: Empty state for company view */
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-400 px-4">
+            <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mb-4">
+              <Building2 className="h-8 w-8 text-slate-400" />
+            </div>
+            <p className="text-lg font-medium text-slate-600 text-center">Select a company to view details</p>
+            <p className="text-sm mt-2 max-w-xs text-center">Choose from the company list to see ROI potential and contacts.</p>
+            <button 
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="mt-4 lg:hidden bg-blue-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
+            >
+              <Building2 className="h-4 w-4" />
+              View Companies
+            </button>
           </div>
         ) : !selectedProspect ? (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 px-4">
