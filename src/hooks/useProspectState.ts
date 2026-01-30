@@ -29,7 +29,7 @@ import type { Prospect } from '../types';
 import { HITLIST_PROSPECTS } from '../data/hitlistData';
 import { featureFlags, isDualWriteEnabled } from '../config/featureFlags';
 import { railwayClient } from '../services/RailwayApiClient';
-import type { RailwayProspect } from '../types/railway';
+import type { RailwayProspect, ProspectTier } from '../types/railway';
 
 // =============================================================================
 // Types
@@ -121,25 +121,41 @@ function mapRailwayToProspect(railway: RailwayProspect): Prospect {
 }
 
 /**
+ * Map local Prospect status to Railway status
+ * Reverse of the mapping in mapRailwayToProspect
+ */
+const localToRailwayStatus: Record<Prospect['status'], RailwayProspect['status']> = {
+  'new': 'new',
+  'drafted': 'researching',
+  'contacted': 'contacted',
+  'meeting_booked': 'meeting_scheduled',
+};
+
+/**
  * Map local Prospect to Railway update format
  */
-function mapProspectToRailway(prospect: Partial<Prospect>): Record<string, unknown> {
-  const mapped: Record<string, unknown> = {};
+function mapProspectToRailway(prospect: Partial<Prospect>): Partial<RailwayProspect> {
+  const mapped: Partial<RailwayProspect> = {};
   
   if (prospect.name !== undefined) {
     const parts = prospect.name.split(' ');
     mapped.firstName = parts[0] || '';
     mapped.lastName = parts.slice(1).join(' ') || '';
+    mapped.name = prospect.name;
   }
-  if (prospect.email !== undefined) mapped.email = prospect.email || null;
+  if (prospect.email !== undefined) mapped.email = prospect.email || undefined;
   if (prospect.company !== undefined) mapped.companyName = prospect.company;
   if (prospect.title !== undefined) mapped.title = prospect.title;
-  if (prospect.tier !== undefined) mapped.tier = prospect.tier;
+  // Cast tier to ProspectTier (local Prospect uses string for flexibility)
+  if (prospect.tier !== undefined) mapped.tier = prospect.tier as ProspectTier;
   if (prospect.score !== undefined) mapped.score = prospect.score;
-  if (prospect.status !== undefined) mapped.status = prospect.status;
-  if (prospect.linkedinUrl !== undefined) mapped.linkedinUrl = prospect.linkedinUrl || null;
+  // Map local status to Railway status
+  if (prospect.status !== undefined) {
+    mapped.status = localToRailwayStatus[prospect.status] || 'new';
+  }
+  if (prospect.linkedinUrl !== undefined) mapped.linkedinUrl = prospect.linkedinUrl || undefined;
   if (prospect.tags !== undefined) mapped.tags = prospect.tags;
-  if (prospect.notes !== undefined) mapped.notes = prospect.notes || null;
+  if (prospect.notes !== undefined) mapped.notes = prospect.notes || undefined;
   
   return mapped;
 }
@@ -287,6 +303,9 @@ export function useProspectState(options: UseProspectStateOptions = {}): UsePros
   // ---------------------------------------------------------------------------
 
   const updateProspect = useCallback(async (id: string, data: Partial<Prospect>): Promise<boolean> => {
+    // Clear any previous error
+    setError(null);
+    
     // Store original for rollback
     const originalProspects = [...prospects];
     const originalProspect = prospects.find(p => p.id === id);
@@ -303,7 +322,7 @@ export function useProspectState(options: UseProspectStateOptions = {}): UsePros
       // T93.4: Railway write
       if (featureFlags.RAILWAY_ENABLED && featureFlags.RAILWAY_DATA_ENABLED) {
         const railwayData = mapProspectToRailway(data);
-        const result = await railwayClient.prospects.update(id, railwayData as any);
+        const result = await railwayClient.prospects.update(id, railwayData);
         
         if (!result.ok) {
           throw new Error(result.error || 'Railway update failed');
