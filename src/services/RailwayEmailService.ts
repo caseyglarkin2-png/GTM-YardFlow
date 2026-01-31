@@ -75,12 +75,30 @@ export async function checkRailwayHealth(): Promise<RailwayHealthResponse | null
 export async function isRailwayAvailable(): Promise<boolean> {
   // Check feature flag system - requires RAILWAY_ENABLED AND RAILWAY_EMAIL_ENABLED
   if (!shouldUseRailwayEmail()) {
-    console.log('[Email] Railway email disabled via feature flag, using Vercel fallback');
+    // Import to get the actual flag values for diagnostic logging
+    const { featureFlags } = await import('../config/featureFlags');
+    console.log('[Email] Railway email disabled:', {
+      RAILWAY_ENABLED: featureFlags.RAILWAY_ENABLED,
+      RAILWAY_EMAIL_ENABLED: featureFlags.RAILWAY_EMAIL_ENABLED,
+      reason: !featureFlags.RAILWAY_ENABLED 
+        ? 'VITE_RAILWAY_ENABLED=false' 
+        : 'VITE_RAILWAY_EMAIL_ENABLED=false',
+      action: 'Using Vercel SendGrid path',
+    });
     return false;
   }
   
+  // Feature flags say Railway is enabled - check health
+  console.log('[Email] Railway enabled via feature flags, checking health...');
   const health = await checkRailwayHealth();
-  return health?.status === 'healthy';
+  
+  if (health?.status === 'healthy') {
+    console.log('[Email] Railway health check passed, using Railway path');
+    return true;
+  }
+  
+  console.warn('[Email] Railway health check failed, falling back to Vercel');
+  return false;
 }
 
 /**

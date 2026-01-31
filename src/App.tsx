@@ -116,7 +116,7 @@ import { createAnalyticsAggregator, type ProspectData, type ActivityData } from 
 import { copyToClipboard as clipboardCopy } from './services/ClipboardService';
 
 // --- Sprint 80-81 Railway Integration ---
-import { sendEmailViaRailway } from './services/RailwayEmailService';
+import { sendEmailViaRailway, isRailwayAvailable } from './services/RailwayEmailService';
 
 // --- Sprint 81 Sequence Enrollment ---
 import { useSequenceEnrollment } from './hooks/useSequenceEnrollment';
@@ -170,6 +170,9 @@ import { useMultiSelect } from './services/MultiSelectService';
 
 // --- Sprint 84: Meeting Attribution ---
 import { recordMeeting, getMeetingStats } from './services/MeetingAttributionService';
+
+// --- Sprint 101: Email Health Status ---
+import { EmailHealthStatus } from './components/EmailHealthStatus';
 
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
@@ -1417,7 +1420,7 @@ export default function App() {
   };
 
   // Send email to selected prospect
-  // Sprint 102: Railway is primary path, Vercel is fallback
+  // Sprint 101: Check feature flags to route email correctly
   const sendEmailToProspect = async () => {
     if (!selectedProspect) return;
     
@@ -1432,41 +1435,47 @@ export default function App() {
     setEmailSendStatus('idle');
 
     try {
-      // Sprint 102: Try Railway first (doesn't require Firebase auth)
-      console.log(`[Email] Attempting Railway path → ${selectedProspect.email}`);
+      // Sprint 101: Check if Railway is available (feature flags + health)
+      const useRailway = await isRailwayAvailable();
       
-      const railwayResult = await sendEmailViaRailway({
-        to: selectedProspect.email,
-        toName: selectedProspect.name,
-        subject: `YardFlow for ${selectedProspect.company}`,
-        htmlBody: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          ${generatedMessage
-            .replace(/https:\/\/calendly\.com\/[^\s]+/g, url => `<a href="${url}" style="color: #2563eb; text-decoration: underline;">${url}</a>`)
-            .split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('')}
-        </div>`,
-        textBody: generatedMessage,
-        prospectId: selectedProspect.id,
-      });
+      if (useRailway) {
+        // Railway path - requires NextAuth session (future: auth bridge)
+        console.log(`[Email] Railway enabled, sending via Railway → ${selectedProspect.email}`);
+        
+        const railwayResult = await sendEmailViaRailway({
+          to: selectedProspect.email,
+          toName: selectedProspect.name,
+          subject: `YardFlow for ${selectedProspect.company}`,
+          htmlBody: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            ${generatedMessage
+              .replace(/https:\/\/calendly\.com\/[^\s]+/g, url => `<a href="${url}" style="color: #2563eb; text-decoration: underline;">${url}</a>`)
+              .split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('')}
+          </div>`,
+          textBody: generatedMessage,
+          prospectId: selectedProspect.id,
+        });
 
-      if (railwayResult.success) {
-        console.log('[Email] Railway send successful:', railwayResult.messageId);
-        setEmailSendStatus('success');
-        handleStatusUpdate('contacted');
-        setTimeout(() => setEmailSendStatus('idle'), 3000);
-        return;
+        if (railwayResult.success) {
+          console.log('[Email] Railway send successful:', railwayResult.messageId);
+          setEmailSendStatus('success');
+          handleStatusUpdate('contacted');
+          setTimeout(() => setEmailSendStatus('idle'), 3000);
+          return;
+        }
+        
+        // Railway failed - throw the error (no fallback when explicitly enabled)
+        throw new Error(railwayResult.error || 'Railway email failed');
       }
       
-      // Railway failed, try Vercel fallback
-      console.warn('[Email] Railway failed, trying Vercel fallback:', railwayResult.error);
+      // Vercel path - Firebase auth required
+      console.log(`[Email] Using Vercel SendGrid path → ${selectedProspect.email}`);
       
-      // Check if we have Firebase auth for Vercel fallback
       const authModule = await import('firebase/auth');
       const authInstance = authModule.getAuth();
       const user = authInstance?.currentUser;
       
       if (!user) {
-        // No Firebase auth available - show the Railway error
-        throw new Error(railwayResult.error || 'Email service unavailable. Please try again.');
+        throw new Error('Please sign in to send emails');
       }
 
       const token = await user.getIdToken();
@@ -2172,8 +2181,12 @@ export default function App() {
                   onPeriodChange={setDashboardPeriod}
                   onCustomRangeChange={setDashboardCustomRange}
                 />
-                <div className="text-xs text-slate-500">
-                  {dashboardDateRange.start.toLocaleDateString()} - {dashboardDateRange.end.toLocaleDateString()}
+                <div className="flex items-center gap-4">
+                  {/* Sprint 101: Email Health Status */}
+                  <EmailHealthStatus compact />
+                  <div className="text-xs text-slate-500">
+                    {dashboardDateRange.start.toLocaleDateString()} - {dashboardDateRange.end.toLocaleDateString()}
+                  </div>
                 </div>
               </div>
               

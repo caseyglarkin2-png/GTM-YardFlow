@@ -380,5 +380,5 @@ async function updateEnrollmentState(
     });
   }
 
-  await db.collection('sequenceEnrollments').doc(enrollmentId).update(update as Record<string, unknown>);
+  await db.collection('sequenceEnrollments').doc(enrollmentId).update(update as unknown as Record<string, unknown>);
 }
