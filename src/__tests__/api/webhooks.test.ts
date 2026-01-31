@@ -283,7 +283,8 @@ describe('Inbound Email Webhook', () => {
 
   describe('Sequence Pause Behavior', () => {
     it('should identify active enrollment statuses', () => {
-      const activeStatuses = ['active', 'in_progress'];
+      // Only 'active' is queryable - 'in_progress' is not a valid EnrollmentStatus
+      const activeStatuses = ['active'];
       const pausedStatus = 'paused';
       
       expect(activeStatuses).not.toContain(pausedStatus);

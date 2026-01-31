@@ -151,9 +151,16 @@ async function updateEmailStats(emailId: string, event: SendGridWebhookEvent): P
 }
 
 async function addToSuppression(event: SendGridWebhookEvent): Promise<void> {
+  // Map SendGrid event types to suppression reasons
+  const reasonMap: Record<string, 'bounce' | 'spam' | 'unsubscribe'> = {
+    bounce: 'bounce',
+    spamreport: 'spam',  // SendGrid sends 'spamreport', we store as 'spam'
+    unsubscribe: 'unsubscribe',
+  };
+  
   const suppressionDoc = {
     email: event.email.toLowerCase(),
-    reason: event.event as 'bounce' | 'spam' | 'unsubscribe',
+    reason: reasonMap[event.event] || 'bounce',
     createdAt: Date.now(),
     source: 'sendgrid_webhook',
     

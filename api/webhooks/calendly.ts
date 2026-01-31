@@ -263,16 +263,16 @@ async function linkMeetingToProspect(email: string, meetingId: string): Promise<
  * We got what we wanted - stop the outreach!
  */
 async function pauseSequenceEnrollments(email: string, reason: string): Promise<void> {
-  const enrollments = await db.collection('sequence_enrollments')
+  const enrollments = await db.collection('sequenceEnrollments')
     .where('prospectEmail', '==', email)
-    .where('status', 'in', ['active', 'in_progress'])
+    .where('status', '==', 'active')
     .get();
 
   const batch = db.batch();
   
   for (const doc of enrollments.docs) {
     batch.update(doc.ref, {
-      status: 'completed',
+      status: 'meeting',  // North Star! Meeting booked = success
       completedAt: Date.now(),
       completionReason: reason,
       lastUpdated: Date.now(),

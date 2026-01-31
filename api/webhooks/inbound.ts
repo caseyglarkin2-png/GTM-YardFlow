@@ -217,7 +217,7 @@ async function pauseSequenceForEmail(emailId: string, senderEmail: string, reaso
   const enrollmentId = queueItem.data()?.enrollmentId;
 
   if (enrollmentId) {
-    await db.collection('sequence_enrollments').doc(enrollmentId).update({
+    await db.collection('sequenceEnrollments').doc(enrollmentId).update({
       status: 'paused',
       pausedAt: Date.now(),
       pauseReason: reason,
@@ -229,9 +229,9 @@ async function pauseSequenceForEmail(emailId: string, senderEmail: string, reaso
   }
 
   // Fallback: find by prospect email
-  const enrollments = await db.collection('sequence_enrollments')
+  const enrollments = await db.collection('sequenceEnrollments')
     .where('prospectEmail', '==', senderEmail)
-    .where('status', 'in', ['active', 'in_progress'])
+    .where('status', '==', 'active')
     .limit(1)
     .get();
 
