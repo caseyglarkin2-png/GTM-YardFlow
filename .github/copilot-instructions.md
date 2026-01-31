@@ -1,95 +1,107 @@
 # Copilot Instructions — GTM-YardFlow
 
-## 🎯 North Star
-**Maximize meetings booked per day via automated, tracked email sequences.**
-- We push Jake's Calendly link in outreach — no calendar integration needed.
-- Every feature must serve: enroll → send → track → book meetings.
+## 🎯 Purpose
+Sales automation platform: **enroll prospects → send tracked email sequences → book meetings**.
+Jake's Calendly link handles scheduling — no calendar integration needed.
 
-## Architecture (current state: 2026-01-31)
+## Architecture
 
-### Two Repos, One Platform
-| Repo | Platform | Purpose |
-|------|----------|---------|
-| **GTM-YardFlow** (this repo) | Vercel | React SPA + serverless APIs, Firebase Auth/Firestore |
-| **YardFlow-Hitlist** | Railway | Next.js backend, Postgres/Redis/SendGrid |
+### Two-Repo Platform
+| Repo | Platform | Role |
+|------|----------|------|
+| **GTM-YardFlow** (this) | Vercel | React SPA, Firebase Auth/Firestore, API proxy, webhooks |
+| **YardFlow-Hitlist** | Railway | Next.js backend, Postgres, Redis, SendGrid |
 
-### Integration Pattern
+### Data Flow
 ```
-Vercel SPA → api/railway/[...path].ts (proxy) → Railway Backend
-                    ↓
-            Bearer CRON_SECRET auth
-                    ↓
-            Railway /api/outreach/send-email
+User → Vercel SPA → api/railway/[...path].ts → Railway → SendGrid
+                                                             ↓
+                                              api/webhooks/* ← webhooks
+                                                             ↓
+                                                          Firestore
 ```
 
-### Email Flow
-1. User clicks "Send" in Vercel UI
-2. Request proxied to Railway via `api/railway/[...path].ts`
-3. Railway sends via SendGrid, updates Postgres
-4. Crons (`/api/cron/*`) process queues every 5 min
+## Critical Patterns
 
-## Key Files (This Repo)
+### Feature Flags (ALWAYS use these)
+```typescript
+import { shouldUseRailwayEmail } from '@/config/featureFlags';
+
+// ✅ Correct: use flag helpers
+if (shouldUseRailwayEmail()) { sendViaRailway(); }
+
+// ❌ Wrong: ad-hoc env checks
+if (import.meta.env.VITE_RAILWAY_ENABLED) { ... }
+```
+All flags: `src/config/featureFlags.ts` — controlled via `VITE_*` env vars.
+
+### Railway API Calls
+- **Browser → Railway**: Always through proxy `api/railway/[...path].ts`
+- **Server → Railway**: Use `lib/railway-client.ts` with S2S auth
+```typescript
+// In Vercel API route
+import { railwayServerClient } from '@/lib/railway-client';
+const data = await railwayServerClient.get('/api/prospects');
+```
+
+### Service Layer Organization
+| Domain | Service | Key Methods |
+|--------|---------|-------------|
+| Email | `RailwayEmailService.ts` | `sendEmailViaRailway()`, `isRailwayAvailable()` |
+| Sequences | `SequenceSchedulerService.ts` | Enrollment state machine |
+| Meetings | `MeetingAttributionService.ts` | Link Calendly → prospect → sequence |
+| Suppression | `SuppressionSyncService.ts` | Bounce/spam list sync |
+| Prospects | `FirestoreService.ts` | CRUD, queries |
+| Auth | `AuthBridge.ts` | Firebase ↔ Railway session bridge |
+
+### Email Sequence State Machine
+Enrollment states: `active` → `paused` | `completed` | `stopped`
+See `docs/ENROLLMENT_STATE_MACHINE.md` for transitions.
+
+## Key Files
 | Purpose | Location |
 |---------|----------|
 | Feature flags | `src/config/featureFlags.ts` |
-| Sequence scheduler | `src/services/SequenceSchedulerService.ts` |
-| Email queue | `src/services/EmailQueueService.ts` |
-| Railway email client | `src/services/RailwayEmailService.ts` |
-| Sequence manager UI | `src/components/SequenceManagerPanel.tsx` |
 | Railway proxy | `api/railway/[...path].ts` |
-| Cron: process queue | `api/cron/process-queue.ts` |
-| Cron: execute sequences | `api/cron/execute-sequences.ts` |
+| **Webhooks** | `api/webhooks/{sendgrid,inbound,calendly}.ts` |
+| Email tracking | `api/track/{open,click}.ts` |
+| S2S client | `lib/railway-client.ts` |
+| Email service | `src/services/RailwayEmailService.ts` |
+| Sequence UI | `src/components/SequenceManagerPanel.tsx` |
+| Types | `src/types/{email,emailEvents,emailSequence}.ts` |
+| Crons | `api/cron/{process-queue,execute-sequences}.ts` |
 
-## Railway Integration Rules
-- **All Railway calls** go through `api/railway/[...path].ts` proxy
-- **Use `shouldUseRailwayEmail()`** from `featureFlags.ts` — never ad-hoc checks
-- **Auth**: Proxy sends `Bearer CRON_SECRET` header; Railway accepts both this AND NextAuth sessions
-- **Credentials**: `casey@freightroll.com` / `FreightRoll2026!`
-- **Health check**: `https://yardflow-hitlist-production-2f41.up.railway.app/api/health`
+### Webhook Handlers (`api/webhooks/`)
+| Endpoint | Events | Purpose |
+|----------|--------|---------|
+| `sendgrid.ts` | delivered, open, click, bounce, spam | Email tracking + suppression |
+| `inbound.ts` | Inbound Parse | Reply detection, pause sequences |
+| `calendly.ts` | invitee.created/canceled | **Meeting attribution (North Star!)** |
 
-## Unification Status (2026-01-31)
-
-### ✅ Complete in GTM-YardFlow (Vercel)
-- Railway proxy with CRON_SECRET fallback auth
-- Feature flags for Railway email routing
-- Sequences tab in UI navigation
-- Service auth documentation
-
-### ⏳ Pending in YardFlow-Hitlist (Railway)
-- Remove `COPY prisma.config.ts` from both Dockerfiles
-- Set Root Directory = `eventops` for YardFlow-Worker service
-- Apply service auth changes to `send-email/route.ts` (see `docs/RAILWAY_SERVICE_AUTH_CHANGE.md`)
-- Fix `campaigns/route.ts` line 102: `session.user.id` → `authResult.userId`
-
-### 🔴 Blocking Issue
-Railway builds keep failing (~20 failures). Production is running OLD code from 4+ hours ago.
-Root cause: Dockerfile COPY commands reference files that don't exist.
-
-## What NOT to Build
-- ❌ Calendar/scheduling integration — we use Calendly links
-- ❌ Complex CRM sync — Firestore is our CRM
-- ❌ Over-engineered analytics — focus on send/reply/bounce metrics
-
-## Developer Workflows
+## Developer Workflow
 ```bash
-npm run dev          # Dev server
-npm run build        # Typecheck + bundle
-npm test             # Vitest unit tests
-npm run test:e2e     # Playwright E2E
-npm run verify:railway  # Railway health check
+npm run dev           # Vite dev server
+npm run build         # tsc + vite build (fails on type errors)
+npm test              # Vitest (watch mode)
+npm run test:e2e      # Playwright
+npm run verify:railway # Health check Railway backend
 ```
 
-## Environment Variables (Vercel Dashboard)
-| Flag | Purpose | Required Value |
-|------|---------|----------------|
-| `VITE_RAILWAY_ENABLED` | Master Railway toggle | `true` |
-| `VITE_RAILWAY_EMAIL_ENABLED` | Route email via Railway | `true` |
-| `RAILWAY_API_URL` | Railway backend URL | `https://yardflow-hitlist-production-2f41.up.railway.app` |
-| `RAILWAY_API_SECRET` | Proxy auth (or use CRON_SECRET) | Same as Railway's CRON_SECRET |
-| `SERVICE_TO_SERVICE_SECRET` | S2S auth (lib/railway-client) | Same as Railway's CRON_SECRET |
+## Environment Variables (Vercel)
+| Variable | Purpose |
+|----------|---------|
+| `VITE_RAILWAY_ENABLED` | Master Railway toggle |
+| `VITE_RAILWAY_EMAIL_ENABLED` | Route email via Railway |
+| `RAILWAY_API_URL` | Railway backend URL |
+| `SERVICE_TO_SERVICE_SECRET` | S2S auth (same as Railway's CRON_SECRET) |
+
+## What NOT to Build
+- ❌ Calendar integration — Calendly handles this
+- ❌ Complex CRM sync — Firestore is the CRM
+- ❌ Over-engineered analytics — track send/reply/bounce only
 
 ## Cross-Repo Coordination
-When making changes that affect both repos:
-1. Check `docs/RAILWAY_SERVICE_AUTH_CHANGE.md` for pending Railway changes
-2. Sync `CRON_SECRET` between Vercel and Railway env vars
-3. Test via Railway health endpoint before enabling features
+1. **API Contract**: `docs/api/RAILWAY_CONTRACT.md` — paths, auth, webhooks
+2. Pending Railway changes: `docs/RAILWAY_SERVICE_AUTH_CHANGE.md`
+3. Architecture overview: `docs/PLATFORM_ARCHITECTURE.md`
+4. Ensure `CRON_SECRET` matches between Vercel and Railway
