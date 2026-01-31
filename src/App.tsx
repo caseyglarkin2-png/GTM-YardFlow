@@ -174,6 +174,13 @@ import { recordMeeting, getMeetingStats } from './services/MeetingAttributionSer
 // --- Sprint 101: Email Health Status ---
 import { EmailHealthStatus } from './components/EmailHealthStatus';
 
+// --- Sprint 2-4: Analytics & Sequence Components ---
+import { WarmupDashboard } from './components/WarmupDashboard';
+import { TimeHeatmap } from './components/TimeHeatmap';
+import { SequenceComparison } from './components/analytics/SequenceComparison';
+import { SequenceBuilder } from './components/SequenceBuilder';
+import { MeetingsKPICard } from './components/MeetingsKPICard';
+
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
 const activityTracker = getActivityTracker();
@@ -347,6 +354,8 @@ export default function App() {
   const [meetingDate, setMeetingDate] = useState('');
   const [meetingNotes, setMeetingNotes] = useState('');
   const [isBookingMeeting, setIsBookingMeeting] = useState(false);
+  // Sprint 3.1: Sequence Builder modal
+  const [showSequenceBuilder, setShowSequenceBuilder] = useState(false);
   // Sprint 84.3: Meeting stats for dashboard
   const [meetingStats, setMeetingStats] = useState<{ thisWeek: number; lastWeek: number; total: number }>({ thisWeek: 0, lastWeek: 0, total: 0 });
   // Hitlist date filter (Sprint 35 - T35.4)
@@ -2245,6 +2254,28 @@ export default function App() {
                 </div>
               )}
 
+              {/* Sprint 2-4: Email Warmup & Analytics Section */}
+              {!dashboard.isLoading && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Warmup Dashboard (T2.4) */}
+                  <WarmupDashboard className="lg:col-span-1" />
+                  
+                  {/* Meetings KPI Card (T1.4) */}
+                  <MeetingsKPICard className="lg:col-span-1" />
+                </div>
+              )}
+
+              {/* Sprint 4: Time Analysis & Sequence Comparison */}
+              {!dashboard.isLoading && (
+                <div className="space-y-4">
+                  {/* Time Heatmap (T4.3) */}
+                  <TimeHeatmap title="Email Send Time Performance" />
+                  
+                  {/* Sequence Comparison (T4.4) */}
+                  <SequenceComparison showRecommendations={true} />
+                </div>
+              )}
+
               {/* Sprint 84.4: Sequence Performance Report */}
               {!dashboard.isLoading && (
                 <SequencePerformancePanel />
@@ -2347,21 +2378,51 @@ export default function App() {
               </LoadingOverlay>
             </div>
           ) : activeTab === 'sequences' ? (
-            <div id="panel-sequences" role="tabpanel" aria-labelledby="tab-sequences" className="h-full">
-              <SequenceManagerPanel 
-                onProspectClick={(prospectId) => {
-                  const prospect = prospects.find(p => p.id === prospectId);
-                  if (prospect) {
-                    setSelectedProspect(prospect);
-                    setActiveTab('prospects');
-                  }
-                }}
-                showToast={(type, title, message) => {
-                  if (type === 'success') showSuccess(title, message);
-                  else if (type === 'error') showError(title, message);
-                  else showInfo(title, message);
-                }}
-              />
+            <div id="panel-sequences" role="tabpanel" aria-labelledby="tab-sequences" className="h-full flex flex-col">
+              {/* Sequence Builder Modal State */}
+              {showSequenceBuilder ? (
+                <div className="flex-1 overflow-hidden">
+                  <SequenceBuilder
+                    onSave={(sequence) => {
+                      showSuccess('Sequence Created', `"${sequence.name}" has been saved`);
+                      setShowSequenceBuilder(false);
+                      refreshSequences();
+                    }}
+                    onCancel={() => setShowSequenceBuilder(false)}
+                  />
+                </div>
+              ) : (
+                <>
+                  {/* Create Sequence Button */}
+                  <div className="p-4 border-b border-slate-200 bg-white">
+                    <button
+                      onClick={() => setShowSequenceBuilder(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Mail className="w-4 h-4" />
+                      Create New Sequence
+                    </button>
+                  </div>
+                  
+                  {/* Enrollment Manager */}
+                  <div className="flex-1 overflow-auto">
+                    <SequenceManagerPanel 
+                      onProspectClick={(prospectId) => {
+                        const prospect = prospects.find(p => p.id === prospectId);
+                        if (prospect) {
+                          setSelectedProspect(prospect);
+                          setActiveTab('prospects');
+                        }
+                      }}
+                      showToast={(type, title, message) => {
+                        if (type === 'success') showSuccess(title, message);
+                        else if (type === 'error') showError(title, message);
+                        else showInfo(title, message);
+                      }}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           ) : activeTab === 'import' ? (
             <ImportTab onOpenImportWizard={() => setShowImportWizard(true)} />
