@@ -152,6 +152,9 @@ const ALLOWED_PATHS = [
   // NEW: Auth (Sprint 97)
   '/api/auth',
   '/api/users',
+  // NEW: Dashboards (Frontend Integration)
+  '/api/dashboards',
+  '/api/campaigns',
 ];
 
 function isPathAllowed(path: string): boolean {
@@ -305,7 +308,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       headers['X-Railway-Secret'] = RAILWAY_API_SECRET;
       // Also send as Authorization Bearer for endpoints that accept it
       headers['Authorization'] = `Bearer ${RAILWAY_API_SECRET}`;
+      // x-service-key header (new S2S auth pattern)
+      headers['x-service-key'] = RAILWAY_API_SECRET;
     }
+    
+    // Add source identification for request tracing
+    headers['x-source'] = 'gtm-yardflow-proxy';
+    headers['x-user-id'] = headers['X-Firebase-UID'] || 'service:gtm-frontend';
 
     // Forward the request with timeout signal
     const fetchOptions: RequestInit = {

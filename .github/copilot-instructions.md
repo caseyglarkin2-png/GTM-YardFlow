@@ -86,6 +86,7 @@ npm run verify:railway  # Railway health check
 | `VITE_RAILWAY_EMAIL_ENABLED` | Route email via Railway | `true` |
 | `RAILWAY_API_URL` | Railway backend URL | `https://yardflow-hitlist-production-2f41.up.railway.app` |
 | `RAILWAY_API_SECRET` | Proxy auth (or use CRON_SECRET) | Same as Railway's CRON_SECRET |
+| `SERVICE_TO_SERVICE_SECRET` | S2S auth (lib/railway-client) | Same as Railway's CRON_SECRET |
 
 ## Cross-Repo Coordination
 When making changes that affect both repos:
