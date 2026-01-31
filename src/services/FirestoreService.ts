@@ -73,6 +73,19 @@ export interface WriteResult {
 }
 
 /**
+ * Paginated result for cursor-based pagination
+ */
+export interface PaginatedResult<T> {
+  data: T[];
+  pagination: {
+    hasMore: boolean;
+    nextCursor: string | null;
+    prevCursor: string | null;
+    total?: number; // Optional total count (expensive for large collections)
+  };
+}
+
+/**
  * Batch result
  */
 export interface BatchResult {
@@ -485,6 +498,82 @@ export function createFirestoreService(config: FirestoreServiceConfig) {
     return results;
   }
 
+  /**
+   * Paginated query with cursor-based navigation
+   * @param collection - The collection to query
+   * @param options - Query options including limit for page size
+   * @param cursor - Optional cursor (encoded doc ID) for pagination
+   * @returns Paginated result with data and pagination metadata
+   */
+  async function queryPaginated<T extends { id: string }>(
+    collection: string,
+    options: QueryOptions = {},
+    cursor?: string | null
+  ): Promise<PaginatedResult<T>> {
+    const pageSize = options.limit || 25;
+    
+    // Get all results (with filters and ordering applied)
+    let allResults = getAllFromCache<T>(collection);
+    
+    // Apply filters
+    if (options.filters) {
+      for (const filter of options.filters) {
+        allResults = allResults.filter((doc) => {
+          const value = (doc as Record<string, unknown>)[filter.field];
+          return applyOperator(value, filter.operator, filter.value);
+        });
+      }
+    }
+    
+    // Apply ordering
+    if (options.orderBy && options.orderBy.length > 0) {
+      allResults.sort((a, b) => {
+        for (const order of options.orderBy!) {
+          const aVal = (a as Record<string, unknown>)[order.field];
+          const bVal = (b as Record<string, unknown>)[order.field];
+          const cmp = compareValues(aVal, bVal);
+          if (cmp !== 0) {
+            return order.direction === 'desc' ? -cmp : cmp;
+          }
+        }
+        return 0;
+      });
+    }
+    
+    const total = allResults.length;
+    
+    // Find cursor position
+    let startIndex = 0;
+    if (cursor) {
+      const decodedCursor = atob(cursor);
+      const cursorIndex = allResults.findIndex((doc) => doc.id === decodedCursor);
+      if (cursorIndex >= 0) {
+        startIndex = cursorIndex + 1; // Start after the cursor
+      }
+    }
+    
+    // Slice for current page (fetch one extra to check hasMore)
+    const pageResults = allResults.slice(startIndex, startIndex + pageSize + 1);
+    const hasMore = pageResults.length > pageSize;
+    
+    // Remove the extra item if present
+    const data = hasMore ? pageResults.slice(0, pageSize) : pageResults;
+    
+    // Calculate cursors
+    const lastItem = data[data.length - 1];
+    const firstItem = data[0];
+    
+    return {
+      data,
+      pagination: {
+        hasMore,
+        nextCursor: hasMore && lastItem ? btoa(lastItem.id) : null,
+        prevCursor: startIndex > 0 && firstItem ? btoa(allResults[startIndex - 1]?.id || '') : null,
+        total,
+      },
+    };
+  }
+
   function applyOperator(docValue: unknown, operator: QueryOperator, filterValue: unknown): boolean {
     switch (operator) {
       case '==':
@@ -699,6 +788,19 @@ export function createFirestoreService(config: FirestoreServiceConfig) {
     return query<Prospect>('prospects', options);
   }
 
+  /**
+   * Get paginated prospects with cursor-based navigation
+   * @param options - Query options (filters, orderBy, limit as page size)
+   * @param cursor - Optional cursor for pagination (from previous result)
+   * @returns Paginated prospects with navigation metadata
+   */
+  async function getPaginatedProspects(
+    options?: QueryOptions,
+    cursor?: string | null
+  ): Promise<PaginatedResult<Prospect>> {
+    return queryPaginated<Prospect>('prospects', options || {}, cursor);
+  }
+
   async function getProspect(id: string): Promise<Prospect | null> {
     return read<Prospect>('prospects', id);
   }
@@ -777,6 +879,7 @@ export function createFirestoreService(config: FirestoreServiceConfig) {
     update,
     remove,
     query,
+    queryPaginated,
     batch,
     
     // Subscriptions
@@ -785,6 +888,7 @@ export function createFirestoreService(config: FirestoreServiceConfig) {
     
     // Prospect operations
     getProspects,
+    getPaginatedProspects,
     getProspect,
     createProspect,
     updateProspect,

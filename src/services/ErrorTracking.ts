@@ -119,12 +119,173 @@ export function setUserContext(user: UserContext | null): void {
 // Error Tracking
 // =============================================================================
 
+/**
+ * Error domains for classification
+ */
+export type ErrorDomain = 
+  | 'email'        // Email sending, tracking, sequences
+  | 'auth'         // Authentication, session management
+  | 'railway'      // Railway API communication
+  | 'database'     // Firestore operations
+  | 'meeting'      // Calendly, meeting attribution
+  | 'webhook'      // Webhook processing
+  | 'general';     // Uncategorized
+
+/**
+ * Error severity levels
+ */
+export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+/**
+ * Domain-specific error context
+ */
+export interface DomainErrorContext {
+  domain: ErrorDomain;
+  severity?: ErrorSeverity;
+  prospectId?: string;
+  enrollmentId?: string;
+  emailId?: string;
+  webhookType?: string;
+  endpoint?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Determine error severity based on domain and error type
+ */
+function classifyErrorSeverity(domain: ErrorDomain, error: Error): ErrorSeverity {
+  const errorMessage = error.message.toLowerCase();
+  
+  // Critical: Payment, auth failures, data corruption
+  if (errorMessage.includes('unauthorized') || 
+      errorMessage.includes('forbidden') ||
+      errorMessage.includes('data corruption')) {
+    return 'critical';
+  }
+  
+  // High: Email delivery failures, webhook processing errors
+  if (domain === 'email' && errorMessage.includes('delivery failed')) {
+    return 'high';
+  }
+  if (domain === 'webhook' && errorMessage.includes('signature')) {
+    return 'high';
+  }
+  
+  // Medium: API timeouts, rate limits
+  if (errorMessage.includes('timeout') || 
+      errorMessage.includes('rate limit') ||
+      errorMessage.includes('429')) {
+    return 'medium';
+  }
+  
+  // Default to low for other errors
+  return 'low';
+}
+
 export function captureError(
   error: Error,
   context?: Record<string, unknown>
 ): string {
   return Sentry.captureException(error, {
     extra: context,
+  });
+}
+
+/**
+ * Capture error with domain-specific context and classification
+ */
+export function captureDomainError(
+  error: Error,
+  context: DomainErrorContext
+): string {
+  const severity = context.severity || classifyErrorSeverity(context.domain, error);
+  
+  // Set domain and severity tags
+  Sentry.withScope((scope) => {
+    scope.setTag('error.domain', context.domain);
+    scope.setTag('error.severity', severity);
+    
+    // Set level based on severity
+    scope.setLevel(severity === 'critical' ? 'fatal' : 
+                   severity === 'high' ? 'error' : 
+                   severity === 'medium' ? 'warning' : 'info');
+    
+    // Add all context as extra data
+    Object.entries(context).forEach(([key, value]) => {
+      if (key !== 'domain' && key !== 'severity') {
+        scope.setExtra(key, value);
+      }
+    });
+  });
+  
+  // Add breadcrumb for context
+  Sentry.addBreadcrumb({
+    category: `domain-error.${context.domain}`,
+    message: error.message,
+    level: severity === 'critical' || severity === 'high' ? 'error' : 'warning',
+    data: context,
+  });
+  
+  return Sentry.captureException(error, {
+    extra: context,
+    tags: {
+      domain: context.domain,
+      severity,
+    },
+  });
+}
+
+/**
+ * Capture email-related errors with proper context
+ */
+export function captureEmailError(
+  error: Error,
+  context: {
+    prospectId?: string;
+    enrollmentId?: string;
+    emailId?: string;
+    stepNumber?: number;
+    action?: 'send' | 'track' | 'bounce' | 'reply';
+  }
+): string {
+  return captureDomainError(error, {
+    domain: 'email',
+    ...context,
+  });
+}
+
+/**
+ * Capture meeting/scheduling errors
+ */
+export function captureMeetingError(
+  error: Error,
+  context: {
+    prospectId?: string;
+    calendlyEventId?: string;
+    action?: 'create' | 'cancel' | 'reschedule' | 'attribution';
+  }
+): string {
+  return captureDomainError(error, {
+    domain: 'meeting',
+    ...context,
+  });
+}
+
+/**
+ * Capture webhook processing errors
+ */
+export function captureWebhookError(
+  error: Error,
+  context: {
+    webhookType: 'sendgrid' | 'calendly' | 'inbound';
+    eventType?: string;
+    signatureValid?: boolean;
+  }
+): string {
+  return captureDomainError(error, {
+    domain: 'webhook',
+    severity: context.signatureValid === false ? 'high' : undefined,
+    ...context,
   });
 }
 
@@ -228,6 +389,10 @@ export default {
   init: initErrorTracking,
   setUser: setUserContext,
   captureError,
+  captureDomainError,
+  captureEmailError,
+  captureMeetingError,
+  captureWebhookError,
   captureMessage,
   trackEvent,
   trackRailwayCall,

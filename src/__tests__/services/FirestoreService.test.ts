@@ -677,6 +677,81 @@ describe('FirestoreService', () => {
     });
   });
 
+  describe('Paginated Queries', () => {
+    beforeEach(async () => {
+      // Create test data
+      for (let i = 1; i <= 10; i++) {
+        await service.create('prospects', {
+          id: `prospect-${i.toString().padStart(2, '0')}`,
+          name: `Prospect ${i}`,
+          email: `prospect${i}@test.com`,
+          score: i * 10,
+        });
+      }
+    });
+
+    it('returns first page with pagination metadata', async () => {
+      const result = await service.getPaginatedProspects({ limit: 3 });
+      
+      expect(result.data.length).toBe(3);
+      expect(result.pagination.hasMore).toBe(true);
+      expect(result.pagination.nextCursor).toBeDefined();
+      expect(result.pagination.prevCursor).toBeNull();
+      expect(result.pagination.total).toBe(10);
+    });
+
+    it('returns subsequent pages using cursor', async () => {
+      const firstPage = await service.getPaginatedProspects({ limit: 3 });
+      const secondPage = await service.getPaginatedProspects(
+        { limit: 3 },
+        firstPage.pagination.nextCursor
+      );
+      
+      expect(secondPage.data.length).toBe(3);
+      expect(secondPage.pagination.hasMore).toBe(true);
+      expect(secondPage.pagination.prevCursor).toBeDefined();
+      
+      // Data should not overlap
+      const firstIds = firstPage.data.map(p => p.id);
+      const secondIds = secondPage.data.map(p => p.id);
+      expect(firstIds.some(id => secondIds.includes(id))).toBe(false);
+    });
+
+    it('returns last page with hasMore=false', async () => {
+      const firstPage = await service.getPaginatedProspects({ limit: 8 });
+      const lastPage = await service.getPaginatedProspects(
+        { limit: 8 },
+        firstPage.pagination.nextCursor
+      );
+      
+      expect(lastPage.data.length).toBe(2); // Only 2 remaining
+      expect(lastPage.pagination.hasMore).toBe(false);
+      expect(lastPage.pagination.nextCursor).toBeNull();
+    });
+
+    it('applies filters with pagination', async () => {
+      const result = await service.getPaginatedProspects({
+        filters: [{ field: 'score', operator: '>=', value: 50 }],
+        limit: 3,
+      });
+      
+      expect(result.data.length).toBe(3);
+      expect(result.pagination.total).toBe(6); // Prospects 5-10 have score >= 50
+      expect(result.data.every(p => (p as unknown as { score: number }).score >= 50)).toBe(true);
+    });
+
+    it('returns empty result for invalid cursor gracefully', async () => {
+      const result = await service.getPaginatedProspects(
+        { limit: 3 },
+        btoa('non-existent-id')
+      );
+      
+      // Should return from beginning since cursor not found
+      expect(result.data.length).toBe(3);
+      expect(result.pagination.prevCursor).toBeNull();
+    });
+  });
+
   describe('Tenant Operations', () => {
     it('updates tenant', async () => {
       // Pre-populate tenant in cache

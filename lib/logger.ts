@@ -246,6 +246,125 @@ export function createLogger(endpoint: string): Logger {
 }
 
 /**
+ * Request metadata for structured logging
+ */
+export interface RequestLogData {
+  method: string;
+  path: string;
+  query?: Record<string, string>;
+  headers?: Record<string, string>;
+  userAgent?: string;
+  ip?: string;
+  contentLength?: number;
+}
+
+/**
+ * Response metadata for structured logging
+ */
+export interface ResponseLogData {
+  status: number;
+  durationMs: number;
+  contentLength?: number;
+  error?: string;
+}
+
+/**
+ * Log incoming API request
+ */
+export function logRequest(
+  logger: Logger,
+  request: RequestLogData,
+  requestId: string
+): void {
+  const sanitizedHeaders = request.headers 
+    ? sanitizeObject(request.headers as Record<string, unknown>) as Record<string, string>
+    : undefined;
+    
+  logger.withRequestId(requestId).info('Request received', {
+    method: request.method,
+    path: request.path,
+    query: request.query,
+    headers: sanitizedHeaders,
+    userAgent: request.userAgent,
+    ip: request.ip,
+    contentLength: request.contentLength,
+  });
+}
+
+/**
+ * Log API response
+ */
+export function logResponse(
+  logger: Logger,
+  response: ResponseLogData,
+  requestId: string
+): void {
+  const level = response.status >= 500 ? 'error' 
+              : response.status >= 400 ? 'warn' 
+              : 'info';
+  
+  const childLogger = logger.withRequestId(requestId);
+  
+  if (level === 'error') {
+    childLogger.error('Request failed', undefined, {
+      status: response.status,
+      durationMs: response.durationMs,
+      error: response.error,
+    });
+  } else if (level === 'warn') {
+    childLogger.warn('Request error', {
+      status: response.status,
+      durationMs: response.durationMs,
+      error: response.error,
+    });
+  } else {
+    childLogger.info('Request completed', {
+      status: response.status,
+      durationMs: response.durationMs,
+      contentLength: response.contentLength,
+    });
+  }
+}
+
+/**
+ * Generate a unique request ID
+ */
+export function generateRequestId(): string {
+  return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * Create a request logger that tracks timing automatically
+ */
+export function createRequestLogger(endpoint: string): {
+  logger: Logger;
+  requestId: string;
+  startTime: number;
+  logStart: (request: RequestLogData) => void;
+  logEnd: (status: number, error?: string) => void;
+} {
+  const logger = createLogger(endpoint);
+  const requestId = generateRequestId();
+  const startTime = Date.now();
+  
+  return {
+    logger,
+    requestId,
+    startTime,
+    logStart: (request: RequestLogData) => {
+      logRequest(logger, request, requestId);
+    },
+    logEnd: (status: number, error?: string) => {
+      logResponse(logger, {
+        status,
+        durationMs: Date.now() - startTime,
+        error,
+      }, requestId);
+    },
+  };
+}
+
+/**
  * Default logger instance (for quick usage)
  */
 export const logger = new Logger();
