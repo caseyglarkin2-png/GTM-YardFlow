@@ -2,15 +2,17 @@
  * EmailQueueStatus Component
  * 
  * Sprint 95: T95.5 - Email Queue Status UI
+ * Sprint 2: T2.1 - Enhanced with bounce/retry rates
  * 
  * Visual indicator showing email queue health:
  * - Pending count
  * - Processing rate
  * - Health status (healthy/degraded/critical)
+ * - Bounce rate and retry statistics
  */
 
 import { useEmailQueueHealth } from '@/hooks/useEmailQueueHealth';
-import { RefreshCw, AlertCircle, Clock, Mail } from 'lucide-react';
+import { RefreshCw, AlertCircle, Clock, Mail, Ban, RotateCcw, CheckCircle } from 'lucide-react';
 
 interface EmailQueueStatusProps {
   /** Compact mode for toolbar/header usage */
@@ -100,12 +102,61 @@ export function EmailQueueStatus({
               </div>
             </>
           )}
+
+          {/* Bounced count (only if > 0) */}
+          {data.bounced > 0 && (
+            <>
+              <span className="text-slate-300">•</span>
+              <div
+                className="flex items-center gap-1 text-orange-600"
+                title={`Bounced emails (${data.bounceRate}% bounce rate)`}
+              >
+                <Ban className="w-3.5 h-3.5" />
+                <span className="font-medium">{data.bounced}</span>
+                <span>bounced</span>
+                {data.bounceRate > 0 && (
+                  <span className="text-xs text-orange-500">({data.bounceRate}%)</span>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Retrying count (only if > 0) */}
+          {data.retrying > 0 && (
+            <>
+              <span className="text-slate-300">•</span>
+              <div
+                className="flex items-center gap-1 text-blue-600"
+                title={`Emails being retried (${data.retryRate}% retry rate)`}
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="font-medium">{data.retrying}</span>
+                <span>retrying</span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Processing rate (if available) */}
         {data.processingRate > 0 && (
           <div className="text-xs text-slate-500 mt-1">
             Processing ~{Math.round(data.processingRate)} emails/min
+          </div>
+        )}
+
+        {/* Bounce rate warning (if > 2%) */}
+        {data.bounceRate > 2 && (
+          <div className="text-xs text-orange-600 mt-1 flex items-center gap-1">
+            <Ban className="w-3 h-3" />
+            High bounce rate: {data.bounceRate}% - check email list quality
+          </div>
+        )}
+
+        {/* Good delivery status */}
+        {data.sentToday > 0 && data.bounceRate <= 2 && data.failed === 0 && (
+          <div className="text-xs text-green-600 mt-1 flex items-center gap-1">
+            <CheckCircle className="w-3 h-3" />
+            Healthy delivery rate
           </div>
         )}
 

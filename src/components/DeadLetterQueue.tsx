@@ -2,8 +2,9 @@
  * DeadLetterQueue Component
  * 
  * Sprint 95: T95.6 - Dead Letter Queue UI
+ * Sprint 2: T2.3 - Enhanced with bulk actions (Retry All, Delete All)
  * 
- * Shows failed emails with retry capability.
+ * Shows failed emails with retry and discard capability.
  */
 
 import { useDeadLetterQueue } from '@/hooks/useDeadLetterQueue';
@@ -16,6 +17,7 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -37,14 +39,17 @@ export function DeadLetterQueue({
     failedEmails,
     isLoading,
     isRetrying,
+    isDiscarding,
     retryEmail,
     retryAll,
     discardEmail,
+    discardAll,
     refresh,
   } = useDeadLetterQueue();
 
   const [isExpanded, setIsExpanded] = useState(!collapsed);
   const [showAll, setShowAll] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // No failed emails - show success state
   if (failedEmails.length === 0 && !isLoading) {
@@ -79,16 +84,32 @@ export function DeadLetterQueue({
         </div>
         <div className="flex items-center gap-2">
           {isExpanded && failedEmails.length > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                retryAll();
-              }}
-              disabled={isRetrying}
-              className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 transition-colors"
-            >
-              {isRetrying ? 'Retrying...' : 'Retry All'}
-            </button>
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  retryAll();
+                }}
+                disabled={isRetrying || isDiscarding}
+                className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-1"
+                title="Retry all failed emails"
+              >
+                <RotateCcw className="w-3 h-3" />
+                {isRetrying ? 'Retrying...' : 'Retry All'}
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDeleteConfirm(true);
+                }}
+                disabled={isRetrying || isDiscarding}
+                className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center gap-1"
+                title="Delete all failed emails"
+              >
+                <Trash2 className="w-3 h-3" />
+                {isDiscarding ? 'Deleting...' : 'Delete All'}
+              </button>
+            </>
           )}
           {isExpanded ? (
             <ChevronUp className="w-4 h-4 text-red-400" />
@@ -97,6 +118,41 @@ export function DeadLetterQueue({
           )}
         </div>
       </button>
+
+      {/* Delete All Confirmation */}
+      {showDeleteConfirm && (
+        <div className="p-3 bg-yellow-50 border-b border-yellow-200">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-yellow-800">
+                Delete all {failedEmails.length} failed emails?
+              </p>
+              <p className="text-xs text-yellow-600 mt-1">
+                This action cannot be undone. These emails will be permanently removed.
+              </p>
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    discardAll();
+                    setShowDeleteConfirm(false);
+                  }}
+                  disabled={isDiscarding}
+                  className="text-xs px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                >
+                  Yes, Delete All
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="text-xs px-3 py-1.5 bg-slate-200 text-slate-700 rounded hover:bg-slate-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Email list */}
       {isExpanded && (
@@ -149,7 +205,7 @@ export function DeadLetterQueue({
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
                         onClick={() => retryEmail(email.id)}
-                        disabled={isRetrying}
+                        disabled={isRetrying || isDiscarding}
                         className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
                         title="Retry sending"
                       >
@@ -157,7 +213,8 @@ export function DeadLetterQueue({
                       </button>
                       <button
                         onClick={() => discardEmail(email.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        disabled={isRetrying || isDiscarding}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
                         title="Discard"
                       >
                         <Trash2 className="w-4 h-4" />

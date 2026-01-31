@@ -520,6 +520,16 @@ class RailwayApiClient {
       retryAll: async (): Promise<RailwayApiResult<{ retried: number }>> => {
         return this.post('/email/queue/retry-all');
       },
+
+      /** Sprint 2: T2.3 - Discard a single dead letter item */
+      discard: async (jobId: string): Promise<RailwayApiResult<void>> => {
+        return this.delete(`/email/queue/dead-letter/${jobId}`);
+      },
+
+      /** Sprint 2: T2.3 - Discard all dead letter items */
+      discardAll: async (): Promise<RailwayApiResult<{ discarded: number }>> => {
+        return this.delete('/email/queue/dead-letter');
+      },
     },
   };
 

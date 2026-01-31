@@ -1,10 +1,35 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAdminDb } from '../../lib/firebaseAdmin';
+import { 
+  OutOfOfficeDetector, 
+  type OOODetectionResult,
+  type OOOScheduleAction 
+} from '../../src/services/OutOfOfficeDetector';
+import { 
+  SequenceStateMachine, 
+  type TransitionTrigger 
+} from '../../src/services/SequenceStateMachine';
 
 const db = getAdminDb();
+const oooDetector = new OutOfOfficeDetector();
+const stateMachine = new SequenceStateMachine();
 
 const INBOUND_COLLECTION = 'email_replies';
 const EMAIL_EVENTS_COLLECTION = 'email_events';
+
+/**
+ * Reply Classification
+ */
+type ReplyType = 'human_reply' | 'out_of_office' | 'unsubscribe' | 'bounce';
+
+interface ClassifiedReply {
+  type: ReplyType;
+  oooDetection?: OOODetectionResult;
+  oooAction?: OOOScheduleAction;
+  shouldPauseSequence: boolean;
+  pauseTrigger?: TransitionTrigger;
+  resumeAt?: Date;
+}
 
 /**
  * SendGrid Inbound Parse Webhook
@@ -56,7 +81,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       return;
     }
 
-    // Store the reply
+    // Classify the reply (human, OOO, unsubscribe, etc.)
+    const classification = classifyReply(subject || '', text || '');
+
+    // Store the reply with classification
     const replyDoc = {
       id: `reply_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       from: senderEmail,
@@ -71,6 +99,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       originalEmailId,
       linkedToOutreach: !!originalEmailId,
       
+      // Classification
+      replyType: classification.type,
+      isOOO: classification.type === 'out_of_office',
+      oooConfidence: classification.oooDetection?.confidence,
+      oooReturnDate: classification.resumeAt?.toISOString(),
+      
       // Processing status
       processed: false,
       sequencePaused: false,
@@ -80,25 +114,72 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
     await db.collection(INBOUND_COLLECTION).doc(replyDoc.id).set(replyDoc);
 
-    // If we found the original email, update its status and pause sequence
+    // Handle based on classification
     if (originalEmailId) {
-      await handleReplyToOutreach(originalEmailId, senderEmail, replyDoc.id);
-    }
-
-    // Also try to find by sender email address (fuzzy matching)
-    if (!originalEmailId) {
-      await tryFuzzyMatchAndPause(senderEmail, replyDoc.id);
+      await handleReplyToOutreach(
+        originalEmailId, 
+        senderEmail, 
+        replyDoc.id, 
+        classification
+      );
+    } else {
+      // Try fuzzy matching
+      await tryFuzzyMatchAndPause(senderEmail, replyDoc.id, classification);
     }
 
     res.status(200).json({ 
       success: true, 
       replyId: replyDoc.id,
+      classification: classification.type,
+      isOOO: classification.type === 'out_of_office',
+      resumeAt: classification.resumeAt?.toISOString(),
       linkedToOriginal: !!originalEmailId,
     });
   } catch (error) {
     console.error('[Inbound Webhook] Error processing reply:', error);
     res.status(500).json({ error: 'Failed to process inbound email' });
   }
+}
+
+/**
+ * Classify the inbound reply
+ * 
+ * Determines if the reply is:
+ * - A human reply (triggers sequence pause/stop)
+ * - An out-of-office auto-reply (triggers temporary pause with resume date)
+ * - An unsubscribe request (triggers unsubscribe)
+ */
+function classifyReply(subject: string, body: string): ClassifiedReply {
+  // Check for OOO first
+  const oooDetection = oooDetector.detect(subject, body);
+  
+  if (oooDetection.isOOO) {
+    const oooAction = oooDetector.getScheduleAction(oooDetection);
+    return {
+      type: 'out_of_office',
+      oooDetection,
+      oooAction,
+      shouldPauseSequence: true,
+      pauseTrigger: 'ooo_detected',
+      resumeAt: oooAction.resumeAt,
+    };
+  }
+
+  // Check for unsubscribe request
+  if (oooDetector.isUnsubscribeRequest(`${subject}\n${body}`)) {
+    return {
+      type: 'unsubscribe',
+      shouldPauseSequence: true,
+      pauseTrigger: 'user_cancel',
+    };
+  }
+
+  // Default: human reply
+  return {
+    type: 'human_reply',
+    shouldPauseSequence: true,
+    pauseTrigger: 'reply_detected',
+  };
 }
 
 /**
@@ -155,35 +236,56 @@ function extractEmail(fromField?: string): string | undefined {
 /**
  * Handle reply to a known outreach email
  * - Record reply event
- * - Pause active sequence enrollment
+ * - Pause/stop active sequence enrollment based on classification
  */
-async function handleReplyToOutreach(emailId: string, senderEmail: string, replyId: string): Promise<void> {
-  // Record the reply event
+async function handleReplyToOutreach(
+  emailId: string, 
+  senderEmail: string, 
+  replyId: string,
+  classification: ClassifiedReply
+): Promise<void> {
+  // Record the reply event with classification details
   await db.collection(EMAIL_EVENTS_COLLECTION).doc(`reply:${replyId}`).set({
     emailId,
-    type: 'reply',
+    type: classification.type,
     email: senderEmail,
     replyId,
     timestamp: Date.now(),
     receivedAt: Date.now(),
     expiresAt: Date.now() + 90 * 24 * 60 * 60 * 1000,
+    isOOO: classification.type === 'out_of_office',
+    oooConfidence: classification.oooDetection?.confidence,
+    resumeAt: classification.resumeAt?.toISOString(),
   });
 
-  // Find and pause active sequence enrollment
-  await pauseSequenceForEmail(emailId, senderEmail, 'reply_received');
+  // Handle based on classification type
+  if (classification.shouldPauseSequence && classification.pauseTrigger) {
+    await handleSequenceAction(
+      emailId, 
+      senderEmail, 
+      classification.pauseTrigger,
+      classification.resumeAt,
+      classification.type
+    );
+  }
 
   // Update the reply doc
   await db.collection(INBOUND_COLLECTION).doc(replyId).update({
     processed: true,
     linkedToOutreach: true,
     originalEmailId: emailId,
+    sequencePaused: classification.shouldPauseSequence,
   });
 }
 
 /**
- * Try to find recent outreach to this sender and pause
+ * Try to find recent outreach to this sender and handle
  */
-async function tryFuzzyMatchAndPause(senderEmail: string, replyId: string): Promise<void> {
+async function tryFuzzyMatchAndPause(
+  senderEmail: string, 
+  replyId: string,
+  classification: ClassifiedReply
+): Promise<void> {
   // Look for any recent email queue items to this address
   const recentEmails = await db.collection('email_queue')
     .where('message.to', '==', senderEmail)
@@ -196,9 +298,9 @@ async function tryFuzzyMatchAndPause(senderEmail: string, replyId: string): Prom
     const emailDoc = recentEmails.docs[0];
     const emailData = emailDoc.data();
     
-    await handleReplyToOutreach(emailDoc.id, senderEmail, replyId);
+    await handleReplyToOutreach(emailDoc.id, senderEmail, replyId, classification);
     
-    console.log(`[Inbound Webhook] Fuzzy matched reply from ${senderEmail} to email ${emailDoc.id}`);
+    console.log(`[Inbound Webhook] Fuzzy matched ${classification.type} from ${senderEmail} to email ${emailDoc.id}`);
     
     await db.collection(INBOUND_COLLECTION).doc(replyId).update({
       fuzzyMatched: true,
@@ -209,22 +311,23 @@ async function tryFuzzyMatchAndPause(senderEmail: string, replyId: string): Prom
 }
 
 /**
- * Pause sequence enrollment when reply received
+ * Handle sequence action based on reply classification
+ * Uses SequenceStateMachine for proper state transitions
  */
-async function pauseSequenceForEmail(emailId: string, senderEmail: string, reason: string): Promise<void> {
+async function handleSequenceAction(
+  emailId: string, 
+  senderEmail: string, 
+  trigger: TransitionTrigger,
+  resumeAt?: Date,
+  replyType?: ReplyType
+): Promise<void> {
   // Find enrollment by email ID
   const queueItem = await db.collection('email_queue').doc(emailId).get();
   const enrollmentId = queueItem.data()?.enrollmentId;
 
   if (enrollmentId) {
-    await db.collection('sequenceEnrollments').doc(enrollmentId).update({
-      status: 'paused',
-      pausedAt: Date.now(),
-      pauseReason: reason,
-      lastUpdated: Date.now(),
-    });
-    
-    console.log(`[Inbound Webhook] Paused enrollment ${enrollmentId} due to reply from ${senderEmail}`);
+    await updateEnrollmentState(enrollmentId, trigger, resumeAt, replyType);
+    console.log(`[Inbound Webhook] Processed ${trigger} for enrollment ${enrollmentId}`);
     return;
   }
 
@@ -237,13 +340,45 @@ async function pauseSequenceForEmail(emailId: string, senderEmail: string, reaso
 
   if (!enrollments.empty) {
     const enrollmentDoc = enrollments.docs[0];
-    await enrollmentDoc.ref.update({
-      status: 'paused',
-      pausedAt: Date.now(),
-      pauseReason: reason,
-      lastUpdated: Date.now(),
-    });
-    
-    console.log(`[Inbound Webhook] Paused enrollment ${enrollmentDoc.id} for ${senderEmail}`);
+    await updateEnrollmentState(enrollmentDoc.id, trigger, resumeAt, replyType);
+    console.log(`[Inbound Webhook] Processed ${trigger} for enrollment ${enrollmentDoc.id}`);
   }
+}
+
+/**
+ * Update enrollment state using the state machine
+ */
+async function updateEnrollmentState(
+  enrollmentId: string,
+  trigger: TransitionTrigger,
+  resumeAt?: Date,
+  replyType?: ReplyType
+): Promise<void> {
+  // Get current enrollment
+  const enrollmentDoc = await db.collection('sequenceEnrollments').doc(enrollmentId).get();
+  if (!enrollmentDoc.exists) {
+    console.warn(`[Inbound Webhook] Enrollment ${enrollmentId} not found`);
+    return;
+  }
+
+  const enrollment = enrollmentDoc.data();
+  const targetState = stateMachine.getTargetState(trigger);
+  
+  if (!targetState) {
+    console.warn(`[Inbound Webhook] Unknown trigger: ${trigger}`);
+    return;
+  }
+
+  // Build update using state machine
+  const update = stateMachine.buildTransitionUpdate(targetState, trigger);
+  
+  // Add OOO-specific fields
+  if (replyType === 'out_of_office' && resumeAt) {
+    Object.assign(update, {
+      oooResumeAt: resumeAt.toISOString(),
+      pauseReason: `Out-of-office detected. Auto-resume scheduled for ${resumeAt.toLocaleDateString()}`,
+    });
+  }
+
+  await db.collection('sequenceEnrollments').doc(enrollmentId).update(update as Record<string, unknown>);
 }

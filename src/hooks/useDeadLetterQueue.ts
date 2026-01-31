@@ -2,6 +2,7 @@
  * useDeadLetterQueue Hook
  * 
  * Sprint 95: T95.6 - Dead Letter Queue UI
+ * Sprint 2: T2.3 - Enhanced with bulk actions (Retry All, Delete All)
  * 
  * Manages failed emails in the dead letter queue.
  */
@@ -35,10 +36,14 @@ export interface UseDeadLetterQueueReturn {
   retryAll: () => Promise<{ retried: number }>;
   /** Discard a failed email (remove from queue) */
   discardEmail: (jobId: string) => Promise<boolean>;
+  /** Discard all failed emails */
+  discardAll: () => Promise<{ discarded: number }>;
   /** Refresh the dead letter queue */
   refresh: () => Promise<void>;
   /** Processing state for retry operations */
   isRetrying: boolean;
+  /** Processing state for discard operations */
+  isDiscarding: boolean;
 }
 
 // =============================================================================
@@ -53,6 +58,7 @@ export function useDeadLetterQueue(
   const [failedEmails, setFailedEmails] = useState<DeadLetterItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const pollRef = useRef<NodeJS.Timeout | null>(null);
@@ -149,11 +155,58 @@ export function useDeadLetterQueue(
   }, [fetchDeadLetter]);
 
   const discardEmail = useCallback(async (jobId: string): Promise<boolean> => {
-    // Note: This would need a discard endpoint in Railway API
-    // For now, we just remove from local state
-    setFailedEmails(prev => prev.filter(e => e.id !== jobId));
-    return true;
+    if (!featureFlags.RAILWAY_ENABLED) {
+      return false;
+    }
+
+    setIsDiscarding(true);
+
+    try {
+      const result = await railwayClient.email.queue.discard(jobId);
+
+      if (result.ok) {
+        // Remove from local list
+        setFailedEmails(prev => prev.filter(e => e.id !== jobId));
+        return true;
+      } else {
+        console.error('Failed to discard email:', result.error);
+        return false;
+      }
+    } catch (err) {
+      console.error('Error discarding email:', err);
+      return false;
+    } finally {
+      setIsDiscarding(false);
+    }
   }, []);
+
+  const discardAll = useCallback(async (): Promise<{ discarded: number }> => {
+    if (!featureFlags.RAILWAY_ENABLED) {
+      return { discarded: 0 };
+    }
+
+    setIsDiscarding(true);
+
+    try {
+      const result = await railwayClient.email.queue.discardAll();
+
+      if (result.ok && result.data) {
+        // Clear local list
+        setFailedEmails([]);
+        return { discarded: result.data.discarded };
+      } else {
+        console.error('Failed to discard all emails:', result.error);
+        return { discarded: 0 };
+      }
+    } catch (err) {
+      console.error('Error discarding all emails:', err);
+      return { discarded: 0 };
+    } finally {
+      setIsDiscarding(false);
+      // Refresh to get accurate state
+      fetchDeadLetter();
+    }
+  }, [fetchDeadLetter]);
 
   // ---------------------------------------------------------------------------
   // Polling
@@ -185,8 +238,10 @@ export function useDeadLetterQueue(
     retryEmail,
     retryAll,
     discardEmail,
+    discardAll,
     refresh: fetchDeadLetter,
     isRetrying,
+    isDiscarding,
   };
 }
 

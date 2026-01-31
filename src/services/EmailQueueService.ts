@@ -11,8 +11,33 @@ const QUEUE_COLLECTION = 'email_queue';
 const DEAD_LETTER_COLLECTION = 'email_dead_letter';
 const MAX_RETRIES = 3;
 
+/**
+ * Exponential backoff delays in milliseconds
+ * Sprint 2: T2.2 - Exponential Backoff Retry Logic
+ * 
+ * Attempt 1: 1 minute
+ * Attempt 2: 5 minutes
+ * Attempt 3: 30 minutes
+ * After 3 attempts, move to dead letter queue
+ */
+const RETRY_DELAYS_MS = [
+  1 * 60 * 1000,    // 1 minute
+  5 * 60 * 1000,    // 5 minutes  
+  30 * 60 * 1000,   // 30 minutes
+];
+
 function currentMs(): number {
   return Date.now();
+}
+
+/**
+ * Calculate retry delay using exponential backoff
+ * @param attemptNumber - The current attempt number (1-based)
+ * @returns Delay in milliseconds
+ */
+function getRetryDelay(attemptNumber: number): number {
+  const index = Math.min(attemptNumber - 1, RETRY_DELAYS_MS.length - 1);
+  return RETRY_DELAYS_MS[index];
 }
 
 export class EmailQueueService {
@@ -180,12 +205,18 @@ export class EmailQueueService {
   private async handleFailure(ref: DocumentReference, item: EmailQueueItem, err: Error): Promise<void> {
     const attempts = item.attempts + 1;
     const updates = { attempts, lastError: err.message, updatedAt: currentMs() } as Record<string, unknown>;
+    
     if (attempts >= item.maxAttempts) {
       await this.moveToDeadLetter(ref, { ...item, attempts, status: 'dead-letter', lastError: err.message });
       return;
     }
+    
+    // Use exponential backoff: 1min, 5min, 30min
+    const retryDelay = getRetryDelay(attempts);
     updates.status = 'pending';
-    updates.scheduledAt = currentMs() + 5 * 60 * 1000;
+    updates.scheduledAt = currentMs() + retryDelay;
+    updates.nextRetryAt = currentMs() + retryDelay;
+    
     await ref.update(updates);
   }
 
