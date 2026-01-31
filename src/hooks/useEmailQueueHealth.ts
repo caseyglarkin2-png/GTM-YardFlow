@@ -2,6 +2,7 @@
  * useEmailQueueHealth Hook
  * 
  * Sprint 95: T95.5 - Email Queue Status UI
+ * Sprint 2: T2.1 - Enhanced with bounce rate and retry statistics
  * 
  * Provides real-time email queue health information from Railway.
  */
@@ -26,6 +27,14 @@ export interface EmailQueueHealth {
   sentToday: number;
   /** Number of failed emails in dead letter queue */
   failed: number;
+  /** Number of bounced emails today */
+  bounced: number;
+  /** Bounce rate as percentage (0-100) */
+  bounceRate: number;
+  /** Number of emails currently being retried */
+  retrying: number;
+  /** Retry rate as percentage of failed that are being retried */
+  retryRate: number;
   /** Oldest job age in seconds (null if queue is empty) */
   oldestJobAgeSeconds: number | null;
   /** Processing rate (emails per minute) */
@@ -62,6 +71,10 @@ const DEFAULT_HEALTH: EmailQueueHealth = {
   processing: 0,
   sentToday: 0,
   failed: 0,
+  bounced: 0,
+  bounceRate: 0,
+  retrying: 0,
+  retryRate: 0,
   oldestJobAgeSeconds: null,
   processingRate: 0,
   lastUpdated: new Date(),
@@ -113,27 +126,46 @@ export function useEmailQueueHealth(
     setError(null);
 
     try {
-      const result = await railwayClient.email.queue.status();
+      // Fetch queue status and analytics in parallel
+      const [queueResult, analyticsResult] = await Promise.all([
+        railwayClient.email.queue.status(),
+        railwayClient.email.analytics({ period: 'day' }),
+      ]);
 
       if (!mountedRef.current) return;
 
-      if (result.ok && result.data) {
-        const status = result.data;
+      if (queueResult.ok && queueResult.data) {
+        const status = queueResult.data;
         const emailQueue = status.queues.emails;
+        
+        // Extract analytics data if available
+        const analytics = analyticsResult.ok ? analyticsResult.data : null;
+        const bounced = analytics?.metrics?.bounced ?? 0;
+        const sent = analytics?.metrics?.sent ?? emailQueue.completed;
+        const bounceRate = sent > 0 ? (bounced / sent) * 100 : 0;
+        
+        // Calculate retry rate (delayed emails vs failed)
+        const retrying = emailQueue.delayed;
+        const totalFailed = emailQueue.failed + status.deadLetterCount;
+        const retryRate = totalFailed > 0 ? (retrying / totalFailed) * 100 : 0;
         
         setData({
           health: calculateHealth(status),
           pending: emailQueue.waiting + emailQueue.delayed,
           processing: emailQueue.active,
-          sentToday: emailQueue.completed, // Best approximation
+          sentToday: emailQueue.completed,
           failed: status.deadLetterCount,
-          oldestJobAgeSeconds: null, // Not in current type
-          processingRate: 0, // Not in current type
+          bounced,
+          bounceRate: Math.round(bounceRate * 10) / 10,
+          retrying,
+          retryRate: Math.round(retryRate * 10) / 10,
+          oldestJobAgeSeconds: null,
+          processingRate: 0,
           lastUpdated: new Date(),
           error: null,
         });
       } else {
-        throw new Error(result.error || 'Failed to fetch queue status');
+        throw new Error(queueResult.error || 'Failed to fetch queue status');
       }
     } catch (err) {
       if (!mountedRef.current) return;
