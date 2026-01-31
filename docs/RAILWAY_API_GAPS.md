@@ -1,6 +1,7 @@
 # Railway API Gap Remediation Plan
 
 **Created:** 2026-01-30
+**Updated:** 2026-01-31 (aligned with Sprint Plan V14)
 **Status:** 🔴 Action Required
 **Owner:** Engineering Team
 
@@ -14,17 +15,17 @@ Based on the Railway API Audit (T90.1), several endpoints required for the unifi
 
 ## Critical Gaps (P0)
 
-### Sprint 93 Blockers - Prospect CRUD
+### Sprint 306 Blockers - Prospect CRUD
 
 | Endpoint | Method | Status | Owner | ETA | Ticket |
 |----------|--------|--------|-------|-----|--------|
-| `/api/prospects` | GET | 🔴 Not Started | Railway Team | Before Sprint 93 | TBD |
-| `/api/prospects` | POST | 🔴 Not Started | Railway Team | Before Sprint 93 | TBD |
-| `/api/prospects/:id` | GET | 🔴 Not Started | Railway Team | Before Sprint 93 | TBD |
-| `/api/prospects/:id` | PUT | 🔴 Not Started | Railway Team | Before Sprint 93 | TBD |
-| `/api/prospects/:id` | DELETE | 🔴 Not Started | Railway Team | Before Sprint 93 | TBD |
-| `/api/prospects/search` | GET | 🔴 Not Started | Railway Team | Before Sprint 93 | TBD |
-| `/api/prospects/batch` | POST | 🔴 Not Started | Railway Team | Before Sprint 93 | TBD |
+| `/api/prospects` | GET | 🔴 Not Started | Railway Team | Before Sprint 306 | TBD |
+| `/api/prospects` | POST | 🔴 Not Started | Railway Team | Before Sprint 306 | TBD |
+| `/api/prospects/:id` | GET | 🔴 Not Started | Railway Team | Before Sprint 306 | TBD |
+| `/api/prospects/:id` | PUT | 🔴 Not Started | Railway Team | Before Sprint 306 | TBD |
+| `/api/prospects/:id` | DELETE | 🔴 Not Started | Railway Team | Before Sprint 306 | TBD |
+| `/api/prospects/search` | GET | 🔴 Not Started | Railway Team | Before Sprint 306 | TBD |
+| `/api/prospects/batch` | POST | 🔴 Not Started | Railway Team | Before Sprint 306 | TBD |
 
 **Schema Changes Required:**
 - Add `tier` column to people table (enum: 'Tier 1', 'Tier 2', 'Tier 3')
@@ -33,15 +34,15 @@ Based on the Railway API Audit (T90.1), several endpoints required for the unifi
 
 ---
 
-### Sprint 94 Blockers - Enrollment Management
+### Sprint 307 Blockers - Enrollment Management
 
 | Endpoint | Method | Status | Owner | ETA | Ticket |
 |----------|--------|--------|-------|-----|--------|
-| `/api/enrollments` | GET | 🔴 Not Started | Railway Team | Before Sprint 94 | TBD |
-| `/api/enrollments/:id` | GET | 🔴 Not Started | Railway Team | Before Sprint 94 | TBD |
-| `/api/enrollments/:id/pause` | POST | 🔴 Not Started | Railway Team | Before Sprint 94 | TBD |
-| `/api/enrollments/:id/resume` | POST | 🔴 Not Started | Railway Team | Before Sprint 94 | TBD |
-| `/api/enrollments/:id` | DELETE | 🔴 Not Started | Railway Team | Before Sprint 94 | TBD |
+| `/api/enrollments` | GET | 🔴 Not Started | Railway Team | Before Sprint 307 | TBD |
+| `/api/enrollments/:id` | GET | 🔴 Not Started | Railway Team | Before Sprint 307 | TBD |
+| `/api/enrollments/:id/pause` | POST | 🔴 Not Started | Railway Team | Before Sprint 307 | TBD |
+| `/api/enrollments/:id/resume` | POST | 🔴 Not Started | Railway Team | Before Sprint 307 | TBD |
+| `/api/enrollments/:id` | DELETE | 🔴 Not Started | Railway Team | Before Sprint 307 | TBD |
 
 **Notes:**
 - `SequenceEnrollment` table exists but no REST endpoints
@@ -49,28 +50,28 @@ Based on the Railway API Audit (T90.1), several endpoints required for the unifi
 
 ---
 
-### Sprint 95-96 Blockers - Email Queue
+### Sprint 308 Blockers - Email Queue
 
 | Endpoint | Method | Status | Owner | ETA | Ticket |
 |----------|--------|--------|-------|-----|--------|
-| `/api/email/queue/status` | GET | 🔴 Not Started | Railway Team | Before Sprint 95 | TBD |
-| `/api/email/queue/dead-letter` | GET | 🔴 Not Started | Railway Team | Before Sprint 95 | TBD |
-| `/api/email/queue/retry/:id` | POST | 🔴 Not Started | Railway Team | Before Sprint 95 | TBD |
-| `/api/email/events` | GET | 🔴 Not Started | Railway Team | Before Sprint 96 | TBD |
-| `/api/email/analytics` | GET | 🔴 Not Started | Railway Team | Before Sprint 96 | TBD |
-| `/api/webhooks/sendgrid` | POST | 🔴 Not Started | Railway Team | Before Sprint 96 | TBD |
+| `/api/email/queue/status` | GET | 🔴 Not Started | Railway Team | Before Sprint 308 | TBD |
+| `/api/email/queue/dead-letter` | GET | 🔴 Not Started | Railway Team | Before Sprint 308 | TBD |
+| `/api/email/queue/retry/:id` | POST | 🔴 Not Started | Railway Team | Before Sprint 308 | TBD |
+| `/api/email/events` | GET | 🔴 Not Started | Railway Team | Before Sprint 308 | TBD |
+| `/api/email/analytics` | GET | 🔴 Not Started | Railway Team | Before Sprint 308 | TBD |
+| `/api/webhooks/sendgrid` | POST | 🔴 Not Started | Railway Team | Before Sprint 308 | TBD |
 
 ---
 
-### Sprint 97 Blockers - Authentication
+### Sprint 309 Blockers - Authentication
 
 | Endpoint | Method | Status | Owner | ETA | Ticket |
 |----------|--------|--------|-------|-----|--------|
-| `/api/auth/session` | GET | 🟡 Partial | Railway Team | Before Sprint 97 | TBD |
-| `/api/auth/login` | POST | 🟡 Partial | Railway Team | Before Sprint 97 | TBD |
-| `/api/auth/logout` | POST | 🟡 Partial | Railway Team | Before Sprint 97 | TBD |
-| `/api/auth/refresh` | POST | 🔴 Not Started | Railway Team | Before Sprint 97 | TBD |
-| `/api/users/from-firebase` | POST | 🔴 Not Started | Railway Team | Before Sprint 97 | TBD |
+| `/api/auth/session` | GET | 🟡 Partial | Railway Team | Before Sprint 309 | TBD |
+| `/api/auth/login` | POST | 🟡 Partial | Railway Team | Before Sprint 309 | TBD |
+| `/api/auth/logout` | POST | 🟡 Partial | Railway Team | Before Sprint 309 | TBD |
+| `/api/auth/refresh` | POST | 🔴 Not Started | Railway Team | Before Sprint 309 | TBD |
+| `/api/users/from-firebase` | POST | 🔴 Not Started | Railway Team | Before Sprint 309 | TBD |
 
 **Notes:**
 - NextAuth already on Railway but may need custom endpoints
