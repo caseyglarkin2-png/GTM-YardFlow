@@ -1053,17 +1053,39 @@ export default function App() {
       // Build conversation history for Gemini
       const contents = conversationManager.buildGeminiContents();
 
-      // Use stable Gemini 1.5 Flash model with full conversation history
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: contents,
-          systemInstruction: { parts: [{ text: systemPrompt }] }
-        })
-      });
-
-      const data = await response.json();
+      // Route through server-side proxy for API key security
+      // Falls back to client-side if proxy unavailable and API key is set locally
+      let data: { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>; error?: { message?: string } };
+      
+      try {
+        // Try server-side proxy first (secure - API key stays on server)
+        const response = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: contents,
+            systemInstruction: { parts: [{ text: systemPrompt }] }
+          })
+        });
+        data = await response.json();
+      } catch (proxyError) {
+        // Fallback to client-side only if local API key is configured
+        // This allows development without server-side setup
+        if (geminiApiKey) {
+          console.warn('[AI] Server proxy unavailable, using client-side API key');
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: contents,
+              systemInstruction: { parts: [{ text: systemPrompt }] }
+            })
+          });
+          data = await response.json();
+        } else {
+          throw proxyError;
+        }
+      }
       
       // Better error handling for API responses
       if (data.error) {
@@ -1072,7 +1094,7 @@ export default function App() {
         return;
       }
       
-      const botText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response. Check your API key.";
+      const botText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
       
       // Add to conversation manager for persistence
       conversationManager.addMessage({
@@ -1084,7 +1106,7 @@ export default function App() {
       setChatHistory(prev => [...prev, { role: 'model', text: botText }]);
     } catch (error) {
       console.error("Gemini Error:", error);
-      setChatHistory(prev => [...prev, { role: 'model', text: "Error connecting to Gemini. Check your API key and try again." }]);
+      setChatHistory(prev => [...prev, { role: 'model', text: "Error connecting to AI service. Please try again later." }]);
     } finally {
       setIsGenerating(false);
     }

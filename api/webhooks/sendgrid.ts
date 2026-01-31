@@ -184,10 +184,15 @@ async function addToSuppression(event: SendGridWebhookEvent): Promise<void> {
  */
 function verifySignature(req: VercelRequest): boolean {
   const webhookKey = process.env.SENDGRID_WEBHOOK_VERIFICATION_KEY;
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
   
-  // If no key configured, skip verification (development mode)
+  // In production, require signature verification key
   if (!webhookKey) {
-    console.warn('[SendGrid Webhook] No verification key configured, skipping signature check');
+    if (isProduction) {
+      console.error('[SendGrid Webhook] SENDGRID_WEBHOOK_VERIFICATION_KEY not configured in production!');
+      return false; // Block in production
+    }
+    console.warn('[SendGrid Webhook] No verification key configured, skipping signature check (development mode)');
     return true;
   }
 

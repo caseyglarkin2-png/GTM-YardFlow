@@ -22,6 +22,7 @@ import {
   doc
 } from 'firebase/firestore';
 import { getApp } from 'firebase/app';
+import { getAuth, type Auth } from 'firebase/auth';
 import type { Prospect } from '../types';
 import type { EmailSequence, EnrollmentStatus } from '../types/emailSequence';
 import { v4 as uuidv4 } from 'uuid';
@@ -92,6 +93,16 @@ function getDb() {
   try {
     const app = getApp();
     return getFirestore(app);
+  } catch {
+    return null;
+  }
+}
+
+// Get Auth instance lazily
+function getAuthInstance(): Auth | null {
+  try {
+    const app = getApp();
+    return getAuth(app);
   } catch {
     return null;
   }
@@ -345,6 +356,7 @@ export function useSequenceEnrollment(): UseSequenceEnrollmentReturn {
 
     // Firestore fallback
     const db = getDb();
+    const auth = getAuthInstance();
     
     if (!db) {
       return {
@@ -392,7 +404,7 @@ export function useSequenceEnrollment(): UseSequenceEnrollmentReturn {
         nextSendAt: nextSendAt.toISOString(),
         stepHistory: [],
         customFields: {
-          enrolledBy: 'user', // TODO: Get actual user ID
+          enrolledBy: auth?.currentUser?.uid || auth?.currentUser?.email || 'system',
           firstName: prospect.name.split(' ')[0],
           company: prospect.company,
           title: prospect.title || '',

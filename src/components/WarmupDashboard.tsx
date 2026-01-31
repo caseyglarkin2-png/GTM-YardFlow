@@ -60,35 +60,6 @@ const WARMUP_SCHEDULE = [
   { week: 4, limit: 500 },
 ];
 
-const MAX_LIMIT = Number.POSITIVE_INFINITY;
-
-function calculateWarmupState(
-  startedAt: number,
-  sentToday: number,
-  paused: boolean = false,
-  pauseReason?: string
-): WarmupState {
-  const now = Date.now();
-  const daysSinceStart = Math.floor((now - startedAt) / (24 * 60 * 60 * 1000));
-  const weeksSinceStart = Math.floor(daysSinceStart / 7) + 1;
-  
-  const scheduleEntry = WARMUP_SCHEDULE.find(s => s.week >= weeksSinceStart);
-  const dailyLimit = scheduleEntry ? scheduleEntry.limit : MAX_LIMIT;
-  const warmupComplete = weeksSinceStart > WARMUP_SCHEDULE.length;
-
-  return {
-    startedAt,
-    paused,
-    pauseReason,
-    currentDay: daysSinceStart + 1,
-    currentWeek: weeksSinceStart,
-    dailyLimit,
-    sentToday,
-    maxLimit: WARMUP_SCHEDULE[WARMUP_SCHEDULE.length - 1].limit,
-    warmupComplete,
-  };
-}
-
 function getProgressPercentage(sent: number, limit: number): number {
   if (!Number.isFinite(limit)) return 0;
   return Math.min(100, (sent / limit) * 100);
@@ -134,19 +105,31 @@ function useWarmupData(tenantId?: string) {
     setError(null);
 
     try {
-      // TODO: Replace with actual API call to /api/warmup/status
-      // For now, simulate warmup data
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Fetch from real API endpoint
+      const url = tenantId 
+        ? `/api/warmup/status?tenantId=${encodeURIComponent(tenantId)}`
+        : '/api/warmup/status';
       
-      // Mock data - in production, this would come from EmailWarmupService
-      const mockStartedAt = Date.now() - (8 * 24 * 60 * 60 * 1000); // Started 8 days ago (Week 2)
-      const mockSentToday = 42;
+      const response = await fetch(url);
       
-      const warmupState = calculateWarmupState(
-        mockStartedAt,
-        mockSentToday,
-        false
-      );
+      if (!response.ok) {
+        throw new Error(`Failed to fetch warmup status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Transform API response to WarmupState
+      const warmupState: WarmupState = {
+        startedAt: data.startedAt,
+        paused: data.paused || false,
+        pauseReason: data.pauseReason,
+        currentDay: data.currentDay,
+        currentWeek: data.currentWeek,
+        dailyLimit: data.dailyLimit === -1 ? Number.POSITIVE_INFINITY : data.dailyLimit,
+        sentToday: data.sentToday,
+        maxLimit: data.maxLimit,
+        warmupComplete: data.warmupComplete || data.bypassed,
+      };
       
       setState(warmupState);
     } catch (err) {

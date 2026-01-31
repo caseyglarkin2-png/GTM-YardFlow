@@ -291,10 +291,15 @@ async function pauseSequenceEnrollments(email: string, reason: string): Promise<
  */
 function verifySignature(req: VercelRequest): boolean {
   const webhookSecret = process.env.CALENDLY_WEBHOOK_SECRET;
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
   
-  // If no secret configured, skip verification (development mode)
+  // In production, require signature verification key
   if (!webhookSecret) {
-    console.warn('[Calendly Webhook] No webhook secret configured, skipping signature check');
+    if (isProduction) {
+      console.error('[Calendly Webhook] CALENDLY_WEBHOOK_SECRET not configured in production!');
+      return false; // Block in production
+    }
+    console.warn('[Calendly Webhook] No webhook secret configured, skipping signature check (development mode)');
     return true;
   }
 
