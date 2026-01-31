@@ -258,6 +258,9 @@ async function handleReplyToOutreach(
     resumeAt: classification.resumeAt?.toISOString(),
   });
 
+  // Update prospect needsResponse for Reply Inbox
+  await updateProspectNeedsResponse(senderEmail, replyId, classification.type);
+
   // Handle based on classification type
   if (classification.shouldPauseSequence && classification.pauseTrigger) {
     await handleSequenceAction(
@@ -307,6 +310,38 @@ async function tryFuzzyMatchAndPause(
       originalEmailId: emailDoc.id,
       enrollmentId: emailData.enrollmentId,
     });
+  }
+}
+
+/**
+ * Update prospect needsResponse flag for inbox
+ * This enables the Reply Inbox feature in the UI
+ */
+async function updateProspectNeedsResponse(
+  senderEmail: string,
+  replyId: string,
+  replyType: ReplyType
+): Promise<void> {
+  try {
+    // Find prospect by email
+    const prospects = await db.collection('prospects')
+      .where('email', '==', senderEmail)
+      .limit(1)
+      .get();
+
+    if (!prospects.empty) {
+      const prospectDoc = prospects.docs[0];
+      await prospectDoc.ref.update({
+        needsResponse: true,
+        lastReplyAt: Date.now(),
+        lastReplyType: replyType,
+        lastReplyId: replyId,
+      });
+      console.log(`[Inbound Webhook] Updated prospect ${prospectDoc.id} needsResponse=true`);
+    }
+  } catch (error) {
+    console.error('[Inbound Webhook] Failed to update prospect needsResponse:', error);
+    // Non-fatal - continue processing
   }
 }
 

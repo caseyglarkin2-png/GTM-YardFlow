@@ -545,10 +545,15 @@ export function createFirestoreService(config: FirestoreServiceConfig) {
     // Find cursor position
     let startIndex = 0;
     if (cursor) {
-      const decodedCursor = atob(cursor);
-      const cursorIndex = allResults.findIndex((doc) => doc.id === decodedCursor);
-      if (cursorIndex >= 0) {
-        startIndex = cursorIndex + 1; // Start after the cursor
+      try {
+        const decodedCursor = atob(cursor);
+        const cursorIndex = allResults.findIndex((doc) => doc.id === decodedCursor);
+        if (cursorIndex >= 0) {
+          startIndex = cursorIndex + 1; // Start after the cursor
+        }
+      } catch {
+        // Invalid base64 cursor - start from beginning
+        console.warn('[FirestoreService] Invalid pagination cursor, starting from beginning');
       }
     }
     

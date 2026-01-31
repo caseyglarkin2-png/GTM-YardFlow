@@ -1,5 +1,8 @@
 /**
  * T97.0: Auth Bridge Service
+ * T206.3: Railway Session Exchange
+ * T206.7: Session Refresh Middleware
+ * T206.8: Railway Health Check
  * 
  * Provides graceful transition between Firebase and Railway authentication.
  * During migration, both systems work simultaneously with Railway as primary
@@ -32,6 +35,14 @@ function getFirebaseAuth() {
 }
 
 // =============================================================================
+// Constants
+// =============================================================================
+
+const RAILWAY_SESSION_KEY = 'railway_session';
+const SESSION_REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+const RAILWAY_HEALTH_TIMEOUT_MS = 3000; // 3 seconds
+
+// =============================================================================
 // Types
 // =============================================================================
 
@@ -47,6 +58,208 @@ export interface AuthBridgeConfig {
   onRailwaySuccess?: (session: RailwaySession) => void;
   onFirebaseFallback?: (user: FirebaseUser) => void;
   onMigration?: (user: FirebaseUser, railwayUser: RailwayUser) => void;
+}
+
+export interface CachedSession {
+  sessionToken: string;
+  expiresAt: string;
+  user?: {
+    id: string;
+    email: string;
+    name?: string;
+  };
+}
+
+// =============================================================================
+// Railway Session Management
+// =============================================================================
+
+/**
+ * T206.8: Check if Railway is available before attempting auth bridge
+ */
+export async function isRailwayAvailable(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), RAILWAY_HEALTH_TIMEOUT_MS);
+    
+    const response = await fetch('/api/railway/health', {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch (error) {
+    console.warn('[AuthBridge] Railway health check failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Get cached Railway session from sessionStorage
+ */
+export function getCachedSession(): CachedSession | null {
+  if (typeof sessionStorage === 'undefined') {
+    return null;
+  }
+  
+  try {
+    const cached = sessionStorage.getItem(RAILWAY_SESSION_KEY);
+    if (!cached) return null;
+    return JSON.parse(cached) as CachedSession;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save Railway session to sessionStorage
+ */
+export function setCachedSession(session: CachedSession): void {
+  if (typeof sessionStorage === 'undefined') {
+    return;
+  }
+  
+  try {
+    sessionStorage.setItem(RAILWAY_SESSION_KEY, JSON.stringify(session));
+  } catch (error) {
+    console.warn('[AuthBridge] Failed to cache session:', error);
+  }
+}
+
+/**
+ * Clear Railway session from sessionStorage
+ */
+export function clearCachedSession(): void {
+  if (typeof sessionStorage === 'undefined') {
+    return;
+  }
+  
+  try {
+    sessionStorage.removeItem(RAILWAY_SESSION_KEY);
+  } catch {
+    // Ignore errors
+  }
+}
+
+/**
+ * Check if cached session is valid (not expired)
+ */
+export function isSessionValid(session: CachedSession): boolean {
+  try {
+    const expiresAt = new Date(session.expiresAt).getTime();
+    return expiresAt > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if session is nearing expiry and needs refresh
+ */
+export function isSessionNearExpiry(session: CachedSession): boolean {
+  try {
+    const expiresAt = new Date(session.expiresAt).getTime();
+    return expiresAt - Date.now() < SESSION_REFRESH_THRESHOLD_MS;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * T206.3: Exchange Firebase token for Railway session
+ */
+export async function exchangeFirebaseToken(firebaseToken: string): Promise<CachedSession | null> {
+  try {
+    const response = await fetch('/api/railway/auth/bridge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firebaseToken }),
+    });
+    
+    if (!response.ok) {
+      console.warn('[AuthBridge] Token exchange failed:', response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    return {
+      sessionToken: data.sessionToken,
+      expiresAt: data.expiresAt,
+      user: data.user,
+    };
+  } catch (error) {
+    console.error('[AuthBridge] Token exchange error:', error);
+    return null;
+  }
+}
+
+/**
+ * T206.3: Get or create Railway session from Firebase auth
+ */
+export async function getOrCreateRailwaySession(): Promise<string | null> {
+  const auth = getFirebaseAuth();
+  const user = auth?.currentUser;
+  
+  if (!user) {
+    console.log('[AuthBridge] No Firebase user, cannot get Railway session');
+    return null;
+  }
+  
+  // Check cached session
+  const cached = getCachedSession();
+  if (cached && isSessionValid(cached) && !isSessionNearExpiry(cached)) {
+    return cached.sessionToken;
+  }
+  
+  // T206.8: Check Railway health first
+  if (!await isRailwayAvailable()) {
+    console.log('[AuthBridge] Railway unavailable, skipping session exchange');
+    return null;
+  }
+  
+  // Get Firebase token
+  let firebaseToken: string;
+  try {
+    firebaseToken = await user.getIdToken();
+  } catch (error) {
+    console.error('[AuthBridge] Failed to get Firebase token:', error);
+    return null;
+  }
+  
+  // Exchange for Railway session
+  const session = await exchangeFirebaseToken(firebaseToken);
+  
+  if (!session) {
+    return null;
+  }
+  
+  // Cache session
+  setCachedSession(session);
+  console.log('[AuthBridge] Railway session obtained successfully');
+  
+  return session.sessionToken;
+}
+
+/**
+ * T206.7: Ensure valid session with proactive refresh
+ */
+export async function ensureValidSession(): Promise<string | null> {
+  const cached = getCachedSession();
+  
+  if (cached && isSessionValid(cached)) {
+    // If more than 5 minutes remaining, use cached
+    if (!isSessionNearExpiry(cached)) {
+      return cached.sessionToken;
+    }
+    
+    // Less than 5 minutes - refresh proactively
+    console.log('[AuthBridge] Session expiring soon, refreshing...');
+  }
+  
+  // Get fresh session
+  return getOrCreateRailwaySession();
 }
 
 // =============================================================================
@@ -215,6 +428,9 @@ export class AuthBridge {
         );
       }
     }
+
+    // Clear cached Railway session
+    clearCachedSession();
 
     await Promise.all(promises);
   }

@@ -22,6 +22,21 @@ export const EmailStepTypeSchema = z.enum([
 
 export type EmailStepType = z.infer<typeof EmailStepTypeSchema>;
 
+// ============================================
+// Email Template Variant Types (for A/B Testing)
+// ============================================
+
+export const EmailTemplateVariantSchema = z.object({
+  id: z.string(),
+  parentTemplateId: z.string().optional(), // Reference to parent step/template
+  name: z.string(), // e.g., "Variant A", "Variant B"
+  subject: z.string().optional(),
+  body: z.string(),
+  traffic: z.number().min(0).max(100).default(50), // percentage 0-100
+});
+
+export type EmailTemplateVariant = z.infer<typeof EmailTemplateVariantSchema>;
+
 export const EmailStepSchema = z.object({
   id: z.string(),
   type: EmailStepTypeSchema,
@@ -37,12 +52,7 @@ export const EmailStepSchema = z.object({
     'opened_no_click',  // Opened but didn't click
     'clicked',          // Clicked a link
   ]).optional().default('no_reply'),
-  variants: z.array(z.object({
-    id: z.string(),
-    subject: z.string().optional(),
-    body: z.string(),
-    weight: z.number().min(0).max(100).default(50),
-  })).optional(),
+  variants: z.array(EmailTemplateVariantSchema).optional(),
 });
 
 export type EmailStep = z.infer<typeof EmailStepSchema>;

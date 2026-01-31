@@ -74,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     // Return the Gemini response
     res.status(200).json(data);
   } catch (error) {
-    logger.error('[AI Proxy] Error:', error);
+    logger.error('[AI Proxy] Error:', error instanceof Error ? error : undefined);
     res.status(500).json({ 
       error: 'Internal server error',
       message: 'Failed to process AI request'

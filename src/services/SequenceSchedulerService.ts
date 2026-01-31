@@ -475,20 +475,25 @@ export class SequenceSchedulerService {
   }
 
   /**
-   * Select a variant based on weight distribution (A/B testing)
+   * Select a variant based on weight/traffic distribution (A/B testing)
+   * Supports both legacy 'weight' and new 'traffic' properties
    */
-  private selectVariant(variants: { id: string; weight: number; subject?: string; body: string }[]): { 
+  private selectVariant(variants: { id: string; weight?: number; traffic?: number; subject?: string; body: string }[]): { 
     id: string; 
-    weight: number; 
+    weight?: number; 
+    traffic?: number;
     subject?: string; 
     body: string 
   } {
-    const totalWeight = variants.reduce((sum, v) => sum + (v.weight || 50), 0);
+    // Use traffic if available, fallback to weight, default to 50
+    const getWeight = (v: { weight?: number; traffic?: number }) => v.traffic ?? v.weight ?? 50;
+    
+    const totalWeight = variants.reduce((sum, v) => sum + getWeight(v), 0);
     const random = Math.random() * totalWeight;
     
     let cumulative = 0;
     for (const variant of variants) {
-      cumulative += variant.weight || 50;
+      cumulative += getWeight(variant);
       if (random <= cumulative) {
         return variant;
       }

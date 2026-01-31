@@ -96,7 +96,7 @@ describe('WebVitals', () => {
       
       expect(report.timestamp).toBeDefined();
       expect(report.LCP).toBeUndefined();
-      expect(report.FID).toBeUndefined();
+      expect(report.INP).toBeUndefined();
       expect(report.CLS).toBeUndefined();
     });
 
