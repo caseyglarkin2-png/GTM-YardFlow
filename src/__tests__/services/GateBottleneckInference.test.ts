@@ -33,9 +33,12 @@ describe('GateBottleneckInference', () => {
     });
 
     it('should return likely=false for tech company', () => {
+      // Note: 'technology' is not a valid EnrichedCompany.industryCategory type,
+      // but the inference service checks against GATE_UNLIKELY_INDUSTRIES which includes 'technology'.
+      // We use a type assertion here to test this scenario.
       const techCompany: Partial<EnrichedCompany> = {
         company: 'TechCorp',
-        industryCategory: 'other',
+        industryCategory: 'technology' as EnrichedCompany['industryCategory'],
         facilityCount: 2,
         estimatedTruckVolume: 5,
         distributionFootprint: 'local',
