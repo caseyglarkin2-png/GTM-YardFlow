@@ -1,35 +1,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { 
-  Users, 
-  MessageSquare, 
-  Send, 
-  Save, 
-  CheckCircle, 
-  Search, 
-  Briefcase, 
-  Zap, 
-  Settings, 
-  AlertCircle,
-  Bot,
-  Loader,
-  Download,
-  Trash2,
-  Sparkles,
-  RefreshCw,
-  Menu,
-  X,
-  ChevronDown,
-  Clock,
-  Activity,
-  Calculator,
-  LayoutDashboard,
-  Upload,
-  Link2,
-  TrendingUp,
-  Building2,
-  ExternalLink,
-  Mail
-} from 'lucide-react';
+// Critical icons only - used in loading state before lazy loading kicks in
+import { Zap, Loader } from 'lucide-react';
+// LazyIcon for all other icons - fixes INP by lazy loading
+import { LazyIcon, preloadCriticalIcons } from './components/icons';
 import { initErrorTracking, setUserContext } from './services/ErrorTracking';
 import { ConversationManagerSingleton } from './services/ConversationManager';
 import { buildSystemPrompt } from './services/SystemPromptBuilder';
@@ -437,6 +410,11 @@ export default function App() {
   const announce = useCallback((message: string) => {
     setAnnouncement(message);
     setTimeout(() => setAnnouncement(''), 1000);
+  }, []);
+
+  // Preload critical icons on mount to avoid layout shift
+  useEffect(() => {
+    preloadCriticalIcons();
   }, []);
 
   // Update search index when prospects change
@@ -1697,7 +1675,7 @@ export default function App() {
         >
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h3 id="settings-title" className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-              <Settings className="h-5 w-5 mr-2 text-slate-500" aria-hidden="true" />
+              <LazyIcon name="Settings" className="h-5 w-5 mr-2 text-slate-500" aria-hidden="true" />
               Settings
             </h3>
             
@@ -1738,7 +1716,7 @@ export default function App() {
                   className="w-full flex items-center justify-between px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors"
                 >
                   <span className="flex items-center gap-2">
-                    <Download className="h-4 w-4 text-slate-500" />
+                    <LazyIcon name="Download" className="h-4 w-4 text-slate-500" />
                     Export Prospects (JSON)
                   </span>
                   <span className="text-xs text-slate-400">{prospects.length} records</span>
@@ -1770,7 +1748,7 @@ export default function App() {
                   className="w-full flex items-center justify-between px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors"
                 >
                   <span className="flex items-center gap-2">
-                    <Download className="h-4 w-4 text-slate-500" />
+                    <LazyIcon name="Download" className="h-4 w-4 text-slate-500" />
                     Export Prospects (CSV)
                   </span>
                   <span className="text-xs text-slate-400">Spreadsheet format</span>
@@ -1797,7 +1775,7 @@ export default function App() {
           className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
           aria-label="Open navigation menu"
         >
-          <Menu className="h-6 w-6 text-slate-700" aria-hidden="true" />
+          <LazyIcon name="Menu" className="h-6 w-6 text-slate-700" aria-hidden="true" />
         </button>
         <div className="flex items-center space-x-2">
           <div className="h-7 w-7 bg-blue-600 rounded-lg flex items-center justify-center" aria-hidden="true">
@@ -1810,7 +1788,7 @@ export default function App() {
           className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
           aria-label="Open settings"
         >
-          <Settings className="h-5 w-5 text-slate-600" aria-hidden="true" />
+          <LazyIcon name="Settings" className="h-5 w-5 text-slate-600" aria-hidden="true" />
         </button>
       </div>
 
@@ -1844,7 +1822,7 @@ export default function App() {
             className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
             aria-label="Close navigation menu"
           >
-            <X className="h-5 w-5 text-slate-600" aria-hidden="true" />
+            <LazyIcon name="X" className="h-5 w-5 text-slate-600" aria-hidden="true" />
           </button>
         </div>
         
@@ -1866,7 +1844,7 @@ export default function App() {
                 className="text-xs text-slate-500 hover:text-blue-600 transition-colors px-2 py-1 rounded hover:bg-blue-50 flex items-center gap-1"
                 title="Open Railway dashboard for email & sequences"
               >
-                <ExternalLink className="h-3 w-3" />
+                <LazyIcon name="ExternalLink" className="h-3 w-3" />
                 Railway
               </a>
               <SyncStatus 
@@ -1880,7 +1858,7 @@ export default function App() {
                 className="text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-lg hover:bg-slate-100"
                 aria-label="Open settings"
               >
-                <Settings className="h-5 w-5" aria-hidden="true" />
+                <LazyIcon name="Settings" className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -1895,7 +1873,7 @@ export default function App() {
                id="tab-dashboard"
                className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'dashboard' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
              >
-               <LayoutDashboard className="h-3 w-3 mr-1" aria-hidden="true" /> Dashboard
+               <LazyIcon name="LayoutDashboard" className="h-3 w-3 mr-1" aria-hidden="true" /> Dashboard
              </button>
              <button 
                onClick={() => { setActiveTab('prospects'); announce('Targets tab selected'); }} 
@@ -1905,7 +1883,7 @@ export default function App() {
                id="tab-prospects"
                className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'prospects' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
              >
-               <Users className="h-3 w-3 mr-1" aria-hidden="true" /> Hitlist
+               <LazyIcon name="Users" className="h-3 w-3 mr-1" aria-hidden="true" /> Hitlist
              </button>
              <button 
                onClick={() => { setActiveTab('sequences'); announce('Sequences tab selected'); }} 
@@ -1915,7 +1893,7 @@ export default function App() {
                id="tab-sequences"
                className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'sequences' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
              >
-               <Mail className="h-3 w-3 mr-1" aria-hidden="true" /> Sequences
+               <LazyIcon name="Mail" className="h-3 w-3 mr-1" aria-hidden="true" /> Sequences
              </button>
              <button 
                onClick={() => { setActiveTab('import'); announce('Import tab selected'); }} 
@@ -1925,7 +1903,7 @@ export default function App() {
                id="tab-import"
                className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'import' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
              >
-               <Upload className="h-3 w-3 mr-1" aria-hidden="true" /> Import
+               <LazyIcon name="Upload" className="h-3 w-3 mr-1" aria-hidden="true" /> Import
              </button>
              <button 
                onClick={() => { setActiveTab('integrations'); announce('Integrations tab selected'); }} 
@@ -1935,7 +1913,7 @@ export default function App() {
                id="tab-integrations"
                className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'integrations' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
              >
-               <Link2 className="h-3 w-3 mr-1" aria-hidden="true" /> Integrations
+               <LazyIcon name="Link2" className="h-3 w-3 mr-1" aria-hidden="true" /> Integrations
              </button>
              <button 
                onClick={() => { setActiveTab('assistant'); announce('AI Brain tab selected'); }} 
@@ -1945,7 +1923,7 @@ export default function App() {
                id="tab-assistant"
                className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'assistant' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
              >
-               <Bot className="h-3 w-3 mr-1" aria-hidden="true" /> Brain
+               <LazyIcon name="Bot" className="h-3 w-3 mr-1" aria-hidden="true" /> Brain
              </button>
              <button 
                onClick={() => { setActiveTab('roi'); announce('ROI Calculator tab selected'); }} 
@@ -1955,7 +1933,7 @@ export default function App() {
                id="tab-roi"
                className={`flex-1 flex items-center justify-center py-1.5 rounded text-xs font-medium transition-all ${activeTab === 'roi' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
              >
-               <Calculator className="h-3 w-3 mr-1" aria-hidden="true" /> ROI
+               <LazyIcon name="Calculator" className="h-3 w-3 mr-1" aria-hidden="true" /> ROI
              </button>
           </div>
 
@@ -1980,7 +1958,7 @@ export default function App() {
               </div>
 
               <div className="relative mb-2">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+                <LazyIcon name="Search" className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
                 <input 
                   type="text" 
                   placeholder="Search prospects..." 
@@ -2035,7 +2013,7 @@ export default function App() {
                       className="w-full flex items-center justify-between px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                     >
                       <span className="text-slate-600">Saved Filters ({savedFilters.length})</span>
-                      <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${showSavedFiltersMenu ? 'rotate-180' : ''}`} />
+                      <LazyIcon name="ChevronDown" className={`h-3 w-3 text-slate-400 transition-transform ${showSavedFiltersMenu ? 'rotate-180' : ''}`} />
                     </button>
                     
                     {showSavedFiltersMenu && (
@@ -2072,7 +2050,7 @@ export default function App() {
                                 className="text-slate-400 hover:text-red-500 p-1"
                                 title="Delete filter"
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <LazyIcon name="Trash2" className="h-3 w-3" />
                               </button>
                             </button>
                           ))
@@ -2086,7 +2064,7 @@ export default function App() {
                     className="px-3 py-2 text-xs bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
                     title="Save current filter"
                   >
-                    <Save className="h-3 w-3" />
+                    <LazyIcon name="Save" className="h-3 w-3" />
                   </button>
                 </div>
                 
@@ -2148,7 +2126,7 @@ export default function App() {
               <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-md">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
+                    <LazyIcon name="TrendingUp" className="h-5 w-5" />
                     <span className="text-blue-100 text-xs font-medium uppercase tracking-wider">Analytics Dashboard</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -2159,7 +2137,7 @@ export default function App() {
                       aria-label="Refresh data"
                       data-testid="dashboard-refresh"
                     >
-                      <RefreshCw className={`h-4 w-4 ${dashboard.isLoading ? 'animate-spin' : ''}`} />
+                      <LazyIcon name="RefreshCw" className={`h-4 w-4 ${dashboard.isLoading ? 'animate-spin' : ''}`} />
                     </button>
                     {/* Export dropdown */}
                     <div className="relative">
@@ -2170,7 +2148,7 @@ export default function App() {
                         aria-label="Export dashboard"
                         data-testid="dashboard-export"
                       >
-                        <Download className={`h-4 w-4 ${isExporting ? 'animate-pulse' : ''}`} />
+                        <LazyIcon name="Download" className={`h-4 w-4 ${isExporting ? 'animate-pulse' : ''}`} />
                       </button>
                       {showExportMenu && (
                         <div className="absolute right-0 mt-1 w-32 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
@@ -2421,7 +2399,7 @@ export default function App() {
                       onClick={() => setShowSequenceBuilder(true)}
                       className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
-                      <Mail className="w-4 h-4" />
+                      <LazyIcon name="Mail" className="w-4 h-4" />
                       Create New Sequence
                     </button>
                   </div>
@@ -2488,7 +2466,7 @@ export default function App() {
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-slate-500" />
+                    <LazyIcon name="Activity" className="h-4 w-4 text-slate-500" />
                     <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Recent Activity</span>
                   </div>
                   <span className="text-[10px] text-slate-400">{recentActivities.length} actions</span>
@@ -2517,7 +2495,7 @@ export default function App() {
                               <p className="text-[10px] text-slate-500 truncate">{activity.details}</p>
                             </div>
                             <span className="text-[10px] text-slate-400 flex-shrink-0 flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
+                              <LazyIcon name="Clock" className="h-3 w-3" />
                               {new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
@@ -2531,7 +2509,7 @@ export default function App() {
           ) : activeTab === 'assistant' ? (
              <div className="p-4 text-center text-slate-500 text-sm">
                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                 <Bot className="h-8 w-8 text-blue-600" />
+                 <LazyIcon name="Bot" className="h-8 w-8 text-blue-600" />
                </div>
                <p className="mb-2">This assistant is connected to the YardFlow Strategy Brain.</p>
                <p className="text-xs text-slate-400">Context loaded: RFQ Deck, Hitlist Logic, Manifest Outreach Doc</p>
@@ -2634,7 +2612,7 @@ export default function App() {
 
                     <div className="w-32 min-w-0 text-right">
                       <div className="text-xs font-medium text-slate-700 flex items-center justify-end gap-1">
-                        <Briefcase className="h-3 w-3 text-slate-400 flex-shrink-0" aria-hidden="true" />
+                        <LazyIcon name="Briefcase" className="h-3 w-3 text-slate-400 flex-shrink-0" aria-hidden="true" />
                         <span className="truncate">{prospect.company}</span>
                       </div>
                     </div>
@@ -2713,7 +2691,7 @@ export default function App() {
                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                        title="Export as Markdown"
                      >
-                       <Download className="h-3 w-3" />
+                       <LazyIcon name="Download" className="h-3 w-3" />
                        Export .md
                      </button>
                      <button
@@ -2721,7 +2699,7 @@ export default function App() {
                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                        title="Export as JSON"
                      >
-                       <Download className="h-3 w-3" />
+                       <LazyIcon name="Download" className="h-3 w-3" />
                        Export .json
                      </button>
                    </div>
@@ -2730,7 +2708,7 @@ export default function App() {
                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                      title="Clear chat history"
                    >
-                     <Trash2 className="h-3 w-3" />
+                     <LazyIcon name="Trash2" className="h-3 w-3" />
                      <span className="hidden sm:inline">Clear</span>
                    </button>
                  </div>
@@ -2751,7 +2729,7 @@ export default function App() {
                    className="absolute right-2 top-1.5 bg-blue-600 text-white p-2 lg:p-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50 min-w-[40px] min-h-[40px] lg:min-w-[32px] lg:min-h-[32px] flex items-center justify-center"
                    aria-label="Send message"
                  >
-                   <Send className="h-5 w-5 lg:h-4 lg:w-4" />
+                   <LazyIcon name="Send" className="h-5 w-5 lg:h-4 lg:w-4" />
                  </button>
                </div>
             </div>
@@ -2789,7 +2767,7 @@ export default function App() {
           /* Sprint 72: Empty state for company view */
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 px-4">
             <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mb-4">
-              <Building2 className="h-8 w-8 text-slate-400" />
+              <LazyIcon name="Building2" className="h-8 w-8 text-slate-400" />
             </div>
             <p className="text-lg font-medium text-slate-600 text-center">Select a company to view details</p>
             <p className="text-sm mt-2 max-w-xs text-center">Choose from the company list to see ROI potential and contacts.</p>
@@ -2797,14 +2775,14 @@ export default function App() {
               onClick={() => setIsMobileSidebarOpen(true)}
               className="mt-4 lg:hidden bg-blue-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
             >
-              <Building2 className="h-4 w-4" />
+              <LazyIcon name="Building2" className="h-4 w-4" />
               View Companies
             </button>
           </div>
         ) : !selectedProspect ? (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 px-4">
             <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mb-4">
-              <Users className="h-8 w-8 text-slate-400" />
+              <LazyIcon name="Users" className="h-8 w-8 text-slate-400" />
             </div>
             <p className="text-lg font-medium text-slate-600 text-center">Select a target to start outreach</p>
             <p className="text-sm mt-2 max-w-xs text-center">Choose from the hitlist to generate a personalized Manifest message.</p>
@@ -2812,7 +2790,7 @@ export default function App() {
               onClick={() => setIsMobileSidebarOpen(true)}
               className="mt-4 lg:hidden bg-blue-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2"
             >
-              <Users className="h-4 w-4" />
+              <LazyIcon name="Users" className="h-4 w-4" />
               View Prospects
             </button>
           </div>
@@ -2825,7 +2803,7 @@ export default function App() {
                 onClick={() => setSelectedProspect(null)}
                 className="lg:hidden mb-3 text-blue-600 text-sm font-medium flex items-center gap-1"
               >
-                <ChevronDown className="h-4 w-4 rotate-90" />
+                <LazyIcon name="ChevronDown" className="h-4 w-4 rotate-90" />
                 Back to list
               </button>
               <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
@@ -2930,9 +2908,9 @@ export default function App() {
                    </div>
                    <div className="flex bg-slate-100 rounded-lg p-0.5">
                       {[
-                        { s: 'new' as const, label: 'New', icon: Users },
-                        { s: 'contacted' as const, label: 'Sent', icon: Send },
-                        { s: 'meeting_booked' as const, label: 'Booked', icon: CheckCircle }
+                        { s: 'new' as const, label: 'New', iconName: 'Users' },
+                        { s: 'contacted' as const, label: 'Sent', iconName: 'Send' },
+                        { s: 'meeting_booked' as const, label: 'Booked', iconName: 'CheckCircle' }
                       ].map((item) => (
                         <button
                           key={item.s}
@@ -2943,7 +2921,7 @@ export default function App() {
                               : 'text-slate-500 hover:text-slate-700'
                           }`}
                         >
-                          <item.icon className="h-3 w-3 mr-1.5" />
+                          <LazyIcon name={item.iconName} className="h-3 w-3 mr-1.5" />
                           {item.label}
                         </button>
                       ))}
@@ -2989,9 +2967,9 @@ export default function App() {
                              }}
                              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
                            >
-                             <Mail className="h-3 w-3" />
+                             <LazyIcon name="Mail" className="h-3 w-3" />
                              Start Sequence
-                             <ChevronDown className={`h-3 w-3 transition-transform ${isSequenceDropdownOpen ? 'rotate-180' : ''}`} />
+                             <LazyIcon name="ChevronDown" className={`h-3 w-3 transition-transform ${isSequenceDropdownOpen ? 'rotate-180' : ''}`} />
                            </button>
                            
                            {isSequenceDropdownOpen && (
@@ -3031,7 +3009,7 @@ export default function App() {
                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-green-600 border border-green-200 rounded-lg hover:bg-green-50 transition-colors"
                      title="Log a meeting with this prospect"
                    >
-                     <CheckCircle className="h-3 w-3" />
+                     <LazyIcon name="CheckCircle" className="h-3 w-3" />
                      Log Meeting
                    </button>
                 </div>
@@ -3138,7 +3116,7 @@ export default function App() {
                            {isGeneratingTemplate ? (
                              <Loader className="h-3 w-3 mr-1 animate-spin" />
                            ) : (
-                             <Sparkles className="h-3 w-3 mr-1" />
+                             <LazyIcon name="Sparkles" className="h-3 w-3 mr-1" />
                            )}
                            <span className="hidden sm:inline">AI Generate</span>
                            <span className="sm:hidden">AI</span>
@@ -3168,7 +3146,7 @@ export default function App() {
                            className="flex items-center text-xs text-blue-600 hover:text-blue-700 disabled:text-slate-300 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
                            title="Refine with AI"
                          >
-                           <RefreshCw className="h-3 w-3 mr-1" />
+                           <LazyIcon name="RefreshCw" className="h-3 w-3 mr-1" />
                            Refine
                          </button>
                          <button 
@@ -3214,7 +3192,7 @@ export default function App() {
                       <div className="flex items-center">
                         {isOverLimit && (
                            <span className="text-xs text-red-600 font-bold flex items-center bg-red-50 px-2 py-1 rounded">
-                             <AlertCircle className="h-3 w-3 mr-1" /> Over Limit (DM only)
+                             <LazyIcon name="AlertCircle" className="h-3 w-3 mr-1" /> Over Limit (DM only)
                            </span>
                         )}
                       </div>
@@ -3223,7 +3201,7 @@ export default function App() {
                           onClick={() => handleStatusUpdate('drafted')}
                           className="flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
                         >
-                          <Save className="h-4 w-4 mr-2" />
+                          <LazyIcon name="Save" className="h-4 w-4 mr-2" />
                           Save Draft
                         </button>
                         <button
@@ -3234,12 +3212,12 @@ export default function App() {
                         >
                           {showCopied ? (
                             <>
-                              <CheckCircle className="h-4 w-4 mr-2" />
+                              <LazyIcon name="CheckCircle" className="h-4 w-4 mr-2" />
                               Copied!
                             </>
                           ) : (
                             <>
-                              <MessageSquare className="h-4 w-4 mr-2" />
+                              <LazyIcon name="MessageSquare" className="h-4 w-4 mr-2" />
                               Copy for DM
                             </>
                           )}
@@ -3273,27 +3251,27 @@ export default function App() {
                               </>
                             ) : emailSendStatus === 'success' ? (
                               <>
-                                <CheckCircle className="h-4 w-4 mr-2" />
+                                <LazyIcon name="CheckCircle" className="h-4 w-4 mr-2" />
                                 Sent!
                               </>
                             ) : emailSendStatus === 'error' ? (
                               <>
-                                <AlertCircle className="h-4 w-4 mr-2" />
+                                <LazyIcon name="AlertCircle" className="h-4 w-4 mr-2" />
                                 Failed
                               </>
                             ) : emailSendStatus === 'rate_limit' ? (
                               <>
-                                <AlertCircle className="h-4 w-4 mr-2" />
+                                <LazyIcon name="AlertCircle" className="h-4 w-4 mr-2" />
                                 Limit Hit
                               </>
                             ) : emailSendStatus === 'no_email' ? (
                               <>
-                                <AlertCircle className="h-4 w-4 mr-2" />
+                                <LazyIcon name="AlertCircle" className="h-4 w-4 mr-2" />
                                 No Email
                               </>
                             ) : (
                               <>
-                                <Send className="h-4 w-4 mr-2" />
+                                <LazyIcon name="Send" className="h-4 w-4 mr-2" />
                                 Send Email
                               </>
                             )}
@@ -3314,7 +3292,7 @@ export default function App() {
                           title="Send email via Railway dashboard (backup option)"
                           onClick={() => showInfo('Railway Opened', 'Send email from Railway dashboard, then return here.')}
                         >
-                          <ExternalLink className="h-3 w-3 mr-1" />
+                          <LazyIcon name="ExternalLink" className="h-3 w-3 mr-1" />
                           Send via Railway →
                         </a>
                       </div>
@@ -3401,7 +3379,7 @@ export default function App() {
                 onClick={() => setShowMeetingModal(false)}
                 className="text-slate-400 hover:text-slate-600 p-1"
               >
-                <X className="h-5 w-5" />
+                <LazyIcon name="X" className="h-5 w-5" />
               </button>
             </div>
             
@@ -3474,7 +3452,7 @@ export default function App() {
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="h-4 w-4" />
+                    <LazyIcon name="CheckCircle" className="h-4 w-4" />
                     Book Meeting
                   </>
                 )}
