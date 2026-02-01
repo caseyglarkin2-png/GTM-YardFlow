@@ -152,6 +152,9 @@ import { EmailHealthStatus } from './components/EmailHealthStatus';
 // --- Sprint 800.3: Navigation Configuration ---
 import { type TabId } from './config/navigation';
 
+// --- Sprint 800.3: Desktop Layout ---
+import { DesktopLayout } from './components/layout';
+
 // --- Sprint 2-4: Analytics & Sequence Components ---
 import { WarmupDashboard } from './components/WarmupDashboard';
 import { TimeHeatmap } from './components/TimeHeatmap';
@@ -1800,24 +1803,14 @@ export default function App() {
         </button>
       </div>
 
-      {/* Mobile Sidebar Overlay */}
-      {isMobileSidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
-          onClick={() => setIsMobileSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Sidebar - hidden on mobile, shown on lg+ */}
-      <div className={`
-        fixed lg:relative inset-y-0 left-0 z-50
-        w-80 bg-white border-r border-slate-200 flex flex-col shadow-lg lg:shadow-sm
-        transform transition-transform duration-300 ease-in-out
-        ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        pt-0 lg:pt-0
-      `}>
-        {/* Mobile close button */}
+      <DesktopLayout
+        sidebarWidth="medium"
+        collapsible={true}
+        isMobileSidebarOpen={isMobileSidebarOpen}
+        onMobileSidebarClose={() => setIsMobileSidebarOpen(false)}
+        sidebar={(
+          <>
+            {/* Mobile close button */}
         <div className="lg:hidden flex items-center justify-between p-4 border-b border-slate-100">
           <div className="flex items-center space-x-2">
             <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center" aria-hidden="true">
@@ -2663,11 +2656,13 @@ export default function App() {
             {filteredProspects.length} Targets Loaded
           </div>
         )}
-      </div>
-
-      {/* Main Content */}
-      <main id="main-content" className="flex-1 flex flex-col bg-slate-50 overflow-hidden relative pt-14 lg:pt-0" role="main">
-        {activeTab === 'assistant' ? (
+          </>
+        )}
+        main={(
+          <>
+            {/* Main Content */}
+            <div id="main-content" className="flex-1 flex flex-col bg-slate-50 overflow-hidden relative pt-14 lg:pt-0">
+              {activeTab === 'assistant' ? (
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {chatHistory.map((msg, i) => (
@@ -3322,7 +3317,10 @@ export default function App() {
             </div>
           </>
         )}
-      </main>
+            </div>
+          </>
+        )}
+      />
 
       {activeTab === 'prospects' && hasSelection && (
         <BulkActionsToolbar
