@@ -1,9 +1,9 @@
 # Monday Execution Plan — YardFlow Hub
 
-**Date**: Monday  
+**Date**: Monday (Updated: Feb 1, 2026)  
 **Team**: Casey + Jake  
 **Goal**: Make YardFlow Hub **usable for actual outreach** by end of day  
-**Status**: Railway deployed ✅ | Desktop UI components exist but not integrated ❌ | Tests fixed ✅
+**Status**: Railway deployed ✅ | LazyIcon migrated ✅ | DesktopLayout integration pending
 
 ---
 
@@ -19,35 +19,792 @@ By EOD Monday, you should be able to:
 
 ---
 
+## ✅ Completed Tasks (Feb 1)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| T800.1 AppProvider in main.tsx | ✅ Done | App wrapped with context |
+| T800.2 LazyIcon in App.tsx | ✅ Done | All icons except Zap/Loader use LazyIcon |
+| SequenceBuilder LazyIcon | ✅ Done | 16 icons migrated |
+| DesktopLayout LazyIcon | ✅ Done | X icon migrated |
+| NavigationSidebar LazyIcon | ✅ Done | ExternalLink, Settings migrated |
+| SplitPane LazyIcon | ✅ Done | ChevronLeft, ChevronRight, GripVertical migrated |
+| Full test suite | ✅ 3260 tests pass | All 129 test files green |
+| Railway health check | ✅ Healthy | Endpoint responding |
+
+---
+
 ## Current State Assessment
 
 | Component | Status | Action Needed |
 |-----------|--------|---------------|
 | Railway Backend | ✅ Deployed | None - working |
-| LazyIcon component | ✅ Created, tested (9/10) | Wire into App.tsx |
-| useMediaQuery hook | ✅ Created (9/10) | Already usable |
-| AppContext | ✅ Created, tested (8/10) | Wrap App with Provider |
-| DesktopLayout | ✅ Created, tested (8/10) | Replace inline layout |
-| NavigationSidebar | ✅ Created, tested (7/10) | Extract from App.tsx |
-| SplitPane | ✅ Created, tested (9/10) | Use in SequenceBuilder |
-| **App.tsx integration** | ❌ NOT DONE | **CRITICAL PATH** |
-| **All tests** | ✅ 78/78 passing | None |
+| LazyIcon migration | ✅ Complete | All components use LazyIcon |
+| useMediaQuery hook | ✅ Created, tested | Already usable |
+| AppContext | ✅ Created, tested | Wrapped in main.tsx |
+| DesktopLayout | ✅ Created, tested | **Integrate into App.tsx** |
+| NavigationSidebar | ✅ Created, tested | **Wire to replace inline tabs** |
+| SplitPane | ✅ Created, tested | Use in SequenceBuilder (optional) |
+| **App.tsx layout integration** | ❌ NOT DONE | **CRITICAL PATH** |
+| All tests | ✅ 3260/3260 passing | None |
 
 ---
 
-## ⏰ Recommended Schedule
+## ⏰ Updated Schedule
 
 ```
-09:00  T800.1 - Add AppProvider to main.tsx (10 min) ✓
-09:15  T800.2 - Replace Lucide imports with LazyIcon (45 min)
-10:00  Coffee + INP verification
-10:15  T800.3a - Extract SidebarContent from App.tsx (45 min)
-11:00  T800.3b - Extract MainContent from App.tsx (30 min)
-11:30  T800.3c - Integrate DesktopLayout wrapper (45 min)
-12:15  LUNCH + visual check at all breakpoints
-13:15  Sprint 801 - Railway verification (1 hour)
-14:15  Sprint 802 - End-to-end smoke test (1 hour)
-15:15  Buffer for issues
+COMPLETED:
+✓ T800.1 - Add AppProvider to main.tsx
+✓ T800.2 - Replace Lucide imports with LazyIcon (App.tsx)
+✓ Additional - Migrate SequenceBuilder, layout components
+
+REMAINING (Sprint 800.3):
+□ T800.3.0  - State sharing strategy design (30 min)
+□ T800.3.1  - Extract SidebarContent component (2-3 hours)
+□ T800.3.2  - Extract MainContent component (3-4 hours)  
+□ T800.3.3  - Integrate DesktopLayout wrapper (2-3 hours)
+
+Sprint 801-802:
+□ T801.1-4  - Railway integration verification (1 hour)
+□ T802.1-2  - End-to-end smoke test (1 hour)
+```
+
+---
+
+# Sprint 800.3: DesktopLayout Integration (DETAILED)
+
+## Executive Summary
+
+**Current State**: App.tsx is a 3,471-line monolith with inline responsive layout logic (~900 lines for layout/sidebar/tabs). The `DesktopLayout`, `NavigationSidebar`, and `SplitPane` components exist and are fully tested but not integrated.
+
+**Target State**: App.tsx uses composition pattern with extracted `SidebarContent` and `MainContent` components rendered via `DesktopLayout`, reducing App.tsx by ~800 lines.
+
+**Risk Level**: Medium-High (touches core layout, affects all tabs)
+
+**Estimated Effort**: 8-12 hours (11 atomic tasks across 4 sprints)
+
+**Approach**: "Strangler Fig" pattern - wrap existing code incrementally, never break functionality
+
+---
+
+## Sprint 800.3.0: Foundation & State Strategy
+
+**Goal**: Define how state flows between extracted components before extraction.
+**Demoable Outcome**: Design document with clear prop interfaces.
+**Duration**: 30-45 minutes
+
+### T800.3.0a: Audit State Dependencies
+
+**Description**: Document all useState/useCallback calls in App.tsx that sidebar and main content need.
+
+**Deliverable**: State dependency map:
+```
+Sidebar needs:
+- activeTab, setActiveTab
+- isMobileSidebarOpen, setIsMobileSidebarOpen  
+- filter, setFilter (hitlist only)
+- tierFilter, setTierFilter (hitlist only)
+- statusFilter, setStatusFilter (hitlist only)
+- viewMode, setViewMode (hitlist only)
+- offlineQueue (sync status display)
+- announce (a11y)
+- setShowSettings
+
+MainContent needs:
+- activeTab
+- prospects, selectedProspect, setSelectedProspect
+- chatHistory, setChatHistory (AI tab)
+- dashboardData (dashboard tab)
+- sequences, enrollments (sequences tab)
+- ... (15+ more per tab)
+```
+
+**Validation**:
+- [ ] All useState calls in render section documented
+- [ ] Props grouped by which component needs them
+- [ ] Decision: Context vs Props (recommend: Props for now, Context later)
+
+---
+
+### T800.3.0b: Reconcile TabId Types
+
+**Files**: `src/config/navigation.ts`, `src/App.tsx`
+
+**Description**: The navigation config uses TabId with 7 tabs, but App.tsx uses string literals including 'stats' and 'assets' which aren't in the config.
+
+**Action**:
+1. Add missing tabs to `NAVIGATION_TABS` OR
+2. Remove unused tabs from App.tsx
+
+**Current App.tsx tabs**: `'dashboard' | 'prospects' | 'sequences' | 'import' | 'integrations' | 'assistant' | 'roi' | 'stats' | 'assets'`
+
+**Navigation config tabs**: `'dashboard' | 'prospects' | 'sequences' | 'import' | 'integrations' | 'assistant' | 'roiCalculator'`
+
+**Mismatches**:
+- `'roi'` in App vs `'roiCalculator'` in config
+- `'stats'` in App, not in config
+- `'assets'` in App, not in config
+
+**Validation**:
+- [ ] TypeScript compiles with `TabId` used everywhere
+- [ ] All tabs render correctly
+- [ ] No runtime errors on tab switch
+
+---
+
+## Sprint 800.3.1: Extract Sidebar Content
+
+**Goal**: Extract sidebar JSX from App.tsx into standalone component.
+**Demoable Outcome**: App renders identically, sidebar code in separate file.
+**Duration**: 2-3 hours
+
+### T800.3.1a: Create SidebarContent Component Shell
+
+**File**: `src/components/layout/SidebarContent.tsx`
+
+**Description**: Create component that accepts all sidebar dependencies as props.
+
+```typescript
+// src/components/layout/SidebarContent.tsx
+import { type ReactNode } from 'react';
+import { type TabId } from '@/config/navigation';
+import { type ViewMode } from '@/components/ViewModeToggle';
+
+export interface SidebarContentProps {
+  // Navigation
+  activeTab: TabId;
+  onTabChange: (tabId: TabId) => void;
+  onSettingsClick: () => void;
+  onCloseMobile?: () => void;
+  
+  // Hitlist filters (only used when activeTab === 'prospects')
+  filter?: string;
+  onFilterChange?: (value: string) => void;
+  tierFilter?: string;
+  onTierFilterChange?: (value: string) => void;
+  statusFilter?: string;
+  onStatusFilterChange?: (value: string) => void;
+  tagFilter?: string[];
+  onTagFilterChange?: (tags: string[]) => void;
+  viewMode?: ViewMode;
+  onViewModeChange?: (mode: ViewMode) => void;
+  
+  // Status display
+  syncStatus?: { status: string; pendingCount: number; retry: () => void };
+  
+  // Accessibility
+  announce?: (message: string) => void;
+  
+  // Additional content slots
+  headerContent?: ReactNode;
+  footerContent?: ReactNode;
+}
+
+export function SidebarContent(props: SidebarContentProps): React.ReactElement {
+  // Implementation in subsequent tasks
+  return <div data-testid="sidebar-content">TODO</div>;
+}
+```
+
+**Test** (`src/__tests__/components/layout/SidebarContent.test.tsx`):
+```typescript
+describe('SidebarContent', () => {
+  it('renders without crashing', () => {
+    render(<SidebarContent activeTab="dashboard" onTabChange={vi.fn()} onSettingsClick={vi.fn()} />);
+    expect(screen.getByTestId('sidebar-content')).toBeInTheDocument();
+  });
+});
+```
+
+**Validation**:
+- [ ] TypeScript compiles
+- [ ] Test passes
+- [ ] Exports match interface
+
+---
+
+### T800.3.1b: Extract Tab Navigation
+
+**Files**: 
+- Source: `src/App.tsx` (lines 1871-1943)
+- Target: `src/components/layout/SidebarContent.tsx`
+
+**Description**: Move the 7 tab buttons into SidebarContent. Use NAVIGATION_TABS config for consistency.
+
+**JSX to Extract**:
+```tsx
+<div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-lg mb-4" role="tablist">
+  {NAVIGATION_TABS.map(tab => (
+    <button
+      key={tab.id}
+      onClick={() => { onTabChange(tab.id); announce?.(`${tab.label} tab selected`); }}
+      role="tab"
+      aria-selected={activeTab === tab.id}
+      aria-controls={tab.panelId}
+      className={`... ${activeTab === tab.id ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}
+    >
+      <LazyIcon name={tab.icon.name} className="h-3 w-3 mr-1" />
+      {tab.label}
+    </button>
+  ))}
+</div>
+```
+
+**Note**: NAVIGATION_TABS uses LucideIcon components directly. Need to map to LazyIcon names.
+
+**Test**:
+```typescript
+it('renders all 7 tabs', () => {
+  render(<SidebarContent {...defaultProps} />);
+  expect(screen.getAllByRole('tab')).toHaveLength(7);
+});
+
+it('marks active tab as selected', () => {
+  render(<SidebarContent {...defaultProps} activeTab="sequences" />);
+  expect(screen.getByRole('tab', { name: /sequences/i })).toHaveAttribute('aria-selected', 'true');
+});
+
+it('calls onTabChange when tab clicked', () => {
+  const onTabChange = vi.fn();
+  render(<SidebarContent {...defaultProps} onTabChange={onTabChange} />);
+  fireEvent.click(screen.getByRole('tab', { name: /hitlist/i }));
+  expect(onTabChange).toHaveBeenCalledWith('prospects');
+});
+```
+
+**Validation**:
+- [ ] All 7 tabs render
+- [ ] Click each tab → correct callback fired
+- [ ] aria-selected reflects activeTab
+
+---
+
+### T800.3.1c: Extract Sidebar Header
+
+**Files**: 
+- Source: `src/App.tsx` (lines 1815-1870)
+- Target: `src/components/layout/SidebarContent.tsx`
+
+**Description**: Move YardFlow logo, Railway link, SyncStatus, and Settings button.
+
+**JSX to Extract**:
+```tsx
+<div className="p-4 border-b border-slate-100">
+  <div className="hidden lg:flex items-center justify-between mb-4">
+    <div className="flex items-center space-x-2">
+      <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
+        <Zap className="h-5 w-5 text-white" />
+      </div>
+      <h1 className="font-bold text-lg">YardFlow <span className="text-blue-600">Hub</span></h1>
+    </div>
+    <div className="flex items-center gap-2">
+      <a href="..." target="_blank">Railway</a>
+      <SyncStatus ... />
+      <button onClick={onSettingsClick}>Settings</button>
+    </div>
+  </div>
+</div>
+```
+
+**Test**:
+```typescript
+it('renders logo', () => {
+  render(<SidebarContent {...defaultProps} />);
+  expect(screen.getByText('YardFlow')).toBeInTheDocument();
+});
+
+it('settings button calls onSettingsClick', () => {
+  const onSettingsClick = vi.fn();
+  render(<SidebarContent {...defaultProps} onSettingsClick={onSettingsClick} />);
+  fireEvent.click(screen.getByLabelText(/settings/i));
+  expect(onSettingsClick).toHaveBeenCalled();
+});
+```
+
+**Validation**:
+- [ ] Header renders with logo
+- [ ] Railway link has correct href
+- [ ] Settings button works
+
+---
+
+### T800.3.1d: Extract Hitlist Filters
+
+**Files**: 
+- Source: `src/App.tsx` (lines 1944-2126)
+- Target: `src/components/layout/SidebarContent.tsx`
+
+**Description**: Move the filter section that shows when `activeTab === 'prospects'`.
+
+**JSX to Extract** (conditionally rendered):
+```tsx
+{activeTab === 'prospects' && (
+  <div className="p-4 space-y-3">
+    {/* Search input */}
+    <input type="text" placeholder="Search..." value={filter} onChange={...} />
+    
+    {/* Tier dropdown */}
+    <select value={tierFilter} onChange={...}>...</select>
+    
+    {/* Status dropdown */}
+    <select value={statusFilter} onChange={...}>...</select>
+    
+    {/* View mode toggle */}
+    <ViewModeToggle value={viewMode} onChange={onViewModeChange} />
+  </div>
+)}
+```
+
+**Test**:
+```typescript
+it('shows filters when activeTab is prospects', () => {
+  render(<SidebarContent {...defaultProps} activeTab="prospects" />);
+  expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
+});
+
+it('hides filters when activeTab is not prospects', () => {
+  render(<SidebarContent {...defaultProps} activeTab="dashboard" />);
+  expect(screen.queryByPlaceholderText(/search/i)).not.toBeInTheDocument();
+});
+
+it('updates filter on input', () => {
+  const onFilterChange = vi.fn();
+  render(<SidebarContent {...defaultProps} activeTab="prospects" onFilterChange={onFilterChange} />);
+  fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'test' } });
+  expect(onFilterChange).toHaveBeenCalledWith('test');
+});
+```
+
+**Validation**:
+- [ ] Filters hidden on non-prospects tabs
+- [ ] Search input updates filter
+- [ ] Dropdowns work
+- [ ] ViewModeToggle works
+
+---
+
+### T800.3.1e: Wire SidebarContent into App.tsx
+
+**File**: `src/App.tsx`
+
+**Description**: Replace inline sidebar JSX with `<SidebarContent />` component.
+
+**Before** (lines 1815-2126, ~300 lines):
+```tsx
+<div className="p-4 border-b border-slate-100">
+  {/* Header */}
+  {/* Tabs */}
+  {/* Filters */}
+</div>
+```
+
+**After**:
+```tsx
+import { SidebarContent } from '@/components/layout/SidebarContent';
+
+// In render:
+<SidebarContent
+  activeTab={activeTab}
+  onTabChange={setActiveTab}
+  onSettingsClick={() => setShowSettings(true)}
+  onCloseMobile={() => setIsMobileSidebarOpen(false)}
+  filter={filter}
+  onFilterChange={setFilter}
+  tierFilter={tierFilter}
+  onTierFilterChange={setTierFilter}
+  statusFilter={statusFilter}
+  onStatusFilterChange={setStatusFilter}
+  viewMode={viewMode}
+  onViewModeChange={setViewMode}
+  syncStatus={offlineQueue}
+  announce={announce}
+/>
+```
+
+**Test**: Smoke test all existing functionality still works.
+
+**Validation**:
+- [ ] App.tsx reduced by ~300 lines
+- [ ] All tabs switch correctly
+- [ ] Hitlist filters work
+- [ ] Mobile sidebar opens/closes
+- [ ] All 3260 tests still pass
+
+---
+
+## Sprint 800.3.2: Extract Main Content
+
+**Goal**: Extract main content area (tab panels) into separate component.
+**Demoable Outcome**: App renders identically, main content in separate file.
+**Duration**: 3-4 hours
+
+### T800.3.2a: Create MainContent Component Shell
+
+**File**: `src/components/layout/MainContent.tsx`
+
+**Description**: Create component that renders correct panel based on activeTab.
+
+```typescript
+// src/components/layout/MainContent.tsx
+import { type TabId } from '@/config/navigation';
+
+export interface MainContentProps {
+  activeTab: TabId;
+  // Tab-specific props passed through
+  children?: React.ReactNode;
+}
+
+export function MainContent({ activeTab, children }: MainContentProps): React.ReactElement {
+  return (
+    <main id="main-content" className="flex-1 flex flex-col bg-slate-50 overflow-hidden" role="main">
+      {children}
+    </main>
+  );
+}
+```
+
+**Note**: We'll use children pattern initially, then extract individual panels.
+
+**Validation**:
+- [ ] Component renders
+- [ ] main element has correct role
+
+---
+
+### T800.3.2b: Extract Dashboard Panel
+
+**Files**: 
+- Source: `src/App.tsx` (lines 2127-2383)
+- Target: `src/components/panels/DashboardPanel.tsx`
+
+**Description**: Extract the full dashboard including KPIs, charts, and stats.
+
+**Sub-components** (already exist or extract):
+- KPICard grid (6 cards)
+- DateRangePicker
+- FunnelChart, BarChart, PieChart, LineChart
+- Leaderboard
+- Export button
+
+**Test**:
+```typescript
+it('renders KPI cards', () => {
+  render(<DashboardPanel {...mockProps} />);
+  expect(screen.getAllByTestId('kpi-card')).toHaveLength(6);
+});
+
+it('renders charts', () => {
+  render(<DashboardPanel {...mockProps} />);
+  expect(screen.getByTestId('funnel-chart')).toBeInTheDocument();
+});
+```
+
+**Validation**:
+- [ ] Dashboard loads without errors
+- [ ] All 6 KPI cards display
+- [ ] Charts render
+- [ ] Date picker works
+- [ ] Export works
+
+---
+
+### T800.3.2c: Extract Sequences Panel
+
+**Files**: 
+- Source: `src/App.tsx` (lines 2384-2430)
+- Target: `src/components/panels/SequencesPanel.tsx`
+
+**Description**: Extract the sequences tab with SequenceManagerPanel and SequencePerformancePanel.
+
+**Test**:
+```typescript
+it('renders sequence manager', () => {
+  render(<SequencesPanel {...mockProps} />);
+  expect(screen.getByText(/create.*sequence/i)).toBeInTheDocument();
+});
+```
+
+**Validation**:
+- [ ] Sequences tab loads
+- [ ] Can see sequence list
+- [ ] Performance metrics display
+
+---
+
+### T800.3.2d: Extract Remaining Panels
+
+**Files**: 
+- Source: `src/App.tsx` (lines 2431-2675)
+- Target: Multiple panel files
+
+**Panels to Extract**:
+1. `ImportPanel.tsx` - ImportWizard wrapper
+2. `IntegrationsPanel.tsx` - HubSpot integration
+3. `AIAssistantPanel.tsx` - Chat interface
+4. `ROIPanel.tsx` - ROI calculator
+
+**Validation**:
+- [ ] Import: can see upload interface
+- [ ] Integrations: HubSpot section visible
+- [ ] AI: can see chat input
+- [ ] ROI: calculator renders
+
+---
+
+### T800.3.2e: Wire MainContent into App.tsx
+
+**File**: `src/App.tsx`
+
+**Description**: Replace inline main content with panels rendered via MainContent.
+
+**Before** (~550 lines of tab content):
+```tsx
+<main>
+  {activeTab === 'dashboard' ? <DashboardStuff /> : 
+   activeTab === 'sequences' ? <SequenceStuff /> : ...}
+</main>
+```
+
+**After**:
+```tsx
+<MainContent activeTab={activeTab}>
+  {activeTab === 'dashboard' && <DashboardPanel {...dashboardProps} />}
+  {activeTab === 'sequences' && <SequencesPanel {...sequenceProps} />}
+  {activeTab === 'prospects' && <ProspectsPanel {...prospectProps} />}
+  {/* etc */}
+</MainContent>
+```
+
+**Validation**:
+- [ ] App.tsx reduced by ~500 lines
+- [ ] All tabs functional
+- [ ] All tests pass
+
+---
+
+## Sprint 800.3.3: Integrate DesktopLayout Wrapper
+
+**Goal**: Wrap with DesktopLayout for collapsible sidebar and proper responsive behavior.
+**Demoable Outcome**: Desktop shows collapsible sidebar, mobile shows slide-out drawer.
+**Duration**: 2-3 hours
+
+### T800.3.3a: Replace Inline Layout with DesktopLayout
+
+**File**: `src/App.tsx`
+
+**Description**: Replace mobile header, overlay, and sidebar wrapper with DesktopLayout.
+
+**Current Pattern** (lines 1775-1815):
+```tsx
+{/* Mobile Header */}
+<div className="lg:hidden">...</div>
+
+{/* Mobile Overlay */}
+{isMobileSidebarOpen && <div className="fixed inset-0 z-40">...</div>}
+
+{/* Sidebar wrapper */}
+<div className={`fixed lg:relative ... ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+  <SidebarContent />
+</div>
+
+{/* Main */}
+<MainContent />
+```
+
+**New Pattern**:
+```tsx
+import { DesktopLayout } from '@/components/layout';
+
+// Mobile header stays OUTSIDE DesktopLayout for z-index control
+<div className="lg:hidden fixed top-0 ...">
+  <button onClick={() => setIsMobileSidebarOpen(true)}>Menu</button>
+</div>
+
+<DesktopLayout
+  sidebar={<SidebarContent {...sidebarProps} />}
+  main={
+    <MainContent activeTab={activeTab}>
+      {/* Tab panels */}
+    </MainContent>
+  }
+  sidebarWidth="medium"
+  collapsible
+  isMobileSidebarOpen={isMobileSidebarOpen}
+  onMobileSidebarClose={() => setIsMobileSidebarOpen(false)}
+/>
+```
+
+**Test**:
+```typescript
+describe('App Layout Integration', () => {
+  it('desktop: shows sidebar and main side by side', () => {
+    mockUseIsDesktop.mockReturnValue(true);
+    render(<App />);
+    expect(screen.getByRole('complementary')).toBeVisible();
+    expect(screen.getByRole('main')).toBeVisible();
+  });
+  
+  it('mobile: hamburger opens sidebar', () => {
+    mockUseIsDesktop.mockReturnValue(false);
+    render(<App />);
+    fireEvent.click(screen.getByLabelText(/open navigation/i));
+    expect(screen.getByRole('dialog')).toBeVisible();
+  });
+});
+```
+
+**Validation**:
+- [ ] Desktop at 1440px: side-by-side layout
+- [ ] Mobile at 375px: hamburger menu works
+- [ ] Collapse button works on desktop
+- [ ] Collapse state persists in localStorage
+- [ ] No horizontal scroll
+
+---
+
+### T800.3.3b: Remove Duplicate Mobile Header
+
+**File**: `src/App.tsx`
+
+**Description**: DesktopLayout handles mobile sidebar overlay. Remove duplicate code from App.tsx but keep the mobile header bar (hamburger + logo + settings).
+
+**Keep**:
+```tsx
+{/* Mobile Header - OUTSIDE DesktopLayout */}
+<div className="fixed top-0 ... lg:hidden z-30">
+  <button onClick={() => setIsMobileSidebarOpen(true)}>Menu</button>
+  <Logo />
+  <button onClick={() => setShowSettings(true)}>Settings</button>
+</div>
+```
+
+**Remove**:
+```tsx
+{/* Mobile Sidebar Overlay - DesktopLayout handles this */}
+{isMobileSidebarOpen && <div className="fixed inset-0 z-40 bg-black/50">...</div>}
+```
+
+**Validation**:
+- [ ] No duplicate overlay on mobile
+- [ ] Hamburger still opens sidebar
+- [ ] Backdrop click closes sidebar
+
+---
+
+### T800.3.3c: Add Integration Tests
+
+**File**: `src/__tests__/integration/layout-integration.test.tsx`
+
+**Description**: End-to-end tests for layout behavior.
+
+```typescript
+describe('Layout Integration', () => {
+  describe('Desktop', () => {
+    beforeEach(() => mockUseIsDesktop.mockReturnValue(true));
+    
+    it('renders sidebar and main content', () => {...});
+    it('tab navigation changes main content', () => {...});
+    it('sidebar collapse persists across reload', () => {...});
+  });
+  
+  describe('Mobile', () => {
+    beforeEach(() => mockUseIsDesktop.mockReturnValue(false));
+    
+    it('sidebar is hidden by default', () => {...});
+    it('hamburger opens sidebar', () => {...});
+    it('tab change closes sidebar', () => {...});
+    it('backdrop click closes sidebar', () => {...});
+  });
+  
+  describe('Responsive', () => {
+    it('layout changes at 1024px breakpoint', () => {...});
+  });
+});
+```
+
+**Validation**:
+- [ ] All integration tests pass
+- [ ] Coverage for critical user journeys
+- [ ] No console errors
+
+---
+
+## Dependency Graph
+
+```
+T800.3.0a (State audit) ─────┐
+T800.3.0b (TabId types) ─────┼─► Foundation complete
+                              │
+                              ▼
+T800.3.1a (SidebarContent shell) ────┐
+T800.3.1b (Tab nav) ─────────────────┤
+T800.3.1c (Header) ──────────────────┼─► T800.3.1e (Wire Sidebar)
+T800.3.1d (Filters) ─────────────────┘         │
+                                               ▼
+                              Sprint 800.3.1 complete ✓
+                                               │
+                                               ▼
+T800.3.2a (MainContent shell) ───────┐
+T800.3.2b (Dashboard) ───────────────┤
+T800.3.2c (Sequences) ───────────────┼─► T800.3.2e (Wire MainContent)
+T800.3.2d (Other panels) ────────────┘         │
+                                               ▼
+                              Sprint 800.3.2 complete ✓
+                                               │
+                                               ▼
+T800.3.3a (DesktopLayout wrapper) ──────┐
+T800.3.3b (Remove duplicates) ──────────┼─► T800.3.3c (Integration tests)
+                                        │
+                                        ▼
+                              Sprint 800.3.3 complete ✓
+```
+
+---
+
+## Rollback Strategy
+
+Each sprint is independently deployable:
+
+| After Sprint | State | Rollback |
+|--------------|-------|----------|
+| 800.3.0 | Types fixed, state documented | N/A |
+| 800.3.1 | SidebarContent extracted | `git checkout HEAD~1 -- src/App.tsx` |
+| 800.3.2 | MainContent extracted | `git checkout HEAD~1 -- src/App.tsx` |
+| 800.3.3 | Full DesktopLayout | `git checkout HEAD~1 -- src/App.tsx` |
+
+**Feature Flag Option** (if needed):
+```typescript
+// src/config/featureFlags.ts
+export const useNewLayout = () => 
+  import.meta.env.VITE_NEW_LAYOUT === 'true';
+```
+
+---
+
+## Success Metrics
+
+| Metric | Before | Target |
+|--------|--------|--------|
+| App.tsx lines | 3,471 | ~2,200 (-1,200) |
+| Sidebar code in App.tsx | ~900 lines | 0 |
+| Main content in App.tsx | ~550 lines | 0 |
+| Components used | 0 layout | 3 (DesktopLayout, SidebarContent, MainContent) |
+| Test count | 3,260 | 3,260+ (no regression + new tests) |
+| INP on tab click | <200ms | <200ms (no regression) |
+
+---
+
+## Time Estimates (Realistic)
+
+| Sprint | Tasks | Estimated Time |
+|--------|-------|----------------|
+| 800.3.0 | 2 | 30-45 min |
+| 800.3.1 | 5 | 2-3 hours |
+| 800.3.2 | 5 | 3-4 hours |
+| 800.3.3 | 3 | 2-3 hours |
+| **Total** | **15** | **8-11 hours** |
+
+**Buffer**: Add 2-3 hours for unexpected issues = **10-14 hours total**
 16:15  T800.4 (OPTIONAL) - SplitPane in SequenceBuilder
 17:00  EOD
 ```
