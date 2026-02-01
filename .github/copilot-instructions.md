@@ -174,6 +174,76 @@ Sessions cached in \`sessionStorage\`, auto-refresh 5 min before expiry.
 | Alerting | \`lib/alerting.ts\` |
 | Logger | \`lib/logger.ts\` |
 
+## Desktop UI Components (Sprint 700+)
+
+**These components are created and tested but NOT YET integrated into App.tsx.**
+
+### Icons (INP Fix)
+\`\`\`typescript
+// ✅ Correct: Use LazyIcon for icons
+import { LazyIcon } from '@/components/icons';
+<LazyIcon name="Menu" className="h-6 w-6" />
+
+// ❌ Wrong: Direct Lucide imports cause INP blocking
+import { Menu } from 'lucide-react';
+\`\`\`
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| LazyIcon | \`src/components/icons/LazyIcon.tsx\` | Lazy-loaded icons with caching |
+| IconErrorBoundary | \`src/components/icons/IconErrorBoundary.tsx\` | Graceful icon failures |
+| preloadCriticalIcons | \`src/components/icons/iconPreloader.ts\` | Preload above-fold icons |
+
+### Layout Components
+| Component | File | Purpose |
+|-----------|------|---------|
+| DesktopLayout | \`src/components/layout/DesktopLayout.tsx\` | CSS Grid desktop layout |
+| NavigationSidebar | \`src/components/layout/NavigationSidebar.tsx\` | Vertical nav with keyboard support |
+| AppLayout | \`src/components/layout/AppLayout.tsx\` | App shell wrapper |
+| SplitPane | \`src/components/layout/SplitPane.tsx\` | Resizable split pane for builders |
+
+### Hooks & Context
+| Hook/Context | File | Purpose |
+|--------------|------|---------|
+| useMediaQuery | \`src/hooks/useMediaQuery.ts\` | SSR-safe media query hook |
+| useIsDesktop | \`src/hooks/useMediaQuery.ts\` | Returns true if >= 1024px |
+| AppContext | \`src/context/AppContext.tsx\` | Global app state + a11y announcer |
+
+### Navigation Config
+\`\`\`typescript
+// Tab configuration is centralized
+import { NAVIGATION_TABS, type TabId } from '@/config/navigation';
+
+// TabIds: 'dashboard' | 'prospects' | 'sequences' | 'import' | 'integrations' | 'ai' | 'roiCalculator'
+// Note: 'prospects' tab has label 'Hitlist' (legacy naming)
+\`\`\`
+
+### Integration Pattern (TODO for Monday)
+\`\`\`typescript
+// main.tsx - wrap with provider
+import { AppProvider } from '@/context/AppContext';
+<AppProvider>
+  <App />
+</AppProvider>
+
+// App.tsx - use layout component
+import { DesktopLayout } from '@/components/layout';
+import { useIsDesktop } from '@/hooks/useMediaQuery';
+
+function App() {
+  const isDesktop = useIsDesktop();
+  
+  return (
+    <DesktopLayout
+      sidebar={<SidebarContent />}
+      main={<MainContent activeTab={activeTab} />}
+      sidebarWidth="medium"
+      collapsible
+    />
+  );
+}
+\`\`\`
+
 ## Test Structure
 \`\`\`
 src/__tests__/
