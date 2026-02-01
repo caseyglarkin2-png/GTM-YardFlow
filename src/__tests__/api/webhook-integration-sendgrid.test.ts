@@ -334,7 +334,7 @@ describe('SendGrid Webhook Integration', () => {
     });
 
     it('should handle missing required fields gracefully', () => {
-      const incompleteEvent = {
+      const incompleteEvent: { event: string; email?: string; timestamp?: number } = {
         event: 'open',
         // Missing email, timestamp
       };

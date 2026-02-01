@@ -48,7 +48,7 @@ export type ProspectStatus =
   | 'closed_lost'
   | 'nurturing';
 
-export type ProspectTier = 'Tier 1' | 'Tier 2' | 'Tier 3';
+export type ProspectTier = 'Tier 1' | 'Tier 2' | 'Tier 3' | 'Tier 4';
 
 export interface RailwayProspect extends Timestamps {
   id: UUID;
