@@ -4,6 +4,19 @@
 Sales automation platform: **enroll prospects → send tracked email sequences → book meetings**.
 Calendly handles scheduling — no calendar integration needed.
 
+## Current Sprint Status
+
+| Sprint | Focus | Status |
+|--------|-------|--------|
+| 900 | Webhook Integration Tests | ✅ Complete |
+| 901 | App.tsx Decomposition | 🔄 In Progress |
+| 902 | Type Safety Layer | ✅ Complete |
+| 903 | SequenceBuilder Railway | ⏳ Pending |
+| 904 | Production Monitoring | ⏳ Pending |
+| 905 | E2E Desktop Coverage | ⏳ Pending |
+
+*Last updated: 2026-02-01 — See [SPRINT_PLAN_V18_COMPREHENSIVE.md](../SPRINT_PLAN_V18_COMPREHENSIVE.md) for details*
+
 ## Architecture
 
 ### Two-Repo Platform
@@ -73,35 +86,64 @@ Sessions cached in \`sessionStorage\`, auto-refresh 5 min before expiry.
 
 ## Service Layer
 
-| Domain | Service | Key Methods |
-|--------|---------|-------------|
-| Auth | \`AuthBridge.ts\` | \`getOrCreateRailwaySession()\`, \`ensureValidSession()\`, \`isRailwayAvailable()\` |
-| Auth | \`HubSpotAuthService.ts\` | \`getAuthUrl()\`, \`exchangeCode()\`, \`refreshToken()\` |
-| Railway | \`RailwayApiClient.ts\` | \`prospects.*\`, \`sequences.*\`, \`enrollments.*\`, \`health.*\` |
-| Railway | \`RailwayEmailService.ts\` | \`sendEmailViaRailway()\`, \`isRailwayAvailable()\` |
-| Email | \`EmailQueueService.ts\` | \`queueEmail()\`, \`processQueue()\`, \`getQueueStatus()\` |
-| Email | \`EmailSequenceService.ts\` | \`enrollProspect()\`, \`pauseEnrollment()\`, \`resumeEnrollment()\` |
-| Email | \`EmailComplianceService.ts\` | \`checkSuppression()\`, \`addToSuppressionList()\` |
-| Email | \`EmailTrackingService.ts\` | \`recordOpen()\`, \`recordClick()\`, \`generateTrackingPixel()\` |
-| Sequence | \`SequenceStateMachine.ts\` | \`canTransition()\`, \`transition()\`, \`isTerminal()\` |
-| Sequence | \`SequenceSchedulerService.ts\` | \`scheduleNextStep()\`, \`executeStep()\` |
-| Sequence | \`SequenceAnalyticsService.ts\` | \`getReplyRate()\`, \`getEnrollmentMetrics()\` |
-| Detection | \`OutOfOfficeDetector.ts\` | \`detectOOO()\`, \`getResumeDate()\`, \`shouldPauseForOOO()\` |
-| Data | \`FirestoreService.ts\` | \`getProspects()\`, \`updateProspect()\`, \`subscribeToProspects()\` |
-| Import | \`CsvParserService.ts\` | \`parseCsv()\`, \`previewCsv()\`, \`validateCsvStructure()\` |
-| Import | \`ColumnMapperService.ts\` | \`autoDetectMapping()\`, \`applyMapping()\` |
-| Import | \`DuplicateDetector.ts\` | \`findDuplicates()\`, \`normalizeEmail()\` |
-| Scoring | \`HotListScoringService.ts\` | \`calculateHotListScore()\`, \`getTopProspects()\` |
-| Scoring | \`PrimoLookalikeScoring.ts\` | \`calculatePrimoLookalikeScore()\`, \`getPrimoTier()\` |
-| Analytics | \`AnalyticsAggregator.ts\` | \`aggregate()\`, \`getTimeSeries()\` |
-| Timezone | \`TimezoneService.ts\` | \`inferTimezone()\`, \`isBusinessHoursForProspect()\` |
-| Tenant | \`TenantService.ts\` | \`createTenant()\`, \`switchTenant()\`, \`checkPermission()\` |
-| Audit | \`AuditLogService.ts\` | \`logAction()\`, \`getAuditLog()\` |
-| Export | \`PDFReportService.ts\` | \`generateReport()\`, \`exportPipeline()\` |
-| Bulk | \`BulkActionService.ts\` | \`tagMany()\`, \`enrollMany()\`, \`updateStatusMany()\` |
-| Bulk | \`BulkDeleteService.ts\` | \`deleteMany()\`, \`queueDelete()\` |
-| Error | \`ErrorTracking.ts\` | \`captureException()\`, \`setUser()\` |
-| Offline | \`OfflineQueue.ts\` | \`enqueue()\`, \`processQueue()\`, \`getPending()\` |
+<details>
+<summary><strong>🔐 Auth & Railway</strong></summary>
+
+| Service | Key Methods |
+|---------|-------------|
+| \`AuthBridge.ts\` | \`getOrCreateRailwaySession()\`, \`ensureValidSession()\`, \`isRailwayAvailable()\` |
+| \`HubSpotAuthService.ts\` | \`getAuthUrl()\`, \`exchangeCode()\`, \`refreshToken()\` |
+| \`RailwayApiClient.ts\` | \`prospects.*\`, \`sequences.*\`, \`enrollments.*\`, \`health.*\` |
+| \`RailwayEmailService.ts\` | \`sendEmailViaRailway()\`, \`isRailwayAvailable()\` |
+
+</details>
+
+<details>
+<summary><strong>📧 Email & Sequences</strong></summary>
+
+| Service | Key Methods |
+|---------|-------------|
+| \`EmailQueueService.ts\` | \`queueEmail()\`, \`processQueue()\`, \`getQueueStatus()\` |
+| \`EmailSequenceService.ts\` | \`enrollProspect()\`, \`pauseEnrollment()\`, \`resumeEnrollment()\` |
+| \`EmailComplianceService.ts\` | \`checkSuppression()\`, \`addToSuppressionList()\` |
+| \`EmailTrackingService.ts\` | \`recordOpen()\`, \`recordClick()\`, \`generateTrackingPixel()\` |
+| \`SequenceStateMachine.ts\` | \`canTransition()\`, \`transition()\`, \`isTerminal()\` |
+| \`SequenceSchedulerService.ts\` | \`scheduleNextStep()\`, \`executeStep()\` |
+| \`SequenceAnalyticsService.ts\` | \`getReplyRate()\`, \`getEnrollmentMetrics()\` |
+| \`OutOfOfficeDetector.ts\` | \`detectOOO()\`, \`getResumeDate()\`, \`shouldPauseForOOO()\` |
+
+</details>
+
+<details>
+<summary><strong>📊 Data & Import</strong></summary>
+
+| Service | Key Methods |
+|---------|-------------|
+| \`FirestoreService.ts\` | \`getProspects()\`, \`updateProspect()\`, \`subscribeToProspects()\` |
+| \`CsvParserService.ts\` | \`parseCsv()\`, \`previewCsv()\`, \`validateCsvStructure()\` |
+| \`ColumnMapperService.ts\` | \`autoDetectMapping()\`, \`applyMapping()\` |
+| \`DuplicateDetector.ts\` | \`findDuplicates()\`, \`normalizeEmail()\` |
+| \`HotListScoringService.ts\` | \`calculateHotListScore()\`, \`getTopProspects()\` |
+| \`PrimoLookalikeScoring.ts\` | \`calculatePrimoLookalikeScore()\`, \`getPrimoTier()\` |
+
+</details>
+
+<details>
+<summary><strong>⚙️ Platform & Operations</strong></summary>
+
+| Service | Key Methods |
+|---------|-------------|
+| \`AnalyticsAggregator.ts\` | \`aggregate()\`, \`getTimeSeries()\` |
+| \`TimezoneService.ts\` | \`inferTimezone()\`, \`isBusinessHoursForProspect()\` |
+| \`TenantService.ts\` | \`createTenant()\`, \`switchTenant()\`, \`checkPermission()\` |
+| \`AuditLogService.ts\` | \`logAction()\`, \`getAuditLog()\` |
+| \`PDFReportService.ts\` | \`generateReport()\`, \`exportPipeline()\` |
+| \`BulkActionService.ts\` | \`tagMany()\`, \`enrollMany()\`, \`updateStatusMany()\` |
+| \`BulkDeleteService.ts\` | \`deleteMany()\`, \`queueDelete()\` |
+| \`ErrorTracking.ts\` | \`captureException()\`, \`setUser()\` |
+| \`OfflineQueue.ts\` | \`enqueue()\`, \`processQueue()\`, \`getPending()\` |
+
+</details>
 
 ## Webhook Handlers (\`api/webhooks/\`)
 
