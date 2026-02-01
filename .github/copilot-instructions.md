@@ -107,9 +107,23 @@ Sessions cached in \`sessionStorage\`, auto-refresh 5 min before expiry.
 
 | Endpoint | Events | Purpose |
 |----------|--------|---------|
-| \`sendgrid.ts\` | \`delivered\`, \`open\`, \`click\`, \`bounce\`, \`spamreport\`, \`unsubscribe\`, \`dropped\`, \`deferred\` | Email tracking → Firestore \`email_events\` + suppression list |
-| \`calendly.ts\` | \`invitee.created\`, \`invitee.canceled\` | **NORTH STAR** — Meeting attribution, prospect linking, sequence auto-stop |
+| \`sendgrid.ts\` | \`delivered\`, \`open\`, \`click\`, \`bounce\`, \`spamreport\`, \`unsubscribe\` | Email tracking → Firestore + suppression list |
+| \`calendly.ts\` | \`invitee.created\`, \`invitee.canceled\` | **NORTH STAR** — Meeting attribution, sequence auto-stop |
 | \`inbound.ts\` | SendGrid Inbound Parse | Reply detection, OOO classification, sequence pause/stop |
+
+### Webhook → Railway Sync Pattern
+Webhooks update BOTH Firestore (source of truth) AND Railway (for email engine sync):
+\`\`\`typescript
+import { railwayServerClient } from '../../lib/railway-client';
+
+// After Firestore update, sync to Railway if enrollment exists there
+if (enrollment.railwayEnrollmentId) {
+  await railwayServerClient.patch(\`/api/enrollments/\${enrollment.railwayEnrollmentId}\`, {
+    status: 'meeting', // or 'replied', 'paused'
+    completionReason: 'meeting_booked',
+  });
+}
+\`\`\`
 
 ## API Endpoints
 
@@ -176,7 +190,7 @@ Sessions cached in \`sessionStorage\`, auto-refresh 5 min before expiry.
 
 ## Desktop UI Components (Sprint 700+)
 
-**These components are created and tested but NOT YET integrated into App.tsx.**
+**Active refactor in progress - desktop-first layout with component extraction from App.tsx.**
 
 ### Icons (INP Fix)
 \`\`\`typescript
@@ -188,60 +202,30 @@ import { LazyIcon } from '@/components/icons';
 import { Menu } from 'lucide-react';
 \`\`\`
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| LazyIcon | \`src/components/icons/LazyIcon.tsx\` | Lazy-loaded icons with caching |
-| IconErrorBoundary | \`src/components/icons/IconErrorBoundary.tsx\` | Graceful icon failures |
-| preloadCriticalIcons | \`src/components/icons/iconPreloader.ts\` | Preload above-fold icons |
+### Layout Components (\`src/components/layout/\`)
+| Component | Purpose |
+|-----------|---------|
+| DesktopLayout | CSS Grid layout: sidebar + main content |
+| NavigationSidebar | Vertical nav with keyboard support, collapsible |
+| SidebarContent | Navigation items + Railway status indicator |
+| SplitPane | Resizable panels for builders (sequences, etc.) |
+| AppLayout | App shell wrapper (responsive) |
 
-### Layout Components
-| Component | File | Purpose |
-|-----------|------|---------|
-| DesktopLayout | \`src/components/layout/DesktopLayout.tsx\` | CSS Grid desktop layout |
-| NavigationSidebar | \`src/components/layout/NavigationSidebar.tsx\` | Vertical nav with keyboard support |
-| AppLayout | \`src/components/layout/AppLayout.tsx\` | App shell wrapper |
-| SplitPane | \`src/components/layout/SplitPane.tsx\` | Resizable split pane for builders |
-
-### Hooks & Context
-| Hook/Context | File | Purpose |
-|--------------|------|---------|
-| useMediaQuery | \`src/hooks/useMediaQuery.ts\` | SSR-safe media query hook |
-| useIsDesktop | \`src/hooks/useMediaQuery.ts\` | Returns true if >= 1024px |
-| AppContext | \`src/context/AppContext.tsx\` | Global app state + a11y announcer |
-
-### Navigation Config
+### State Management
 \`\`\`typescript
-// Tab configuration is centralized
-import { NAVIGATION_TABS, type TabId } from '@/config/navigation';
+// AppContext provides global state - wrap app in AppProvider
+import { useAppContext, AppProvider } from '@/context/AppContext';
+const { activeTab, setActiveTab, isSidebarOpen, toggleSidebar } = useAppContext();
 
+// Navigation config is centralized
+import { NAVIGATION_TABS, type TabId } from '@/config/navigation';
 // TabIds: 'dashboard' | 'prospects' | 'sequences' | 'import' | 'integrations' | 'ai' | 'roiCalculator'
-// Note: 'prospects' tab has label 'Hitlist' (legacy naming)
 \`\`\`
 
-### Integration Pattern (TODO for Monday)
+### Responsive Hooks
 \`\`\`typescript
-// main.tsx - wrap with provider
-import { AppProvider } from '@/context/AppContext';
-<AppProvider>
-  <App />
-</AppProvider>
-
-// App.tsx - use layout component
-import { DesktopLayout } from '@/components/layout';
-import { useIsDesktop } from '@/hooks/useMediaQuery';
-
-function App() {
-  const isDesktop = useIsDesktop();
-  
-  return (
-    <DesktopLayout
-      sidebar={<SidebarContent />}
-      main={<MainContent activeTab={activeTab} />}
-      sidebarWidth="medium"
-      collapsible
-    />
-  );
-}
+import { useIsDesktop, useMediaQuery } from '@/hooks/useMediaQuery';
+const isDesktop = useIsDesktop(); // true if >= 1024px
 \`\`\`
 
 ## Test Structure
