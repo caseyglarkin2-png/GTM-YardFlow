@@ -149,6 +149,9 @@ import { recordMeeting, getMeetingStats } from './services/MeetingAttributionSer
 // --- Sprint 101: Email Health Status ---
 import { EmailHealthStatus } from './components/EmailHealthStatus';
 
+// --- Sprint 800.3: Navigation Configuration ---
+import { type TabId } from './config/navigation';
+
 // --- Sprint 2-4: Analytics & Sequence Components ---
 import { WarmupDashboard } from './components/WarmupDashboard';
 import { TimeHeatmap } from './components/TimeHeatmap';
@@ -283,7 +286,8 @@ export default function App() {
   // Sprint 800: Use desktop detection hook for responsive layout
   const isDesktop = useIsDesktop();
   const [user, setUser] = useState<unknown>(null);
-  const [activeTab, setActiveTab] = useState<'prospects' | 'stats' | 'assistant' | 'roi' | 'assets' | 'dashboard' | 'import' | 'integrations' | 'sequences'>('prospects');
+  // TabId from navigation + detail view tabs (stats, assets) that aren't in main nav
+  const [activeTab, setActiveTab] = useState<TabId | 'stats' | 'assets'>('prospects');
   // Sprint 93: Use centralized prospect state hook with Railway/Firestore toggle
   // The hook provides setProspects for direct updates, plus typed methods for common operations
   // These typed methods (updateProspect, etc.) can be used for Railway-aware operations
