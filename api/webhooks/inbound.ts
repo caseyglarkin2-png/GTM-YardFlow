@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAdminDb } from '../../lib/firebaseAdmin';
+import { railwayServerClient } from '../../lib/railway-client';
 import { 
   OutOfOfficeDetector, 
   type OOODetectionResult,
@@ -382,6 +383,8 @@ async function handleSequenceAction(
 
 /**
  * Update enrollment state using the state machine
+ * 
+ * IMPORTANT: Updates BOTH Firestore AND Railway to keep systems in sync (T506.2.1)
  */
 async function updateEnrollmentState(
   enrollmentId: string,
@@ -415,5 +418,26 @@ async function updateEnrollmentState(
     });
   }
 
+  // Update Firestore
   await db.collection('sequenceEnrollments').doc(enrollmentId).update(update as unknown as Record<string, unknown>);
+  
+  // Sync to Railway if enrollment exists there (T506.2.1 - CRITICAL)
+  if (enrollment?.railwayEnrollmentId) {
+    try {
+      // Determine Railway status based on reply type
+      const railwayStatus = replyType === 'out_of_office' ? 'paused' : 'replied';
+      
+      await railwayServerClient.patch(`/api/enrollments/${enrollment.railwayEnrollmentId}`, {
+        status: railwayStatus,
+        pauseReason: replyType === 'out_of_office' 
+          ? `OOO detected via inbound webhook` 
+          : `Reply detected via inbound webhook`,
+        resumeAt: resumeAt?.toISOString(),
+      });
+      console.log(`[Inbound Webhook] Synced enrollment ${enrollment.railwayEnrollmentId} to Railway as ${railwayStatus}`);
+    } catch (error) {
+      // Log but don't fail - Firestore is source of truth
+      console.error(`[Inbound Webhook] Failed to sync to Railway:`, error);
+    }
+  }
 }

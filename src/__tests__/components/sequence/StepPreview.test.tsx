@@ -187,9 +187,10 @@ describe('StepPreview', () => {
     it('shows available merge tags', () => {
       render(<StepPreview step={mockStep} />);
       
-      expect(screen.getByText('First Name')).toBeInTheDocument();
-      expect(screen.getByText('Last Name')).toBeInTheDocument();
-      expect(screen.getByText('Company')).toBeInTheDocument();
+      // Use getAllByText since merge tags appear as buttons
+      expect(screen.getAllByText('First Name').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Last Name').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Company').length).toBeGreaterThan(0);
     });
     
     it('merge tag buttons are disabled in preview mode', () => {

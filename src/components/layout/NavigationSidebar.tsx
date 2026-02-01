@@ -11,7 +11,9 @@
 import { useState, useCallback, type KeyboardEvent } from 'react';
 import { NAVIGATION_TABS, type TabId, getNextTabId, getPreviousTabId } from '../../config/navigation';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
-import { Zap, ExternalLink, Settings } from 'lucide-react';
+import { LazyIcon } from '../icons';
+// Zap is kept as direct import since it's used in the logo (critical path)
+import { Zap } from 'lucide-react';
 
 // =============================================================================
 // Types
@@ -132,7 +134,7 @@ export function NavigationSidebar({
                 className="text-xs text-slate-500 hover:text-blue-600 transition-colors px-2 py-1 rounded hover:bg-blue-50 flex items-center gap-1"
                 title="Open Railway dashboard"
               >
-                <ExternalLink className="h-3 w-3" />
+                <LazyIcon name="ExternalLink" className="h-3 w-3" />
                 <span className="hidden lg:inline">Railway</span>
               </a>
             )}
@@ -143,7 +145,7 @@ export function NavigationSidebar({
                 className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
                 aria-label="Open settings"
               >
-                <Settings className="h-5 w-5 text-slate-600" />
+                <LazyIcon name="Settings" className="h-5 w-5 text-slate-600" />
               </button>
             )}
           </div>

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { getAdminDb } from '../../lib/firebaseAdmin';
+import { railwayServerClient } from '../../lib/railway-client';
 
 const db = getAdminDb();
 
@@ -261,6 +262,8 @@ async function linkMeetingToProspect(email: string, meetingId: string): Promise<
 /**
  * Pause active sequences when meeting is booked
  * We got what we wanted - stop the outreach!
+ * 
+ * IMPORTANT: Updates BOTH Firestore AND Railway to keep systems in sync
  */
 async function pauseSequenceEnrollments(email: string, reason: string): Promise<void> {
   const enrollments = await db.collection('sequenceEnrollments')
@@ -269,19 +272,63 @@ async function pauseSequenceEnrollments(email: string, reason: string): Promise<
     .get();
 
   const batch = db.batch();
+  const railwaySyncPromises: Promise<void>[] = [];
   
   for (const doc of enrollments.docs) {
+    const enrollmentData = doc.data();
+    
+    // Update Firestore
     batch.update(doc.ref, {
       status: 'meeting',  // North Star! Meeting booked = success
       completedAt: Date.now(),
       completionReason: reason,
       lastUpdated: Date.now(),
     });
+    
+    // Sync to Railway if enrollment exists there (T505.2.1 - CRITICAL)
+    if (enrollmentData.railwayEnrollmentId) {
+      railwaySyncPromises.push(
+        syncEnrollmentToRailway(enrollmentData.railwayEnrollmentId, 'meeting', reason)
+      );
+    }
   }
 
   if (!enrollments.empty) {
     await batch.commit();
+    
+    // Sync to Railway (non-blocking, but we log errors)
+    if (railwaySyncPromises.length > 0) {
+      try {
+        await Promise.all(railwaySyncPromises);
+        console.log(`[Calendly Webhook] Synced ${railwaySyncPromises.length} enrollments to Railway`);
+      } catch (error) {
+        // Log but don't fail - Firestore is source of truth
+        console.error('[Calendly Webhook] Failed to sync some enrollments to Railway:', error);
+      }
+    }
+    
     console.log(`[Calendly Webhook] Completed ${enrollments.size} sequence enrollments for ${email}`);
+  }
+}
+
+/**
+ * Sync enrollment status to Railway backend
+ * This keeps Railway's Postgres in sync with Firestore
+ */
+async function syncEnrollmentToRailway(
+  railwayEnrollmentId: string,
+  status: string,
+  completionReason: string
+): Promise<void> {
+  try {
+    await railwayServerClient.patch(`/api/enrollments/${railwayEnrollmentId}`, {
+      status,
+      completionReason,
+      completedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error(`[Calendly Webhook] Railway sync failed for ${railwayEnrollmentId}:`, error);
+    throw error; // Re-throw so Promise.all can catch it
   }
 }
 

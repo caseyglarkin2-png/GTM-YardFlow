@@ -152,6 +152,16 @@ export const railwayServerClient = {
   },
 
   /**
+   * Convenience method for PATCH requests
+   */
+  async patch<T>(endpoint: string, body: unknown, userContext?: UserContext): Promise<T> {
+    return this.fetch<T>(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }, userContext);
+  },
+
+  /**
    * Convenience method for DELETE requests
    */
   async delete<T>(endpoint: string, userContext?: UserContext): Promise<T> {

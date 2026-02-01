@@ -14,23 +14,8 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import {
-  Plus,
-  Trash2,
-  Mail,
-  Clock,
-  ChevronUp,
-  ChevronDown,
-  Save,
-  AlertCircle,
-  CheckCircle,
-  FileText,
-  Variable,
-  Eye,
-  EyeOff,
-  LayoutTemplate,
-  X,
-} from 'lucide-react';
+// Sprint 800: Use LazyIcon for better INP performance
+import { LazyIcon } from '@/components/icons';
 import type { EmailSequence, EmailStep, SequenceTemplate, EmailStepType } from '@/types/emailSequence';
 import { 
   createSequence, 
@@ -149,7 +134,7 @@ function StepEditor({
               className="p-1 hover:bg-white/50 rounded disabled:opacity-30"
               title="Move up"
             >
-              <ChevronUp className="w-4 h-4" />
+              <LazyIcon name="ChevronUp" className="w-4 h-4" />
             </button>
             <button
               onClick={onMoveDown}
@@ -157,7 +142,7 @@ function StepEditor({
               className="p-1 hover:bg-white/50 rounded disabled:opacity-30"
               title="Move down"
             >
-              <ChevronDown className="w-4 h-4" />
+              <LazyIcon name="ChevronDown" className="w-4 h-4" />
             </button>
           </div>
         )}
@@ -178,16 +163,16 @@ function StepEditor({
         
         <div className="flex items-center gap-2">
           {hasErrors ? (
-            <AlertCircle className="w-5 h-5 text-red-500" />
+            <LazyIcon name="AlertCircle" className="w-5 h-5 text-red-500" />
           ) : (
-            <CheckCircle className="w-5 h-5 text-green-500" />
+            <LazyIcon name="CheckCircle" className="w-5 h-5 text-green-500" />
           )}
           
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="p-2 hover:bg-white/50 rounded"
           >
-            {isExpanded ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {isExpanded ? <LazyIcon name="EyeOff" className="w-4 h-4" /> : <LazyIcon name="Eye" className="w-4 h-4" />}
           </button>
           
           {!readOnly && (
@@ -196,7 +181,7 @@ function StepEditor({
               className="p-2 hover:bg-red-100 text-red-600 rounded"
               title="Remove step"
             >
-              <Trash2 className="w-4 h-4" />
+              <LazyIcon name="Trash2" className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -226,7 +211,7 @@ function StepEditor({
             {index > 0 && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Clock className="w-4 h-4 inline mr-1" />
+                  <LazyIcon name="Clock" className="w-4 h-4 inline mr-1" />
                   Delay (days)
                 </label>
                 <input
@@ -293,7 +278,7 @@ function StepEditor({
                   disabled={readOnly}
                   className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 flex items-center gap-1"
                 >
-                  <Variable className="w-3 h-3" />
+                  <LazyIcon name="Variable" className="w-3 h-3" />
                   {label}
                 </button>
               ))}
@@ -335,7 +320,7 @@ function TemplatePicker({ onSelect, onClose }: TemplatePickerProps) {
         <div className="flex items-center justify-between p-4 border-b">
           <h3 className="text-lg font-semibold">Choose a Template</h3>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded">
-            <X className="w-5 h-5" />
+            <LazyIcon name="X" className="w-5 h-5" />
           </button>
         </div>
         
@@ -484,7 +469,7 @@ export function SequenceBuilder({
                   onClick={() => setShowTemplatePicker(true)}
                   className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
-                  <LayoutTemplate className="w-4 h-4" />
+                  <LazyIcon name="LayoutTemplate" className="w-4 h-4" />
                   Templates
                 </button>
                 
@@ -502,7 +487,7 @@ export function SequenceBuilder({
                   disabled={!isValid || isSaving}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
-                  <Save className="w-4 h-4" />
+                  <LazyIcon name="Save" className="w-4 h-4" />
                   {isSaving ? 'Saving...' : 'Save Sequence'}
                 </button>
               </>
@@ -517,7 +502,7 @@ export function SequenceBuilder({
           {/* Empty State */}
           {sequence.steps.length === 0 && (
             <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
-              <Mail className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+              <LazyIcon name="Mail" className="w-12 h-12 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No steps yet</h3>
               <p className="text-gray-500 mb-6">
                 Add your first email step or start from a template
@@ -527,14 +512,14 @@ export function SequenceBuilder({
                   onClick={() => handleAddStep('initial')}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
-                  <Plus className="w-4 h-4" />
+                  <LazyIcon name="Plus" className="w-4 h-4" />
                   Add First Step
                 </button>
                 <button
                   onClick={() => setShowTemplatePicker(true)}
                   className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                 >
-                  <FileText className="w-4 h-4" />
+                  <LazyIcon name="FileText" className="w-4 h-4" />
                   Use Template
                 </button>
               </div>
@@ -572,7 +557,7 @@ export function SequenceBuilder({
                   onClick={() => handleAddStep()}
                   className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-dashed border-gray-300 text-gray-600 rounded-lg hover:border-blue-400 hover:text-blue-600 transition-colors"
                 >
-                  <Plus className="w-4 h-4" />
+                  <LazyIcon name="Plus" className="w-4 h-4" />
                   Add Step
                 </button>
               </div>
@@ -585,7 +570,7 @@ export function SequenceBuilder({
       {sequence.steps.length > 0 && (
         <div className="bg-white border-t px-6 py-3">
           <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Clock className="w-4 h-4" />
+            <LazyIcon name="Clock" className="w-4 h-4" />
             <span className="font-medium">Timeline:</span>
             {timeline.map(({ step, day }, idx) => (
               <span key={step.id} className="flex items-center gap-1">

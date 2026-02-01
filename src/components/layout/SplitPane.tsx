@@ -22,7 +22,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { useIsDesktop, usePrefersReducedMotion } from '../../hooks/useMediaQuery';
-import { ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
+import { LazyIcon } from '../icons';
 
 // =============================================================================
 // Types
@@ -258,7 +258,8 @@ export function SplitPane({
           onPointerUp={handleResizeEnd}
           onKeyDown={handleKeyDown}
         >
-          <GripVertical 
+          <LazyIcon 
+            name="GripVertical"
             className={`
               w-4 h-4 text-slate-400 
               group-hover:text-blue-600
@@ -275,7 +276,7 @@ export function SplitPane({
           className="flex-shrink-0 w-6 bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
           aria-label="Expand left panel"
         >
-          <ChevronRight className="w-4 h-4 text-slate-600" />
+          <LazyIcon name="ChevronRight" className="w-4 h-4 text-slate-600" />
         </button>
       )}
       
@@ -302,7 +303,7 @@ export function SplitPane({
                     className="p-2 hover:bg-slate-100"
                     aria-label="Collapse left panel"
                   >
-                    <ChevronLeft className="w-4 h-4 text-slate-600" />
+                    <LazyIcon name="ChevronLeft" className="w-4 h-4 text-slate-600" />
                   </button>
                 )}
                 <div className="flex-1">
@@ -323,7 +324,7 @@ export function SplitPane({
           className="flex-shrink-0 w-6 bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
           aria-label="Expand right panel"
         >
-          <ChevronLeft className="w-4 h-4 text-slate-600" />
+          <LazyIcon name="ChevronLeft" className="w-4 h-4 text-slate-600" />
         </button>
       )}
     </div>

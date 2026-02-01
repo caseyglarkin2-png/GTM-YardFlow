@@ -13,7 +13,7 @@
 
 import { type ReactNode, useState, useCallback, useEffect } from 'react';
 import { useIsDesktop, usePrefersReducedMotion } from '../../hooks/useMediaQuery';
-import { X } from 'lucide-react';
+import { LazyIcon } from '../icons';
 
 // =============================================================================
 // Types
@@ -133,7 +133,7 @@ export function DesktopLayout({
                   className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
                   aria-label="Close navigation menu"
                 >
-                  <X className="h-5 w-5 text-slate-600" />
+                  <LazyIcon name="X" className="h-5 w-5 text-slate-600" />
                 </button>
               </div>
               
