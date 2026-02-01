@@ -180,17 +180,21 @@ if (enrollment.railwayEnrollmentId) {
 | Feature flags | \`src/config/featureFlags.ts\` |
 | Railway typed client | \`src/services/RailwayApiClient.ts\` |
 | Railway proxy | \`api/railway/[...path].ts\` |
+| Railway server client | \`lib/railway-client.ts\` |
 | Auth bridge | \`src/services/AuthBridge.ts\` |
 | State machine | \`src/services/SequenceStateMachine.ts\` |
 | Webhooks | \`api/webhooks/{sendgrid,inbound,calendly}.ts\` |
 | Crons | \`api/cron/{process-queue,execute-sequences}.ts\` |
 | Types | \`src/types/{railway,email,emailSequence}.ts\` |
+| Tier adapter | \`src/utils/tierAdapter.ts\` |
+| Prospect mapper | \`src/utils/prospectMapper.ts\` |
 | Alerting | \`lib/alerting.ts\` |
 | Logger | \`lib/logger.ts\` |
+| Railway mock (tests) | \`src/__tests__/mocks/railwayServerClient.mock.ts\` |
 
 ## Desktop UI Components (Sprint 700+)
 
-**Active refactor in progress - desktop-first layout with component extraction from App.tsx.**
+**Status: Desktop layout integrated, App.tsx decomposition in progress (Sprint 901).**
 
 ### Icons (INP Fix)
 \`\`\`typescript
@@ -231,11 +235,12 @@ const isDesktop = useIsDesktop(); // true if >= 1024px
 ## Test Structure
 \`\`\`
 src/__tests__/
-├── api/           # API endpoint tests
+├── api/           # API endpoint tests (webhooks, CSRF, tracking)
 ├── components/    # React component tests (RTL)
 ├── hooks/         # Custom hook tests
 ├── services/      # Service unit tests
-├── mocks/         # Shared mocks (Firebase, PWA)
+├── utils/         # Utility function tests (tierAdapter, prospectMapper)
+├── mocks/         # Shared mocks (Firebase, Railway, PWA)
 └── setup.ts       # Global test setup (Firebase mocks)
 \`\`\`
 
@@ -252,6 +257,33 @@ vi.mock('@/services/RailwayApiClient', () => ({
 
 // Railway API response pattern (always wrap in ok/data)
 mockFn.mockResolvedValue({ ok: true, data: { items: [] } });
+\`\`\`
+
+### Railway Server Mock for Webhook Tests
+\`\`\`typescript
+// For testing webhook Railway sync (api/webhooks/*.ts)
+import { 
+  mockRailwayServerClient, 
+  resetRailwayMocks,
+  simulateRailwayFailure,
+  assertRailwaySyncedEnrollment 
+} from '../mocks/railwayServerClient.mock';
+
+vi.mock('../../lib/railway-client', () => ({
+  railwayServerClient: mockRailwayServerClient,
+}));
+
+beforeEach(() => resetRailwayMocks()); // Always reset between tests!
+
+// Assert Railway received correct sync payload
+assertRailwaySyncedEnrollment('enrollment-123', {
+  status: 'meeting',
+  completionReason: 'meeting_booked',
+});
+
+// Test error resilience
+simulateRailwayFailure('patch');
+// Firestore should still update even if Railway fails
 \`\`\`
 
 ## Common Gotchas
@@ -284,11 +316,19 @@ const suppressed = await compliance.checkSuppression(to);
 if (suppressed) return;
 \`\`\`
 
-### ❌ Don't: Use inconsistent tier types
+### ❌ Don't: Use inconsistent tier types without adapter
 \`\`\`typescript
-// Firestore types: 'T1', 'T2', 'T3'
-// Railway types: 'Tier 1', 'Tier 2', 'Tier 3'
-// Always check src/types/{firestore,railway}.ts
+// ❌ WRONG - raw string comparison across systems
+if (prospect.tier === 'T1') { /* Firestore format */ }
+if (railwayProspect.tier === 'Tier 1') { /* Railway format */ }
+
+// ✅ CORRECT - use tier adapter utilities
+import { toRailwayTier, toFirestoreTier, isFirestoreTier } from '@/utils/tierAdapter';
+const railwayTier = toRailwayTier('T1'); // 'Tier 1'
+const firestoreTier = toFirestoreTier('Tier 1'); // 'T1'
+
+// For prospect data conversion between systems:
+import { toRailwayProspect, toFirestoreProspect } from '@/utils/prospectMapper';
 \`\`\`
 
 ### ❌ Don't: Create Firebase Admin multiple times
