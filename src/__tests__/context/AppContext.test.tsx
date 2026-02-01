@@ -215,7 +215,8 @@ describe('useViewMode', () => {
       wrapper: createWrapper(),
     });
     
-    expect(result.current.viewMode).toBe('companies');
+    // Default viewMode is 'people' as defined in AppContext
+    expect(result.current.viewMode).toBe('people');
     expect(typeof result.current.setViewMode).toBe('function');
   });
 });

@@ -30,16 +30,20 @@ describe('NavigationSidebar', () => {
       render(<NavigationSidebar {...defaultProps} />);
       
       expect(screen.getByRole('tablist')).toBeInTheDocument();
-      expect(screen.getAllByRole('tab')).toHaveLength(6); // Based on NAVIGATION_TABS
+      expect(screen.getAllByRole('tab')).toHaveLength(7); // NAVIGATION_TABS has 7 tabs
     });
     
     it('renders active tab with correct aria-selected', () => {
-      render(<NavigationSidebar {...defaultProps} activeTab="hitlist" />);
+      // 'prospects' is the tab ID, 'Hitlist' is the label
+      render(<NavigationSidebar {...defaultProps} activeTab="prospects" />);
       
-      // Find the hitlist tab - use getAllByRole and find the right one
       const tabs = screen.getAllByRole('tab');
-      const hitlistTab = tabs.find(tab => tab.textContent?.includes('Hitlist') || tab.getAttribute('data-tab-id') === 'hitlist');
-      expect(hitlistTab).toHaveAttribute('aria-selected', 'true');
+      const prospectsTab = tabs.find(tab => 
+        tab.textContent?.includes('Hitlist') || 
+        tab.getAttribute('data-tab-id') === 'prospects'
+      );
+      expect(prospectsTab).toBeTruthy();
+      expect(prospectsTab).toHaveAttribute('aria-selected', 'true');
     });
     
     it('renders logo and title', () => {
@@ -151,12 +155,17 @@ describe('NavigationSidebar', () => {
     it('moves focus left on ArrowLeft (mobile)', () => {
       mockUseIsDesktop.mockReturnValue(false);
       
-      render(<NavigationSidebar {...defaultProps} activeTab="hitlist" />);
+      // Use 'prospects' which is the valid TabId for Hitlist
+      render(<NavigationSidebar {...defaultProps} activeTab="prospects" />);
       
       const tabs = screen.getAllByRole('tab');
-      const hitlistTab = tabs.find(t => t.getAttribute('data-tab-id') === 'hitlist')!;
+      const prospectsTab = tabs.find(t => t.getAttribute('data-tab-id') === 'prospects');
       
-      fireEvent.keyDown(hitlistTab, { key: 'ArrowLeft' });
+      // Guard against element not found
+      expect(prospectsTab).toBeTruthy();
+      if (prospectsTab) {
+        fireEvent.keyDown(prospectsTab, { key: 'ArrowLeft' });
+      }
       
       // Event should be prevented and focus moved
     });
