@@ -11,6 +11,7 @@ import {
   generateDailyBriefing,
   DEFAULT_HOTLIST_CONFIG,
   type ProspectScoreInput,
+  type HotListScore,
 } from '@/services/HotListScoringService';
 
 describe('HotListScoringService', () => {
@@ -176,10 +177,10 @@ describe('HotListScoringService', () => {
       
       const buckets = getProspectsByPriority(prospects);
       
-      expect(buckets.critical.map(b => b.prospectId)).toContain('p1');
-      expect(buckets.high.map(b => b.prospectId)).toContain('p2');
-      expect(buckets.medium.map(b => b.prospectId)).toContain('p3');
-      expect(buckets.low.map(b => b.prospectId)).toContain('p4');
+      expect(buckets.critical.map((b: HotListScore) => b.prospectId)).toContain('p1');
+      expect(buckets.high.map((b: HotListScore) => b.prospectId)).toContain('p2');
+      expect(buckets.medium.map((b: HotListScore) => b.prospectId)).toContain('p3');
+      expect(buckets.low.map((b: HotListScore) => b.prospectId)).toContain('p4');
     });
   });
 

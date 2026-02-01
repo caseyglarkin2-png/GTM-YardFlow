@@ -1,17 +1,25 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["vitest/globals", "node"],
-    "noEmit": true
+    "types": ["vitest/globals", "node", "@testing-library/jest-dom", "vite/client"],
+    "noEmit": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "include": [
+    "src",
     "src/__tests__/**/*.ts",
     "src/__tests__/**/*.tsx",
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
     "src/**/*.spec.ts",
     "src/**/*.spec.tsx",
-    "e2e/**/*.ts"
+    "e2e/**/*.ts",
+    "lib/**/*.ts"
   ],
   "exclude": []
 }

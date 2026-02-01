@@ -25,7 +25,7 @@ vi.mock('../../services/RailwayApiClient', () => ({
 }));
 
 // Get typed mock reference
-const mockRailwayClient = railwayClient as { health: { check: ReturnType<typeof vi.fn> } };
+const mockRailwayClient = railwayClient as unknown as { health: { check: ReturnType<typeof vi.fn> } };
 
 // Mock fetch
 const mockFetch = vi.fn();

@@ -354,7 +354,7 @@ describe('EmailComplianceService', () => {
   describe('classifyBounce', () => {
     it('classifies "invalid" bounces as hard', () => {
       const event: SendGridWebhookEvent = {
-        type: 'bounce',
+        event: 'bounce',
         email: 'test@example.com',
         reason: 'Invalid email address',
         timestamp: Date.now(),
@@ -365,7 +365,7 @@ describe('EmailComplianceService', () => {
 
     it('classifies "user unknown" as hard bounce', () => {
       const event: SendGridWebhookEvent = {
-        type: 'bounce',
+        event: 'bounce',
         email: 'test@example.com',
         reason: 'User unknown',
         timestamp: Date.now(),
@@ -376,7 +376,7 @@ describe('EmailComplianceService', () => {
 
     it('classifies "mailbox" errors as hard bounce', () => {
       const event: SendGridWebhookEvent = {
-        type: 'bounce',
+        event: 'bounce',
         email: 'test@example.com',
         reason: 'Mailbox not found',
         timestamp: Date.now(),
@@ -387,7 +387,7 @@ describe('EmailComplianceService', () => {
 
     it('classifies "no such" as hard bounce', () => {
       const event: SendGridWebhookEvent = {
-        type: 'bounce',
+        event: 'bounce',
         email: 'test@example.com',
         reason: 'No such user',
         timestamp: Date.now(),
@@ -398,7 +398,7 @@ describe('EmailComplianceService', () => {
 
     it('classifies "full" as soft bounce', () => {
       const event: SendGridWebhookEvent = {
-        type: 'bounce',
+        event: 'bounce',
         email: 'test@example.com',
         reason: 'Storage full - retry later',
         timestamp: Date.now(),
@@ -409,7 +409,7 @@ describe('EmailComplianceService', () => {
 
     it('classifies "quota" exceeded as soft bounce', () => {
       const event: SendGridWebhookEvent = {
-        type: 'bounce',
+        event: 'bounce',
         email: 'test@example.com',
         reason: 'Quota exceeded',
         timestamp: Date.now(),
@@ -420,7 +420,7 @@ describe('EmailComplianceService', () => {
 
     it('classifies "rate limit" as soft bounce', () => {
       const event: SendGridWebhookEvent = {
-        type: 'bounce',
+        event: 'bounce',
         email: 'test@example.com',
         reason: 'Rate limit exceeded',
         timestamp: Date.now(),
@@ -431,7 +431,7 @@ describe('EmailComplianceService', () => {
 
     it('classifies 5xx status bounces as hard', () => {
       const event: SendGridWebhookEvent = {
-        type: 'bounce',
+        event: 'bounce',
         email: 'test@example.com',
         reason: 'Unknown error',
         status: '550',
@@ -443,7 +443,7 @@ describe('EmailComplianceService', () => {
 
     it('classifies unknown bounce as soft (conservative)', () => {
       const event: SendGridWebhookEvent = {
-        type: 'bounce',
+        event: 'bounce',
         email: 'test@example.com',
         reason: 'Some other reason',
         status: '400',

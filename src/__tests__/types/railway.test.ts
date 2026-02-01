@@ -126,6 +126,7 @@ describe('Railway Types', () => {
         prospectId: 'prospect-123',
         status: 'active',
         currentStepIndex: 2,
+        totalSteps: 5,
         nextStepAt: '2026-02-01T10:00:00Z',
         completedAt: null,
         pausedAt: null,

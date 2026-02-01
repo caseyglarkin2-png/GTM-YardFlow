@@ -116,7 +116,7 @@ export class EmailComplianceService {
   }
 
   classifyBounce(event: SendGridWebhookEvent): 'hard' | 'soft' | 'unknown' {
-    if (event.type === 'bounce' && event.reason?.toLowerCase().includes('invalid')) {
+    if (event.event === 'bounce' && event.reason?.toLowerCase().includes('invalid')) {
       return 'hard';
     }
     const reason = (event.reason || '').toLowerCase();
@@ -126,7 +126,7 @@ export class EmailComplianceService {
     if (reason.includes('full') || reason.includes('quota') || reason.includes('rate limit')) {
       return 'soft';
     }
-    if (event.type === 'bounce' && event.status?.startsWith('5')) {
+    if (event.event === 'bounce' && event.status?.startsWith('5')) {
       return 'hard';
     }
     return 'soft';

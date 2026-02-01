@@ -307,14 +307,15 @@ describe('EmailTrackingService', () => {
       
       // Extract both tokens
       const tokens = trackedMessage.html.match(/token=([^"&]+)/g)
-        ?.map(t => decodeURIComponent(t.replace('token=', '')));
+        ?.map((t: string) => decodeURIComponent(t.replace('token=', '')));
       
       if (tokens && tokens.length >= 2) {
         await service.recordClick(tokens[0]);
         await service.recordClick(tokens[1]);
 
         // Different doc IDs should be used (based on URL hash)
-        const docIds = mockCollectionRef.doc.mock.calls.map(c => c[0]);
+        const docCalls = mockCollectionRef.doc.mock.calls as unknown as [string][];
+        const docIds = docCalls.map((c) => c[0]);
         expect(docIds[0]).not.toBe(docIds[1]);
       }
     });

@@ -12,6 +12,7 @@ import userEvent from '@testing-library/user-event';
 import { CompanyResearchPanel } from '../../components/CompanyResearchPanel';
 import * as useCompanyResearchModule from '../../hooks/useCompanyResearch';
 import type { CompanyResearchResult } from '../../services/CompanyResearchService';
+import type { UseCompanyResearchResult } from '../../hooks/useCompanyResearch';
 
 // Mock the hook
 vi.mock('../../hooks/useCompanyResearch', () => ({
@@ -43,7 +44,7 @@ describe('CompanyResearchPanel', () => {
     batchResults: null as { total: number; successful: number; failed: number; results: CompanyResearchResult[] } | null,
     summary: null as { total: number; fullyResearched: number; partiallyResearched: number; notResearched: number; byTier: Record<string, { total: number; researched: number }> } | null,
     estimate: { estimatedMinutes: 0, estimatedTokens: 0, estimatedCost: '$0.00' },
-  };
+  } as unknown as UseCompanyResearchResult;
 
   beforeEach(() => {
     vi.clearAllMocks();

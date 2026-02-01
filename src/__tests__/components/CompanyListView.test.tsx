@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { CompanyListView } from '../../components/CompanyListView';
 import type { CompanyRow } from '../../services/CompanyAggregator';
-import type { Prospect } from '../../App';
+import type { Prospect } from '../../types';
 import type { CompanyTier } from '../../types/marketing';
 
 // Helper to create mock prospects
@@ -24,7 +24,7 @@ function createMockProspect(overrides: Partial<Prospect> = {}): Prospect {
     isOps: true,
     status: 'new',
     notes: '',
-    touchHistory: [],
+    tier: 'Tier 1',
     ...overrides,
   };
 }
@@ -61,11 +61,11 @@ function createMockCompanyRow(overrides: Partial<CompanyRow> = {}): CompanyRow {
 }
 
 describe('CompanyListView', () => {
-  let mockOnCompanySelect: ReturnType<typeof vi.fn>;
-  let mockOnContactSelect: ReturnType<typeof vi.fn>;
-  let mockOnResearchClick: ReturnType<typeof vi.fn>;
-  let mockOnSearchChange: ReturnType<typeof vi.fn>;
-  let mockOnSortChange: ReturnType<typeof vi.fn>;
+  let mockOnCompanySelect: (company: CompanyRow) => void;
+  let mockOnContactSelect: (prospect: Prospect) => void;
+  let mockOnResearchClick: ((company: CompanyRow) => void) | undefined;
+  let mockOnSearchChange: ((term: string) => void) | undefined;
+  let mockOnSortChange: ((sortBy: 'roi' | 'score' | 'facilities' | 'contacts') => void) | undefined;
   let companies: CompanyRow[];
 
   beforeEach(() => {

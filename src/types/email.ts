@@ -1,7 +1,7 @@
 export interface EmailMessage {
   id: string;
   to: string;
-  from: string;
+  from?: string;
   subject: string;
   html: string;
   text?: string;
@@ -76,7 +76,7 @@ export interface SendGridWebhookEvent {
 
 export interface SuppressionEntry {
   email: string;
-  reason: 'bounce' | 'spam' | 'unsubscribe' | 'manual' | 'feedback';
+  reason: 'bounce' | 'hard_bounce' | 'soft_bounce' | 'spam' | 'unsubscribe' | 'manual' | 'feedback';
   bounceType?: 'hard' | 'soft';
   createdAt: number;
   expiresAt?: number;

@@ -216,7 +216,7 @@ describe('useProspectState', () => {
       });
 
       const { result } = renderHook(() => useProspectState({ initialData: [
-        { id: 'test-1', name: 'Test', status: 'new', company: 'Co', title: 'T', tier: 'Tier 1', score: 50, tags: [] }
+        { id: 'test-1', name: 'Test', status: 'new', company: 'Co', title: 'T', tier: 'Tier 1', score: 50, tags: [], isOps: false, isExec: false }
       ] }));
 
       await act(async () => {
@@ -239,7 +239,7 @@ describe('useProspectState', () => {
       });
 
       const { result } = renderHook(() => useProspectState({ initialData: [
-        { id: 'test-1', name: 'Test', status: 'new', company: 'Co', title: 'T', tier: 'Tier 1', score: 50, tags: [] }
+        { id: 'test-1', name: 'Test', status: 'new', company: 'Co', title: 'T', tier: 'Tier 1', score: 50, tags: [], isOps: false, isExec: false }
       ] }));
 
       const originalStatus = result.current.prospects[0].status;
@@ -259,10 +259,10 @@ describe('useProspectState', () => {
       const { result } = renderHook(() => useProspectState());
 
       await act(async () => {
-        await result.current.updateProspectStatus('test-1', 'meeting');
+        await result.current.updateProspectStatus('test-1', 'meeting_booked');
       });
 
-      expect(result.current.prospects[0].status).toBe('meeting');
+      expect(result.current.prospects[0].status).toBe('meeting_booked');
     });
   });
 
@@ -312,7 +312,7 @@ describe('useProspectState', () => {
       });
 
       const { result } = renderHook(() => useProspectState({ initialData: [
-        { id: 'test-1', name: 'Test', status: 'new', company: 'Co', title: 'T', tier: 'Tier 1', score: 50, tags: [] }
+        { id: 'test-1', name: 'Test', status: 'new', company: 'Co', title: 'T', tier: 'Tier 1', score: 50, tags: [], isOps: false, isExec: false }
       ] }));
 
       await act(async () => {
@@ -363,6 +363,8 @@ describe('useProspectState', () => {
         score: 60,
         status: 'new',
         tags: [],
+        isOps: false,
+        isExec: false,
       };
 
       await act(async () => {
@@ -386,7 +388,7 @@ describe('useProspectState', () => {
       });
 
       const { result } = renderHook(() => useProspectState({ initialData: [
-        { id: 'test-1', name: 'Test', status: 'new', company: 'Co', title: 'T', tier: 'Tier 1', score: 50, tags: [] }
+        { id: 'test-1', name: 'Test', status: 'new', company: 'Co', title: 'T', tier: 'Tier 1', score: 50, tags: [], isOps: false, isExec: false }
       ] }));
 
       await act(async () => {
@@ -420,7 +422,7 @@ describe('useProspectState', () => {
 
       act(() => {
         result.current.setProspects([
-          { id: 'direct-1', name: 'Direct', company: 'Co', title: 'T', tier: 'Tier 1', score: 50, status: 'new', tags: [] }
+          { id: 'direct-1', name: 'Direct', company: 'Co', title: 'T', tier: 'Tier 1', score: 50, status: 'new', tags: [], isOps: false, isExec: false }
         ]);
       });
 

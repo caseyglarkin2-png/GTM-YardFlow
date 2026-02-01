@@ -8,7 +8,6 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  hashCode as _hashCode,
   getCachedSession,
   setCachedSession,
   clearCachedSession,

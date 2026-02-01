@@ -403,8 +403,8 @@ describe('EmailSequenceService', () => {
         delayDays: 0,
         condition: 'always',
         variants: [
-          { id: 'v1', body: 'Variant A', weight: 50 },
-          { id: 'v2', body: 'Variant B', weight: 50 },
+          { id: 'v1', name: 'Variant A', body: 'Variant A', traffic: 50 },
+          { id: 'v2', name: 'Variant B', body: 'Variant B', traffic: 50 },
         ],
       });
       

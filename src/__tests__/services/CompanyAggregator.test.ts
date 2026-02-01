@@ -56,7 +56,7 @@ function createProspect(overrides: Partial<Prospect> = {}): Prospect {
     isOps: true,
     status: 'new',
     notes: '',
-    touchHistory: [],
+    tier: 'Tier 1',
     ...overrides,
   };
 }

@@ -5,8 +5,9 @@
  */
 
 import { test, expect, navigateToTab } from './fixtures';
+import type { Page } from '@playwright/test';
 
-const rowCheckboxes = (page: ReturnType<typeof test['extend']>['appPage']) => page.locator('[data-testid^="row-checkbox-"]');
+const rowCheckboxes = (page: Page) => page.locator('[data-testid^="row-checkbox-"]');
 
 test.describe('Bulk Operations', () => {
   test.beforeEach(async ({ appPage }) => {

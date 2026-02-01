@@ -167,7 +167,7 @@ describe('useSequences', () => {
         });
       });
 
-      expect(created?.id).toBe('seq-new');
+      expect((created as RailwaySequence | null)?.id).toBe('seq-new');
       expect(result.current.sequences).toHaveLength(2);
       expect(result.current.sequences.some(s => s.name === 'New Sequence')).toBe(true);
     });
@@ -326,7 +326,7 @@ describe('useSequences', () => {
         dup = await result.current.duplicateSequence('seq-1', 'Copy of Cold Outreach');
       });
 
-      expect(dup?.name).toBe('Copy of Cold Outreach');
+      expect((dup as RailwaySequence | null)?.name).toBe('Copy of Cold Outreach');
       expect(result.current.sequences).toHaveLength(2);
     });
   });
@@ -335,17 +335,20 @@ describe('useSequences', () => {
     it('fetches sequence analytics', async () => {
       const analytics: SequenceAnalytics = {
         sequenceId: 'seq-1',
-        totalEnrollments: 100,
-        activeEnrollments: 30,
-        completedEnrollments: 50,
-        cancelledEnrollments: 10,
-        failedEnrollments: 5,
-        replyRate: 0.15,
-        completionRate: 0.50,
-        averageStepsBeforeReply: 2.3,
-        stepAnalytics: [
-          { stepIndex: 0, sent: 100, opened: 80, clicked: 20, replied: 10, bounced: 5 },
-          { stepIndex: 1, sent: 85, opened: 60, clicked: 15, replied: 5, bounced: 2 },
+        name: 'Cold Outreach',
+        metrics: {
+          totalEnrollments: 100,
+          activeEnrollments: 30,
+          completedEnrollments: 50,
+          repliedEnrollments: 15,
+          cancelledEnrollments: 10,
+          avgStepsCompleted: 2.3,
+          replyRate: 15,
+          completionRate: 50,
+        },
+        stepMetrics: [
+          { stepIndex: 0, type: 'email' as const, sent: 100, opened: 80, clicked: 20, replied: 10 },
+          { stepIndex: 1, type: 'email' as const, sent: 85, opened: 60, clicked: 15, replied: 5 },
         ],
       };
 
@@ -369,8 +372,8 @@ describe('useSequences', () => {
         result_analytics = await result.current.getAnalytics('seq-1');
       });
 
-      expect(result_analytics?.totalEnrollments).toBe(100);
-      expect(result_analytics?.replyRate).toBe(0.15);
+      expect((result_analytics as SequenceAnalytics | null)?.metrics.totalEnrollments).toBe(100);
+      expect((result_analytics as SequenceAnalytics | null)?.metrics.replyRate).toBe(15);
     });
   });
 

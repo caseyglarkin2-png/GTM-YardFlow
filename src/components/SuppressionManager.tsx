@@ -48,6 +48,8 @@ type ReasonFilter = 'all' | 'bounce' | 'spam' | 'unsubscribe' | 'manual';
 
 const reasonConfig: Record<SuppressionEntry['reason'], { label: string; icon: React.ReactNode; color: string }> = {
   bounce: { label: 'Bounce', icon: <MailWarning className="w-4 h-4" />, color: 'text-orange-600 bg-orange-50' },
+  hard_bounce: { label: 'Hard Bounce', icon: <MailWarning className="w-4 h-4" />, color: 'text-red-600 bg-red-50' },
+  soft_bounce: { label: 'Soft Bounce', icon: <MailWarning className="w-4 h-4" />, color: 'text-orange-400 bg-orange-50' },
   spam: { label: 'Spam Report', icon: <AlertTriangle className="w-4 h-4" />, color: 'text-red-600 bg-red-50' },
   unsubscribe: { label: 'Unsubscribed', icon: <UserX className="w-4 h-4" />, color: 'text-blue-600 bg-blue-50' },
   manual: { label: 'Manual', icon: <Ban className="w-4 h-4" />, color: 'text-slate-600 bg-slate-50' },

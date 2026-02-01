@@ -35,7 +35,7 @@ describe('GateBottleneckInference', () => {
     it('should return likely=false for tech company', () => {
       const techCompany: Partial<EnrichedCompany> = {
         company: 'TechCorp',
-        industryCategory: 'technology',
+        industryCategory: 'other',
         facilityCount: 2,
         estimatedTruckVolume: 5,
         distributionFootprint: 'local',
