@@ -34,6 +34,68 @@ By EOD Monday, you should be able to:
 
 ---
 
+## 🚀 SHIP-TODAY CHECKLIST (End User Workflow)
+
+**Goal**: Casey + Jake can login, pick prospects, generate ≤250 char Manifest DMs, and send email outreach.
+
+### Prerequisites
+
+| Step | Status | Action |
+|------|--------|--------|
+| Set `VITE_MEETING_LINK_SHORT` | ⏳ | Add to Vercel env vars (e.g., `https://cal.co/j/15`) |
+| Import emails from CSV | ⏳ | Use Import tab → "Import Emails from CSV" |
+| Deploy latest changes | ⏳ | `git push` triggers Vercel deploy |
+
+### User Flow
+
+1. **Login**: Use existing Firebase auth
+2. **Filter prospects**: Click "Has Email" filter button to show only prospects with email addresses
+3. **Select prospect**: Click any prospect row to view detail panel
+4. **Generate DM**: 
+   - Select a template from the template dropdown
+   - Preview rendered message with {{firstName}}, {{company}}, {{calendlyLink}} replaced
+   - Character counter shows remaining chars (limit: 250)
+   - ⚠️ Warning appears at 200 chars
+   - ❌ Copy blocked if over 250 chars
+5. **Copy DM**: Click "Copy DM" button (only enabled when under 250 chars)
+6. **Send Email**: Click "Send Email" button OR "Copy Email Payload" for manual sending
+7. **Bulk actions**: Use multi-select (checkbox column) for bulk operations
+
+### Changes Made (Session)
+
+| Fix | Description | Files Changed |
+|-----|-------------|---------------|
+| **FIX A** | Sidebar widths increased 40px each for readability | `DesktopLayout.tsx` |
+| **FIX B** | Email import from CSV with prospect matching | `EmailImportService.ts`, `EmailImportModal.tsx`, `App.tsx`, `ImportTab.tsx` |
+| **FIX C** | Short meeting link config + 250-char counter + template updates | `App.tsx` (constants, templates, UI) |
+| **FIX D** | Email filter (all/has/no) + Copy Email Payload button | `App.tsx` (filter state, UI buttons) |
+
+### New Environment Variables
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `VITE_MEETING_LINK_SHORT` | Short calendly link for DMs | `https://cal.co/j/15` |
+
+### Tests Added
+
+- `src/__tests__/utils/dmCharacterCounter.test.ts` — 24 tests for char limit logic
+- `src/__tests__/services/EmailImportService.test.ts` — 11 tests for CSV parsing & matching
+
+### Validation Commands
+
+```bash
+# Type check
+npx tsc --noEmit
+
+# Run new tests
+npm test -- --run dmCharacterCounter EmailImportService
+
+# Full test suite
+npm test -- --run
+```
+
+---
+
 ## Current State Assessment
 
 | Component | Status | Action Needed |

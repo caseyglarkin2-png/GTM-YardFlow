@@ -43,9 +43,9 @@ export interface DesktopLayoutProps {
 // =============================================================================
 
 const SIDEBAR_WIDTHS = {
-  narrow: 280,
-  medium: 320,
-  wide: 400,
+  narrow: 320,
+  medium: 360,
+  wide: 440,
 } as const;
 
 const STORAGE_KEY = 'desktop-layout-collapsed';

@@ -68,6 +68,7 @@ import { researchCompany, type CompanyResearchResult } from './services/CompanyR
 
 // --- Sprint 26-33 Components ---
 import { ImportWizard } from './components/ImportWizard';
+import { EmailImportModal } from './components/EmailImportModal';
 import { KPICard } from './components/KPICard';
 import { Leaderboard } from './components/Leaderboard';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
@@ -226,38 +227,47 @@ function EmailConfidenceBadge({ email }: { email: string }): React.ReactElement 
 }
 
 // --- Calendar Link Configuration ---
-const CALENDAR_LINK = 'https://calendly.com/jake-freightroll/manifest-meeting';
+// VITE_MEETING_LINK_SHORT is preferred for Manifest DMs (must be <=30 chars to fit 250 char limit)
+// Fallback to long Calendly URL if short link not configured
+const MEETING_LINK_SHORT = import.meta.env.VITE_MEETING_LINK_SHORT || '';
+const MEETING_LINK_LONG = 'https://calendly.com/jake-freightroll/manifest-meeting';
+const CALENDAR_LINK = MEETING_LINK_SHORT || MEETING_LINK_LONG;
+const IS_SHORT_LINK_CONFIGURED = !!MEETING_LINK_SHORT;
+
+// DM Character limit for Manifest app
+const DM_CHAR_LIMIT = 250;
 
 // --- Templates with Network Effects Messaging ---
-// Shortened for platform character limits (LinkedIn DM ~300 chars, InMail ~1900 chars)
+// Shortened for platform character limits (Manifest DM = 250 chars MAX, LinkedIn DM ~300 chars)
+// Using shorter templates when short link is configured
 const TEMPLATES = (prospect: Prospect, senderName: string): MessageTemplate[] => [
   {
     id: 'dm_codev',
     label: 'DM: Co-Dev (Short)',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, YardFlow Co-Dev: 2-3 partners get voting seats. Primo Brands saving $1M+/facility—now at 260. Love to share the math for ${prospect.company}. ${CALENDAR_LINK} -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, Primo saving $1M+/facility. YardFlow Co-Dev: voting seats open. 15 min? ${CALENDAR_LINK} -${senderName}`
   },
   {
     id: 'dm_exec',
     label: 'DM: Exec - Headcount Neutral',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, Primo saved $1M+/facility staying headcount neutral. Curious about ${prospect.company}'s yard flow? ${CALENDAR_LINK} -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, Primo: $1M+/facility, headcount neutral. Curious about ${prospect.company}? ${CALENDAR_LINK} -${senderName}`
   },
   {
     id: 'dm_ops',
     label: 'DM: Ops - Dock Time',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, avg facility wastes 5 min/shipment on dock assignments. System-driven is the fix. Compare notes? ${CALENDAR_LINK} -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, 5 min/shipment wasted on dock assignments. System fix. Compare notes? ${CALENDAR_LINK} -${senderName}`
   },
   {
     id: 'dm_carrier',
     label: 'DM: Carrier Benchmarking',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, 40% of carriers have 10% drivers underperforming in yard. We're benchmarking. Relevant for ${prospect.company}? ${CALENDAR_LINK} -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, benchmarking driver yard performance. Relevant for ${prospect.company}? ${CALENDAR_LINK} -${senderName}`
   },
   {
     id: 'codev_invite',
@@ -307,6 +317,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<'Jake' | 'Me'>('Me');
   const [filter, setFilter] = useState('');
   const [tierFilter, setTierFilter] = useState<'All' | 'Tier 1' | 'Tier 2' | 'Tier 3'>('All');
+  // Ship Today: Email filter for quick filtering to sendable prospects
+  const [emailFilter, setEmailFilter] = useState<'all' | 'has_email' | 'no_email'>('all');
   // Sprint 72: View mode toggle (company vs person view) with localStorage persistence
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     try {
@@ -460,15 +472,19 @@ export default function App() {
     return matchingProspects
       .filter(p => {
         const matchesTier = tierFilter === 'All' || p.tier === tierFilter;
+        // Ship Today: Email filter
+        const matchesEmail = emailFilter === 'all' 
+          || (emailFilter === 'has_email' && !!p.email)
+          || (emailFilter === 'no_email' && !p.email);
         let matchesDate = true;
         if (hitlistDateRange && p.createdAt) {
           const prospectDate = new Date(p.createdAt);
           matchesDate = prospectDate >= hitlistDateRange.start && prospectDate <= hitlistDateRange.end;
         }
-        return matchesTier && matchesDate;
+        return matchesTier && matchesEmail && matchesDate;
       })
       .sort((a, b) => b.score - a.score);
-  }, [prospects, filter, tierFilter, hitlistDateRange]);
+  }, [prospects, filter, tierFilter, emailFilter, hitlistDateRange]);
 
   // --- Sprint 72: Aggregate prospects by company for company-centric view ---
   const aggregatedCompanies = useMemo(() => {
@@ -871,6 +887,8 @@ export default function App() {
   
   // Import State (Sprint 29)
   const [showImportWizard, setShowImportWizard] = useState(false);
+  // Email Import Modal (Ship Today)
+  const [showEmailImportModal, setShowEmailImportModal] = useState(false);
   
   // HubSpot OAuth (Sprint 34 - replaces fake state)
   const hubspot = useHubSpot();
@@ -1424,9 +1442,16 @@ export default function App() {
   // Only apply 250 char limit to short DM templates (for Manifest app), not emails
   const currentTemplate = currentTemplates.find(t => t.id === selectedTemplateId);
   const isShortDM = currentTemplate?.type === 'short_dm';
-  const isOverLimit = isShortDM && charCount > 250;
+  const isOverLimit = isShortDM && charCount > DM_CHAR_LIMIT;
+  const isNearLimit = isShortDM && charCount > DM_CHAR_LIMIT - 50;
 
   const copyToClipboard = async () => {
+    // Block copy if over DM char limit for short DMs
+    if (isOverLimit) {
+      showError('Message Too Long', `Manifest DMs must be ${DM_CHAR_LIMIT} characters or less. Currently: ${charCount} chars.`);
+      return;
+    }
+    
     const result = await clipboardCopy(generatedMessage);
     if (result.success) {
       setShowCopied(true);
@@ -1436,6 +1461,29 @@ export default function App() {
     } else {
       console.error('Copy to clipboard failed:', result.error);
       showError('Copy failed', result.error || 'Could not copy to clipboard');
+    }
+  };
+
+  // Ship Today: Copy full email payload (subject + body) for manual sending
+  const copyEmailPayload = async () => {
+    if (!selectedProspect) return;
+    
+    const currentTemplate = currentTemplates.find(t => t.id === selectedTemplateId);
+    const subject = currentTemplate?.subject || `YardFlow for ${selectedProspect.company}`;
+    
+    const payload = `TO: ${selectedProspect.email || '[NO EMAIL - ADD EMAIL FIRST]'}
+
+SUBJECT: ${subject}
+
+BODY:
+${generatedMessage}`;
+    
+    const result = await clipboardCopy(payload);
+    if (result.success) {
+      showSuccess('Email Copied!', 'Full email payload copied. Paste into Gmail/Outlook.');
+      handleStatusUpdate('drafted');
+    } else {
+      showError('Copy failed', result.error || 'Could not copy email payload');
     }
   };
 
@@ -1653,6 +1701,26 @@ export default function App() {
       >
         Skip to main content
       </a>
+      
+      {/* Email Import Modal (Ship Today - import emails from CSV to existing prospects) */}
+      {showEmailImportModal && (
+        <EmailImportModal
+          prospects={prospects}
+          onImportComplete={(updates) => {
+            // Update prospects with new emails
+            setProspects(prev => prev.map(p => {
+              const update = updates.find(u => u.id === p.id);
+              if (update) {
+                return { ...p, email: update.email, emailSource: update.emailSource };
+              }
+              return p;
+            }));
+            showSuccess('Emails Imported', `Added ${updates.length} email addresses to prospects.`);
+            announce(`Imported ${updates.length} email addresses`);
+          }}
+          onClose={() => setShowEmailImportModal(false)}
+        />
+      )}
       
       {/* Import Wizard Modal */}
       {showImportWizard && (
@@ -1982,6 +2050,31 @@ export default function App() {
                     }`}
                   >
                     {t}
+                  </button>
+                ))}
+              </div>
+              {/* Ship Today: Email filter for quick access to sendable prospects */}
+              <div className="flex gap-2 mt-2" role="group" aria-label="Filter by email">
+                {([
+                  { value: 'all' as const, label: 'All' },
+                  { value: 'has_email' as const, label: '📧 Has Email' },
+                  { value: 'no_email' as const, label: '⚠️ No Email' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setEmailFilter(opt.value)}
+                    aria-pressed={emailFilter === opt.value}
+                    className={`text-xs px-3 py-1 rounded-full whitespace-nowrap border ${
+                      emailFilter === opt.value 
+                        ? opt.value === 'has_email' 
+                          ? 'bg-green-50 border-green-200 text-green-700 font-medium'
+                          : opt.value === 'no_email'
+                            ? 'bg-amber-50 border-amber-200 text-amber-700 font-medium'
+                            : 'bg-blue-50 border-blue-200 text-blue-700 font-medium'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {opt.label}
                   </button>
                 ))}
               </div>
@@ -2426,7 +2519,10 @@ export default function App() {
               )}
             </div>
           ) : activeTab === 'import' ? (
-            <ImportTab onOpenImportWizard={() => setShowImportWizard(true)} />
+            <ImportTab 
+              onOpenImportWizard={() => setShowImportWizard(true)} 
+              onOpenEmailImport={() => setShowEmailImportModal(true)}
+            />
           ) : activeTab === 'integrations' ? (
             <IntegrationsTab 
               hubspot={hubspot} 
@@ -2894,15 +2990,25 @@ export default function App() {
                       </button>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => {
-                        setEditingEmailValue('');
-                        setIsEditingEmail(true);
-                      }}
-                      className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 border border-dashed border-blue-300 px-2 py-1 rounded hover:bg-blue-50"
-                    >
-                      <span>+ Add email address</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingEmailValue('');
+                          setIsEditingEmail(true);
+                        }}
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 border border-dashed border-blue-300 px-2 py-1 rounded hover:bg-blue-50"
+                      >
+                        <span>+ Add email</span>
+                      </button>
+                      <button
+                        onClick={() => setShowEmailImportModal(true)}
+                        className="text-xs text-slate-500 hover:text-blue-600 flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-50"
+                        title="Bulk import emails from CSV"
+                      >
+                        <LazyIcon name="Upload" className="h-3 w-3" />
+                        Import CSV
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div className="mt-4 flex items-center space-x-4 flex-wrap gap-y-2">
@@ -3085,10 +3191,20 @@ export default function App() {
 
                 {/* Editor */}
                 <div className="lg:col-span-8 flex flex-col min-h-[400px] lg:h-full">
-                  <div className={`bg-white rounded-xl shadow-sm border flex flex-col flex-1 overflow-hidden transition-colors ${isOverLimit ? 'border-red-300 ring-2 ring-red-100' : 'border-slate-200'}`}>
+                  {/* Short Link Warning */}
+                  {!IS_SHORT_LINK_CONFIGURED && isShortDM && (
+                    <div className="mb-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2">
+                      <LazyIcon name="AlertTriangle" className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                      <span className="text-xs text-amber-700">
+                        <strong>Long meeting link:</strong> Set <code className="bg-amber-100 px-1 rounded">VITE_MEETING_LINK_SHORT</code> env var for DMs under 250 chars.
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className={`bg-white rounded-xl shadow-sm border flex flex-col flex-1 overflow-hidden transition-colors ${isOverLimit ? 'border-red-300 ring-2 ring-red-100' : isNearLimit ? 'border-orange-300 ring-1 ring-orange-100' : 'border-slate-200'}`}>
                     <div className="p-3 lg:p-4 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                       <span className="text-xs font-medium text-slate-500">
-                        Draft Preview • <span className={isOverLimit ? 'text-red-600 font-bold' : 'text-slate-400'}>{charCount}{isShortDM ? '/250' : ''} chars{!isShortDM && ' (no limit for emails)'}</span>
+                        Draft Preview • <span className={isOverLimit ? 'text-red-600 font-bold' : isNearLimit ? 'text-orange-600 font-semibold' : 'text-slate-400'}>{charCount}{isShortDM ? `/${DM_CHAR_LIMIT}` : ''} chars{!isShortDM && ' (no limit for emails)'}</span>
                       </span>
                       <div className="flex flex-wrap gap-2">
                          {/* AI Generate Button */}
@@ -3185,8 +3301,8 @@ export default function App() {
                     {isShortDM && (
                       <div className="h-1 w-full bg-slate-100">
                         <div 
-                          className={`h-full transition-all duration-300 ${isOverLimit ? 'bg-red-500' : charCount > 200 ? 'bg-orange-400' : 'bg-blue-500'}`} 
-                          style={{ width: `${Math.min((charCount / 250) * 100, 100)}%` }}
+                          className={`h-full transition-all duration-300 ${isOverLimit ? 'bg-red-500' : isNearLimit ? 'bg-orange-400' : 'bg-blue-500'}`} 
+                          style={{ width: `${Math.min((charCount / DM_CHAR_LIMIT) * 100, 100)}%` }}
                         ></div>
                       </div>
                     )}
@@ -3195,7 +3311,7 @@ export default function App() {
                       <div className="flex items-center">
                         {isOverLimit && (
                            <span className="text-xs text-red-600 font-bold flex items-center bg-red-50 px-2 py-1 rounded">
-                             <LazyIcon name="AlertCircle" className="h-3 w-3 mr-1" /> Over Limit (DM only)
+                             <LazyIcon name="AlertCircle" className="h-3 w-3 mr-1" /> {charCount - DM_CHAR_LIMIT} chars over limit!
                            </span>
                         )}
                       </div>
@@ -3209,9 +3325,11 @@ export default function App() {
                         </button>
                         <button
                           onClick={copyToClipboard}
-                          className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white transition-all shadow-md transform active:scale-95 ${
-                            showCopied ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700'
+                          disabled={isOverLimit}
+                          className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white transition-all shadow-md transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            showCopied ? 'bg-green-600' : isOverLimit ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'
                           }`}
+                          title={isOverLimit ? `Message exceeds ${DM_CHAR_LIMIT} chars. Shorten it first.` : 'Copy for Manifest DM'}
                         >
                           {showCopied ? (
                             <>
@@ -3286,6 +3404,15 @@ export default function App() {
                             </div>
                           )}
                         </div>
+                        {/* Ship Today: Copy Email Payload - fallback when send is blocked */}
+                        <button
+                          onClick={copyEmailPayload}
+                          className="flex items-center px-4 py-2 rounded-lg text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all shadow-sm"
+                          title="Copy full email (To/Subject/Body) for manual sending in Gmail/Outlook"
+                        >
+                          <LazyIcon name="Copy" className="h-4 w-4 mr-2" />
+                          Copy Email
+                        </button>
                         {/* Sprint 79.5: Railway redirect for immediate email sending */}
                         <a
                           href={`https://yardflow-hitlist-production-2f41.up.railway.app/people?search=${encodeURIComponent(selectedProspect?.email || selectedProspect?.name || '')}`}
