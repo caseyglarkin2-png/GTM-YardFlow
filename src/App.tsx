@@ -3,6 +3,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Zap, Loader } from 'lucide-react';
 // LazyIcon for all other icons - fixes INP by lazy loading
 import { LazyIcon, preloadCriticalIcons } from './components/icons';
+// Sprint 800: Desktop detection for responsive layout improvements
+import { useIsDesktop } from './hooks/useMediaQuery';
 import { initErrorTracking, setUserContext } from './services/ErrorTracking';
 import { ConversationManagerSingleton } from './services/ConversationManager';
 import { buildSystemPrompt } from './services/SystemPromptBuilder';
@@ -278,6 +280,8 @@ ${CALENDAR_LINK}
 ];
 
 export default function App() {
+  // Sprint 800: Use desktop detection hook for responsive layout
+  const isDesktop = useIsDesktop();
   const [user, setUser] = useState<unknown>(null);
   const [activeTab, setActiveTab] = useState<'prospects' | 'stats' | 'assistant' | 'roi' | 'assets' | 'dashboard' | 'import' | 'integrations' | 'sequences'>('prospects');
   // Sprint 93: Use centralized prospect state hook with Railway/Firestore toggle
