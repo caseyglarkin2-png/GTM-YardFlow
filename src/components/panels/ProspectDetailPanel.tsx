@@ -197,18 +197,52 @@ export function ProspectDetailPanel({
                 </span>
                 {showCopied && <span className="text-green-600 font-medium flex items-center gap-1"><LazyIcon name="Check" className="h-3 w-3" /> Copied</span>}
             </div>
+            
+            {/* T204.1: Smart Clipboard Widget */}
+            <div className="flex gap-2 pt-1">
+                <button
+                    onClick={async () => {
+                        await copyToClipboard(generatedMessage);
+                        setShowCopied(true);
+                        setTimeout(() => setShowCopied(false), 2000);
+                        onUpdateProspect({ status: 'drafted' });
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-md hover:bg-slate-50 hover:border-slate-300 transition-all text-xs font-medium"
+                    title="Copy body text for LinkedIn/Email"
+                >
+                    <LazyIcon name="Copy" className="h-3.5 w-3.5" />
+                    Copy Body
+                </button>
+                {currentTemplate.subject && (
+                    <button
+                        onClick={async () => {
+                            await copyToClipboard(currentTemplate.subject);
+                            setShowCopied(true);
+                            setTimeout(() => setShowCopied(false), 2000);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-md hover:bg-slate-50 hover:border-slate-300 transition-all text-xs font-medium"
+                        title="Copy subject line"
+                    >
+                        <LazyIcon name="Type" className="h-3.5 w-3.5" />
+                        Copy Subject
+                    </button>
+                )}
+            </div>
         </div>
       </div>
 
       {/* Actions Footer */}
       <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-3">
-        <button
-            onClick={handleCopy}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-all font-medium text-sm shadow-sm"
-        >
-            <LazyIcon name="Copy" className="h-4 w-4" />
-            Copy to Clipboard (Draft)
-        </button>
+        {/* T204.2: Manual Status Override */}
+        {prospect.status !== 'contacted' && prospect.status !== 'meeting_booked' && (
+            <button
+                onClick={() => onUpdateProspect({ status: 'contacted', lastContactedAt: new Date().toISOString() })}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-all font-medium text-sm shadow-sm"
+            >
+                <LazyIcon name="CheckCircle" className="h-4 w-4" />
+                Mark as Sent / Contacted
+            </button>
+        )}
 
         <div className="flex gap-3">
             <button

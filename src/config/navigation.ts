@@ -13,6 +13,7 @@ import {
   Link2,
   Bot,
   Calculator,
+  Inbox,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -47,6 +48,14 @@ export const NAVIGATION_TABS: readonly TabConfig[] = [
     icon: LayoutDashboard,
     ariaLabel: 'Analytics Dashboard',
     panelId: 'panel-dashboard',
+  },
+  {
+    id: 'inbox',
+    label: 'Inbox',
+    shortLabel: 'Inbox',
+    icon: Inbox,
+    ariaLabel: 'Inbox',
+    panelId: 'panel-inbox',
   },
   {
     id: 'prospects',

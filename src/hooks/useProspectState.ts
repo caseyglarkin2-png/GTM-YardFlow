@@ -130,6 +130,9 @@ const localToRailwayStatus: Record<Prospect['status'], RailwayProspect['status']
   'drafted': 'researching',
   'contacted': 'contacted',
   'meeting_booked': 'meeting_scheduled',
+  'replied': 'replied',
+  'bounced': 'bounced',
+  'unsubscribed': 'unsubscribed'
 };
 
 /**

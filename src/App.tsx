@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 // Sprint 1003: Virtualization for large prospect lists
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { v4 as uuidv4 } from 'uuid';
 // Critical icons only - used in loading state before lazy loading kicks in
 import { Zap, Loader } from 'lucide-react';
 // LazyIcon for all other icons - fixes INP by lazy loading
@@ -171,6 +172,7 @@ import { CampaignDashboard } from './components/panels/CampaignDashboard';
 import { ProspectListPanel } from './components/panels/ProspectListPanel';
 import { ProspectDetailPanel } from './components/panels/ProspectDetailPanel';
 import { InboxPanel } from './components/panels/InboxPanel';
+import { ProspectFormModal } from './components/ProspectFormModal';
 import { useFilteredProspects } from './hooks/useFilteredProspects';
 
 
@@ -317,6 +319,8 @@ export default function App() {
   const [isBookingMeeting, setIsBookingMeeting] = useState(false);
   // Sprint 3.1: Sequence Builder modal
   const [showSequenceBuilder, setShowSequenceBuilder] = useState(false);
+  // Sprint 1004: Manual prospect entry
+  const [showProspectForm, setShowProspectForm] = useState(false);
   // Hitlist date filter (Sprint 35 - T35.4)
   const [hitlistDatePeriod, setHitlistDatePeriod] = useState<TimePeriod>('all');
   const [hitlistCustomRange, setHitlistCustomRange] = useState<DateRange | undefined>(undefined);
@@ -1142,6 +1146,51 @@ export default function App() {
     }
   }, [selectedProspect, sequences, enrollProspects, showInfo, showSuccess, showWarning, showError, announce]);
 
+  // Sprint 1004: Handle manual prospect creation/editing
+  const handleSaveProspect = useCallback(async (data: Partial<Prospect>) => {
+    if (!addProspects) return;
+    
+    // Check required fields
+    if (!data.name || !data.company) {
+      showError('Validation Error', 'Name and Company are required');
+      return;
+    }
+
+    try {
+      if (selectedProspect && showProspectForm) {
+         // This is an update to existing prospect
+         if (updateProspect) {
+             await updateProspect(selectedProspect.id, data);
+             showSuccess('Prospect updated successfully');
+         }
+      } else {
+        // Create new prospect
+         const newProspect: Prospect = {
+            id: uuidv4(),
+            name: data.name,
+            company: data.company,
+            title: data.title || '',
+            email: data.email || '',
+            linkedinUrl: data.linkedinUrl || '',
+            tier: data.tier || 'Tier 3',
+            status: 'new',
+            addedAt: new Date().toISOString(),
+            lastContactedAt: null,
+            notes: data.notes || '',
+            tags: [],
+            ...data
+         } as Prospect;
+
+         await addProspects([newProspect]);
+         showSuccess('Prospect added successfully');
+      }
+      setShowProspectForm(false);
+    } catch (error) {
+       console.error('Failed to save prospect:', error);
+       showError('Save Failed', 'Could not save prospect data.');
+    }
+  }, [addProspects, updateProspect, selectedProspect, showProspectForm, showSuccess, showError]);
+
   // Sprint 84.1: Handle meeting booking with attribution
   const handleBookMeeting = useCallback(async () => {
     if (!selectedProspect || !meetingDate) {
@@ -1729,6 +1778,9 @@ export default function App() {
                   onUpdateProspect={async (id, updates) => {
                      await updateProspect(id, updates);
                   }}
+                  currentUser={currentUser}
+                  onBookMeeting={() => setShowMeetingModal(true)}
+                  onSendEmail={sendEmailToProspect}
                 />
               )}
               {activeTab === 'assistant' && (
@@ -1756,7 +1808,10 @@ export default function App() {
                   isLoading={isProspectsLoading}
                   selectedProspect={selectedProspect}
                   onSelectProspect={setSelectedProspect}
-                  onSelectCompany={setSelectedCompany}
+                  onSelectCompany={(company) => {
+                    setSelectedCompany(company);
+                    if (company) setViewMode('companies');
+                  }}
                   currentUser={currentUser}
                   getEnrollmentForProspect={getEnrollmentForProspect}
                   selection={{
@@ -1768,6 +1823,10 @@ export default function App() {
                   }}
                   onClearFilters={() => { setFilter(''); setTierFilter('All'); setEmailFilter('all'); }}
                   onGoToImport={() => setActiveTab('import')}
+                  onAddProspect={() => {
+                    setSelectedProspect(null);
+                    setShowProspectForm(true);
+                  }}
                   onUpdateProspect={async (updates) => {
                     if (updates.status) await handleStatusUpdate(updates.status);
                     if (updates.email !== undefined) await handleEmailUpdate(updates.email || '');
@@ -1924,6 +1983,14 @@ export default function App() {
           </div>
         </div>
       )}
+      
+      <ProspectFormModal
+        isOpen={showProspectForm}
+        onClose={() => setShowProspectForm(false)}
+        onSave={handleSaveProspect}
+        initialData={selectedProspect}
+        mode={selectedProspect ? 'edit' : 'create'}
+      />
     </div>
   );
 }

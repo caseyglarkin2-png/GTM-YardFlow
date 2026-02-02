@@ -7,9 +7,19 @@ interface InboxPanelProps {
   prospects: Prospect[];
   onUpdateProspect: (id: string, updates: Partial<Prospect>) => Promise<void>;
   isLoading: boolean;
+  currentUser: string;
+  onBookMeeting: () => void;
+  onSendEmail: (templateId: string, body: string, subject?: string) => Promise<void>;
 }
 
-export function InboxPanel({ prospects, onUpdateProspect, isLoading }: InboxPanelProps) {
+export function InboxPanel({ 
+  prospects, 
+  onUpdateProspect, 
+  isLoading,
+  currentUser,
+  onBookMeeting,
+  onSendEmail
+}: InboxPanelProps) {
   const [selectedProspectId, setSelectedProspectId] = useState<string | null>(null);
 
   // Filter for replied prospects
@@ -115,8 +125,11 @@ export function InboxPanel({ prospects, onUpdateProspect, isLoading }: InboxPane
                 */}
                 <ProspectDetailPanel 
                     prospect={selectedProspect}
+                    currentUser={currentUser}
                     onClose={() => setSelectedProspectId(null)}
-                    onUpdate={(updates) => onUpdateProspect(selectedProspect.id, updates)}
+                    onUpdateProspect={(updates) => onUpdateProspect(selectedProspect.id, updates)}
+                    onBookMeeting={onBookMeeting}
+                    onSendEmail={onSendEmail}
                 />
             </div>
           </div>

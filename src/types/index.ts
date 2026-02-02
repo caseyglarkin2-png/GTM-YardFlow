@@ -38,6 +38,12 @@ export interface Prospect {
   createdAt?: number;
   updatedAt?: number;
   
+  // Tracking fields
+  needsResponse?: boolean;
+  lastReplyAt?: string;
+  lastContactedAt?: string;
+  addedAt?: string;
+  
   // Company-level Primo Lookalike fields (from EnrichedCompany)
   companyFacilityCount?: number;
   companyIndustry?: string;

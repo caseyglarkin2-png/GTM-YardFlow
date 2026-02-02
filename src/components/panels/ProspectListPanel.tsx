@@ -24,6 +24,8 @@ interface ProspectListPanelProps {
   getEnrollmentForProspect: (id: string) => any;
   onClearFilters: () => void;
   onGoToImport: () => void;
+  onAddProspect?: () => void;
+  onCompanyClick?: (companyName: string) => void;
   currentUser: string;
 }
 
@@ -37,6 +39,8 @@ export function ProspectListPanel({
   getEnrollmentForProspect,
   onClearFilters,
   onGoToImport,
+  onAddProspect,
+  onCompanyClick,
   currentUser
 }: ProspectListPanelProps) {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -71,6 +75,19 @@ export function ProspectListPanel({
 
   return (
     <div role="grid" aria-label="Prospect list" aria-multiselectable="true" className="flex flex-col h-full bg-slate-50">
+      <div className="px-4 py-3 bg-white border-b border-slate-200 flex justify-between items-center flex-shrink-0">
+        <div className="text-sm text-slate-500 font-medium">
+          {filteredProspects.length} Prospect{filteredProspects.length !== 1 ? 's' : ''}
+        </div>
+        <button
+          onClick={onAddProspect}
+          className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+        >
+          <LazyIcon name="Plus" className="h-4 w-4" />
+          Add Prospect
+        </button>
+      </div>
+
       <div
         role="row"
         className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 px-4 py-2 flex items-center gap-3 text-[11px] font-semibold text-slate-500 uppercase flex-shrink-0"
@@ -180,7 +197,19 @@ export function ProspectListPanel({
                   <div className="w-32 min-w-0 text-right">
                     <div className="text-xs font-medium text-slate-700 flex items-center justify-end gap-1">
                       <LazyIcon name="Briefcase" className="h-3 w-3 text-slate-400 flex-shrink-0" aria-hidden="true" />
-                      <span className="truncate">{prospect.company}</span>
+                      {onCompanyClick ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onCompanyClick(prospect.company);
+                          }}
+                          className="truncate hover:text-blue-600 hover:underline focus:outline-none focus:text-blue-700"
+                        >
+                          {prospect.company}
+                        </button>
+                      ) : (
+                        <span className="truncate">{prospect.company}</span>
+                      )}
                     </div>
                   </div>
 

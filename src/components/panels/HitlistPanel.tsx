@@ -1,5 +1,5 @@
 // src/components/panels/HitlistPanel.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ViewMode } from '../ViewModeToggle';
 import { CompanyRow } from '../../services/CompanyAggregator';
 import { Prospect } from '../../types';
@@ -31,6 +31,7 @@ interface HitlistPanelProps {
   selection: SelectionState;
   onClearFilters: () => void;
   onGoToImport: () => void;
+  onAddProspect?: () => void;
   onUpdateProspect: (updates: Partial<Prospect>) => Promise<void>;
   onBookMeeting: () => void;
   onSendEmail: (templateId: string, body: string, subject?: string) => Promise<void>;
@@ -51,10 +52,43 @@ export function HitlistPanel({
   selection,
   onClearFilters,
   onGoToImport,
+  onAddProspect,
   onUpdateProspect,
   onBookMeeting,
   onSendEmail
 }: HitlistPanelProps) {
+
+  // Sprint 203: Rapid-fire navigation (J/K)
+  useEffect(() => {
+    // Only active when a prospect is selected (Detail view open)
+    // or arguably when list is focused, but let's stick to detail view context for now
+    // actually rapid fire implies moving through list while seeing detail
+    if (!selectedProspect) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in input
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+      if ((e.target as HTMLElement).isContentEditable) return;
+
+      if (e.key === 'j' || e.key === 'ArrowDown') {
+        const idx = filteredProspects.findIndex(p => p.id === selectedProspect.id);
+        if (idx !== -1 && idx < filteredProspects.length - 1) {
+          e.preventDefault(); // Prevent page scroll
+          onSelectProspect(filteredProspects[idx + 1]);
+        }
+      }
+      if (e.key === 'k' || e.key === 'ArrowUp') {
+        const idx = filteredProspects.findIndex(p => p.id === selectedProspect.id);
+        if (idx > 0) {
+          e.preventDefault();
+          onSelectProspect(filteredProspects[idx - 1]);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedProspect, filteredProspects, onSelectProspect]);
 
   if (viewMode === 'companies') {
     if (selectedCompany) {
@@ -90,6 +124,18 @@ export function HitlistPanel({
           getEnrollmentForProspect={getEnrollmentForProspect}
           onClearFilters={onClearFilters}
           onGoToImport={onGoToImport}
+          onAddProspect={onAddProspect}
+          onCompanyClick={(companyName) => {
+            // Find company row case-insensitive
+            const company = companies.find(c => c.company.toLowerCase() === companyName.toLowerCase());
+            if (company) {
+              onSelectCompany(company);
+            } else {
+              // Fallback if company aggregation hasn't happened or text mismatch
+              // We could potentially create a transient company object, but for now just log/noop
+              console.warn(`Company row not found for: ${companyName}`);
+            }
+          }}
           currentUser={currentUser}
         />
       </div>

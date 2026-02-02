@@ -66,6 +66,9 @@ export interface SidebarContentProps {
   
   // Railway dashboard URL
   railwayUrl?: string;
+
+  // Badge counts for tabs
+  badgeCounts?: Record<string, number>;
 }
 
 // =============================================================================
@@ -80,6 +83,7 @@ const ICON_NAMES: Record<string, string> = {
   Link2: 'Link2',
   Bot: 'Bot',
   Calculator: 'Calculator',
+  Inbox: 'Inbox',
 };
 
 // =============================================================================
@@ -110,6 +114,7 @@ export function SidebarContent({
   headerContent,
   footerContent,
   railwayUrl = 'https://yardflow-hitlist-production-2f41.up.railway.app',
+  badgeCounts,
 }: SidebarContentProps): React.ReactElement {
   
   // Handle tab selection
@@ -184,6 +189,7 @@ export function SidebarContent({
           {NAVIGATION_TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             const iconName = ICON_NAMES[tab.icon.displayName || tab.icon.name] || tab.icon.name;
+            const badgeCount = badgeCounts?.[tab.id] || 0;
             
             return (
               <button
@@ -207,6 +213,11 @@ export function SidebarContent({
                   aria-hidden="true" 
                 />
                 {tab.shortLabel}
+                {badgeCount > 0 && (
+                  <span className="ml-1.5 bg-red-500 text-white text-[10px] font-bold px-1 rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
+                    {badgeCount > 99 ? '99+' : badgeCount}
+                  </span>
+                )}
               </button>
             );
           })}

@@ -27,24 +27,29 @@ import {
 // Status Mapping
 // =============================================================================
 
-type FirestoreStatus = 'new' | 'drafted' | 'contacted' | 'meeting_booked';
+type FirestoreStatus = 'new' | 'drafted' | 'contacted' | 'meeting_booked' | 'replied' | 'bounced' | 'unsubscribed';
 
 const STATUS_FIRESTORE_TO_RAILWAY: Record<FirestoreStatus, RailwayStatus> = {
   'new': 'new',
   'drafted': 'researching',
   'contacted': 'contacted',
   'meeting_booked': 'meeting_scheduled',
+  'replied': 'replied',
+  'bounced': 'bounced',
+  'unsubscribed': 'unsubscribed',
 };
 
 const STATUS_RAILWAY_TO_FIRESTORE: Record<RailwayStatus, FirestoreStatus> = {
   'new': 'new',
   'researching': 'drafted',
   'contacted': 'contacted',
-  'replied': 'contacted',
+  'replied': 'replied',
   'meeting_scheduled': 'meeting_booked',
   'closed_won': 'meeting_booked',
   'closed_lost': 'contacted',
   'nurturing': 'drafted',
+  'bounced': 'bounced',
+  'unsubscribed': 'unsubscribed',
 };
 
 /**

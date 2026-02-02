@@ -46,7 +46,9 @@ export type ProspectStatus =
   | 'meeting_scheduled'
   | 'closed_won'
   | 'closed_lost'
-  | 'nurturing';
+  | 'nurturing'
+  | 'bounced'
+  | 'unsubscribed';
 
 export type ProspectTier = 'Tier 1' | 'Tier 2' | 'Tier 3' | 'Tier 4';
 
