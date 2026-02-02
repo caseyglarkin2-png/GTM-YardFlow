@@ -138,6 +138,7 @@ import { BulkTagModal } from './components/BulkTagModal';
 import { BulkDeleteModal } from './components/BulkDeleteModal';
 import { HitlistPanel } from './components/panels/HitlistPanel';
 import { BulkStatusModal } from './components/BulkStatusModal';
+import { BulkEmailModal, type BulkEmailProgress } from './components/BulkEmailModal';
 
 // --- Toast Notification System ---
 import { ToastContainer, useToast } from './components/Toast';
@@ -474,10 +475,13 @@ export default function App() {
     isSelected,
   } = multiSelect;
   
-  const [bulkActionModal, setBulkActionModal] = useState<'sequence' | 'tag' | 'status' | 'delete' | null>(null);
+  const [bulkActionModal, setBulkActionModal] = useState<'sequence' | 'tag' | 'status' | 'delete' | 'email' | null>(null);
   const [isProcessingBulkAction, setIsProcessingBulkAction] = useState(false);
   const [isExportingBulk, setIsExportingBulk] = useState(false);
   const [deletedProspects, setDeletedProspects] = useState<Prospect[]>([]);
+  // Sprint 22A: Bulk email state
+  const [isSendingBulkEmail, setIsSendingBulkEmail] = useState(false);
+  const [bulkEmailProgress, setBulkEmailProgress] = useState<BulkEmailProgress>({ sent: 0, total: 0, failed: 0 });
   const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
   
   // Sprint 1003: Virtualization ref for prospect list
@@ -764,6 +768,100 @@ export default function App() {
       announce('Failed to restore prospects');
     }
   }, [deletedProspects, announce, showError]);
+
+  // Sprint 22A: Bulk Email Send Handler
+  const handleBulkSendEmail = useCallback(async (subject: string, body: string, templateId: string) => {
+    const eligibleProspects = selectedProspects.filter(p => p.email);
+    if (eligibleProspects.length === 0) {
+      showWarning('No emails', 'None of the selected prospects have email addresses.');
+      return;
+    }
+
+    setIsSendingBulkEmail(true);
+    setBulkEmailProgress({ sent: 0, total: eligibleProspects.length, failed: 0 });
+
+    try {
+      const firebaseUser = auth?.currentUser;
+      if (!firebaseUser) {
+        showError('Auth Required', 'Please sign in to send emails.');
+        setIsSendingBulkEmail(false);
+        return;
+      }
+
+      const token = await firebaseUser.getIdToken();
+      let sent = 0;
+      let failed = 0;
+
+      for (const prospect of eligibleProspects) {
+        try {
+          // Personalize the message
+          const firstName = prospect.name.split(' ')[0] || prospect.name;
+          const personalizedBody = body
+            .replace(/\{first_name\}/g, firstName)
+            .replace(/\{name\}/g, prospect.name)
+            .replace(/\{company\}/g, prospect.company)
+            .replace(/\{title\}/g, prospect.title);
+
+          const personalizedSubject = subject
+            .replace(/\{first_name\}/g, firstName)
+            .replace(/\{name\}/g, prospect.name)
+            .replace(/\{company\}/g, prospect.company)
+            .replace(/\{title\}/g, prospect.title);
+
+          const response = await fetch('/api/email/send', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              to: prospect.email,
+              toName: prospect.name,
+              subject: personalizedSubject,
+              html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">${personalizedBody.split('\n').map(line => `<p style="margin: 0 0 10px 0;">${line || '&nbsp;'}</p>`).join('')}</div>`,
+              text: personalizedBody,
+              metadata: { 
+                prospectId: prospect.id, 
+                prospectName: prospect.name,
+                source: 'BulkEmail',
+                templateId,
+              },
+            }),
+          });
+
+          if (response.ok) {
+            sent++;
+            // Update prospect status to contacted
+            await updateProspect(prospect.id, { status: 'contacted', lastContactedAt: new Date().toISOString() });
+          } else {
+            failed++;
+            console.error(`Failed to send to ${prospect.email}:`, await response.text());
+          }
+        } catch (err) {
+          failed++;
+          console.error(`Error sending to ${prospect.email}:`, err);
+        }
+
+        setBulkEmailProgress({ sent, total: eligibleProspects.length, failed });
+      }
+
+      setIsSendingBulkEmail(false);
+      setBulkActionModal(null);
+      clearSelection();
+      
+      if (sent > 0) {
+        showSuccess('Emails Sent', `Successfully sent ${sent} email${sent > 1 ? 's' : ''}.`);
+        announce(`Sent ${sent} emails`);
+      }
+      if (failed > 0) {
+        showWarning('Some Failed', `${failed} email${failed > 1 ? 's' : ''} failed to send.`);
+      }
+    } catch (err) {
+      console.error('Bulk email failed:', err);
+      showError('Email Failed', 'Failed to send bulk emails. Please try again.');
+      setIsSendingBulkEmail(false);
+    }
+  }, [selectedProspects, auth, updateProspect, clearSelection, showSuccess, showWarning, showError, announce]);
   
   // AI State
   const [geminiApiKey, setGeminiApiKey] = useState('');
@@ -1847,10 +1945,22 @@ export default function App() {
           onExport={handleBulkExport}
           onDelete={() => setBulkActionModal('delete')}
           onClear={clearSelection}
+          onSendEmail={() => setBulkActionModal('email')}
           isExporting={isExportingBulk}
           isProcessing={isProcessingBulkAction}
+          isSendingEmail={isSendingBulkEmail}
         />
       )}
+
+      {/* Sprint 22A: Bulk Email Modal */}
+      <BulkEmailModal
+        isOpen={bulkActionModal === 'email'}
+        onClose={() => setBulkActionModal(null)}
+        onConfirm={handleBulkSendEmail}
+        selectedProspects={selectedProspects}
+        isSending={isSendingBulkEmail}
+        progress={bulkEmailProgress}
+      />
 
       <BulkSequenceModal
         isOpen={bulkActionModal === 'sequence'}

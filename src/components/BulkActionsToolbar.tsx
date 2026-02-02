@@ -15,6 +15,7 @@ import {
   Trash2, 
   X,
   Check,
+  Mail,
 } from 'lucide-react';
 
 export interface BulkActionsToolbarProps {
@@ -25,8 +26,10 @@ export interface BulkActionsToolbarProps {
   onExport: () => void;
   onDelete: () => void;
   onClear: () => void;
+  onSendEmail?: () => void;
   isExporting?: boolean;
   isProcessing?: boolean;
+  isSendingEmail?: boolean;
 }
 
 export function BulkActionsToolbar({
@@ -37,8 +40,10 @@ export function BulkActionsToolbar({
   onExport,
   onDelete,
   onClear,
+  onSendEmail,
   isExporting = false,
   isProcessing = false,
+  isSendingEmail = false,
 }: BulkActionsToolbarProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [showExportSuccess, setShowExportSuccess] = useState(false);
@@ -94,6 +99,23 @@ export function BulkActionsToolbar({
 
       {/* Action Buttons */}
       <div className="flex items-center gap-1" role="group" aria-label="Bulk action buttons">
+        {/* Send Email - Sprint 22A */}
+        {onSendEmail && (
+          <button
+            onClick={onSendEmail}
+            disabled={isProcessing || isSendingEmail}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium 
+              text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 
+              rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Send email to selected"
+            aria-label="Send email to selected prospects"
+            data-testid="bulk-send-email"
+          >
+            <Mail className={`h-4 w-4 ${isSendingEmail ? 'animate-pulse' : ''}`} aria-hidden="true" />
+            <span className="hidden md:inline">Email</span>
+          </button>
+        )}
+
         {/* Assign Sequence */}
         <button
           onClick={onAssignSequence}
