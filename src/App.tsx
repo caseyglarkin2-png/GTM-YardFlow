@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+// Sprint 1003: Virtualization for large prospect lists
+import { useVirtualizer } from '@tanstack/react-virtual';
 // Critical icons only - used in loading state before lazy loading kicks in
 import { Zap, Loader } from 'lucide-react';
 // LazyIcon for all other icons - fixes INP by lazy loading
@@ -319,10 +321,31 @@ export default function App() {
   } = useProspectState();
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
   const [currentUser, setCurrentUser] = useState<'Jake' | 'Me'>('Me');
-  const [filter, setFilter] = useState('');
-  const [tierFilter, setTierFilter] = useState<'All' | 'Tier 1' | 'Tier 2' | 'Tier 3'>('All');
+  // Sprint 1002: Filter state with localStorage persistence
+  const [filter, setFilter] = useState(() => {
+    try {
+      return localStorage.getItem('yardflow-filter') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [tierFilter, setTierFilter] = useState<'All' | 'Tier 1' | 'Tier 2' | 'Tier 3'>(() => {
+    try {
+      const saved = localStorage.getItem('yardflow-tier-filter');
+      return (saved === 'All' || saved === 'Tier 1' || saved === 'Tier 2' || saved === 'Tier 3') ? saved : 'All';
+    } catch {
+      return 'All';
+    }
+  });
   // Ship Today: Email filter for quick filtering to sendable prospects
-  const [emailFilter, setEmailFilter] = useState<'all' | 'has_email' | 'no_email'>('all');
+  const [emailFilter, setEmailFilter] = useState<'all' | 'has_email' | 'no_email'>(() => {
+    try {
+      const saved = localStorage.getItem('yardflow-email-filter');
+      return (saved === 'all' || saved === 'has_email' || saved === 'no_email') ? saved : 'all';
+    } catch {
+      return 'all';
+    }
+  });
   // Sprint 72: View mode toggle (company vs person view) with localStorage persistence
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     try {
@@ -444,6 +467,17 @@ export default function App() {
     preloadCriticalIcons();
   }, []);
 
+  // Sprint 1002: Persist filter state to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('yardflow-filter', filter);
+      localStorage.setItem('yardflow-tier-filter', tierFilter);
+      localStorage.setItem('yardflow-email-filter', emailFilter);
+    } catch {
+      // localStorage may not be available
+    }
+  }, [filter, tierFilter, emailFilter]);
+
   // Update search index when prospects change
   useEffect(() => {
     const searchableProspects: SearchableProspect[] = prospects.map(p => ({
@@ -490,6 +524,14 @@ export default function App() {
       .sort((a, b) => b.score - a.score);
   }, [prospects, filter, tierFilter, emailFilter, hitlistDateRange]);
 
+  // Sprint 1003: Virtualize prospect list for 5000+ items
+  const rowVirtualizer = useVirtualizer({
+    count: filteredProspects.length,
+    getScrollElement: () => prospectListRef.current,
+    estimateSize: () => 65, // Estimated row height in pixels
+    overscan: 10, // Render 10 extra items above/below viewport
+  });
+
   // --- Sprint 72: Aggregate prospects by company for company-centric view ---
   const aggregatedCompanies = useMemo(() => {
     return aggregateByCompany(filteredProspects, undefined, {
@@ -520,6 +562,9 @@ export default function App() {
   const [isExportingBulk, setIsExportingBulk] = useState(false);
   const [deletedProspects, setDeletedProspects] = useState<Prospect[]>([]);
   const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
+  
+  // Sprint 1003: Virtualization ref for prospect list
+  const prospectListRef = useRef<HTMLDivElement>(null);
 
   // Check if some (but not all) are selected (for indeterminate state)
   const isSomeSelected = useMemo(() => 
@@ -564,7 +609,7 @@ export default function App() {
     }
   }, [companySortBy]);
 
-  // Global keyboard shortcuts for bulk selection (Cmd/Ctrl+A, Escape)
+  // Global keyboard shortcuts for bulk selection (Cmd/Ctrl+A, Escape, Cmd/Ctrl+C)
   useEffect(() => {
     const handleGlobalKeyDown = (e: globalThis.KeyboardEvent) => {
       // Only handle when on hitlist tab and not in an input
@@ -579,6 +624,13 @@ export default function App() {
         announce(`${prospectIds.length} prospects selected`);
       }
 
+      // Sprint 1002: Cmd/Ctrl+C to copy selected prospect email
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && selectedProspect?.email) {
+        e.preventDefault();
+        clipboardCopy(selectedProspect.email);
+        announce(`Copied ${selectedProspect.email}`);
+      }
+
       // Escape to clear selection
       if (e.key === 'Escape' && hasSelection) {
         e.preventDefault();
@@ -589,7 +641,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [activeTab, selectAll, clearSelection, hasSelection, prospectIds.length, announce]);
+  }, [activeTab, selectAll, clearSelection, hasSelection, prospectIds.length, announce, selectedProspect]);
 
   // Sprint 84.3: Load meeting stats for dashboard
   useEffect(() => {
@@ -2638,10 +2690,10 @@ ${generatedMessage}`;
               onSortChange={setCompanySortBy}
             />
           ) : (
-            <div role="grid" aria-label="Prospect list" aria-multiselectable="true" className="divide-y divide-slate-100">
+            <div role="grid" aria-label="Prospect list" aria-multiselectable="true" className="flex flex-col h-full">
               <div
                 role="row"
-                className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 px-4 py-2 flex items-center gap-3 text-[11px] font-semibold text-slate-500 uppercase"
+                className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 px-4 py-2 flex items-center gap-3 text-[11px] font-semibold text-slate-500 uppercase flex-shrink-0"
               >
                 <input
                   ref={selectAllCheckboxRef}
@@ -2658,95 +2710,142 @@ ${generatedMessage}`;
                 <span className="w-28 text-right">Status</span>
               </div>
 
-              {filteredProspects.map(prospect => {
-                const isRowSelected = isSelected(prospect.id);
-                return (
+              {/* Sprint 1003: Virtualized prospect list for 5000+ items */}
+              <div 
+                ref={prospectListRef}
+                className="flex-1 overflow-auto"
+                style={{ contain: 'strict' }}
+              >
+                {filteredProspects.length > 0 ? (
                   <div
-                    key={prospect.id}
-                    role="row"
-                    aria-selected={isRowSelected}
-                    tabIndex={0}
-                    onClick={() => {
-                      setSelectedProspect(prospect);
-                      setIsMobileSidebarOpen(false);
+                    style={{
+                      height: `${rowVirtualizer.getTotalSize()}px`,
+                      width: '100%',
+                      position: 'relative',
                     }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        setSelectedProspect(prospect);
-                        setIsMobileSidebarOpen(false);
-                      }
-                      // Spacebar toggles selection
-                      if (e.key === ' ' || e.key === 'Spacebar') {
-                        e.preventDefault();
-                        toggleSelection(prospect.id, { extend: e.ctrlKey || e.metaKey });
-                      }
-                    }}
-                    className={`px-4 py-3 flex items-start gap-3 cursor-pointer transition-colors relative focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 ${
-                      isRowSelected ? 'bg-blue-50' : 'hover:bg-slate-50'
-                    }`}
                   >
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${prospect.name}`}
-                      data-testid={`row-checkbox-${prospect.id}`}
-                      checked={isRowSelected}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Use handleClick for proper shift/ctrl key handling
-                        handleSelectionClick(prospect.id, { shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey });
-                      }}
-                      onChange={() => {}}
-                      className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
+                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                      const prospect = filteredProspects[virtualRow.index];
+                      const isRowSelected = isSelected(prospect.id);
+                      return (
+                        <div
+                          key={prospect.id}
+                          role="row"
+                          aria-selected={isRowSelected}
+                          tabIndex={0}
+                          onClick={() => {
+                            setSelectedProspect(prospect);
+                            setIsMobileSidebarOpen(false);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              setSelectedProspect(prospect);
+                              setIsMobileSidebarOpen(false);
+                            }
+                            if (e.key === ' ' || e.key === 'Spacebar') {
+                              e.preventDefault();
+                              toggleSelection(prospect.id, { extend: e.ctrlKey || e.metaKey });
+                            }
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: `${virtualRow.size}px`,
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }}
+                          className={`px-4 py-3 flex items-start gap-3 cursor-pointer transition-colors relative focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 border-b border-slate-100 ${
+                            isRowSelected ? 'bg-blue-50' : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${prospect.name}`}
+                            data-testid={`row-checkbox-${prospect.id}`}
+                            checked={isRowSelected}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectionClick(prospect.id, { shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey });
+                            }}
+                            onChange={() => {}}
+                            className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <h3 className={`font-semibold text-sm truncate ${selectedProspect?.id === prospect.id ? 'text-blue-700' : 'text-slate-800'}`}>
-                          {prospect.name}
-                        </h3>
-                        {prospect.lastEditedBy && prospect.lastEditedBy !== currentUser && prospect.status !== 'new' && (
-                          <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse flex-shrink-0 ml-1" title={`Updated by ${prospect.lastEditedBy}`} aria-label={`Updated by ${prospect.lastEditedBy}`} />
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-500 truncate">{prospect.title}</p>
-                    </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between">
+                              <h3 className={`font-semibold text-sm truncate ${selectedProspect?.id === prospect.id ? 'text-blue-700' : 'text-slate-800'}`}>
+                                {prospect.name}
+                              </h3>
+                              {prospect.lastEditedBy && prospect.lastEditedBy !== currentUser && prospect.status !== 'new' && (
+                                <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse flex-shrink-0 ml-1" title={`Updated by ${prospect.lastEditedBy}`} aria-label={`Updated by ${prospect.lastEditedBy}`} />
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 truncate">{prospect.title}</p>
+                          </div>
 
-                    <div className="w-32 min-w-0 text-right">
-                      <div className="text-xs font-medium text-slate-700 flex items-center justify-end gap-1">
-                        <LazyIcon name="Briefcase" className="h-3 w-3 text-slate-400 flex-shrink-0" aria-hidden="true" />
-                        <span className="truncate">{prospect.company}</span>
-                      </div>
-                    </div>
+                          <div className="w-32 min-w-0 text-right">
+                            <div className="text-xs font-medium text-slate-700 flex items-center justify-end gap-1">
+                              <LazyIcon name="Briefcase" className="h-3 w-3 text-slate-400 flex-shrink-0" aria-hidden="true" />
+                              <span className="truncate">{prospect.company}</span>
+                            </div>
+                          </div>
 
-                    <div className="w-20 text-right flex-shrink-0">
-                      <span className="inline-flex items-center justify-end text-[11px] font-semibold text-slate-600">
-                        {prospect.tier}
-                        {prospect.tier === 'Tier 1' && (
-                          <span className="ml-1 flex h-2 w-2 rounded-full bg-orange-500 ring-2 ring-orange-100" title="Tier 1" aria-label="Tier 1 priority target" />
-                        )}
-                      </span>
-                    </div>
-                    <div className="w-28 text-right">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded border uppercase tracking-wider font-semibold ${getStatusColor(prospect.status)}`}>
-                        {prospect.status === 'meeting_booked' ? 'BOOKED' : prospect.status.replace('_', ' ')}
-                      </span>
-                    </div>
-                    {/* Sprint 81.2: Sequence Enrollment Badge */}
-                    <div className="w-20 text-right flex-shrink-0">
-                      <SequenceEnrollmentBadge 
-                        enrollment={getEnrollmentForProspect(prospect.id)} 
-                        compact 
-                      />
-                    </div>
+                          <div className="w-20 text-right flex-shrink-0">
+                            <span className="inline-flex items-center justify-end text-[11px] font-semibold text-slate-600">
+                              {prospect.tier}
+                              {prospect.tier === 'Tier 1' && (
+                                <span className="ml-1 flex h-2 w-2 rounded-full bg-orange-500 ring-2 ring-orange-100" title="Tier 1" aria-label="Tier 1 priority target" />
+                              )}
+                            </span>
+                          </div>
+                          <div className="w-28 text-right">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded border uppercase tracking-wider font-semibold ${getStatusColor(prospect.status)}`}>
+                              {prospect.status === 'meeting_booked' ? 'BOOKED' : prospect.status.replace('_', ' ')}
+                            </span>
+                          </div>
+                          <div className="w-20 text-right flex-shrink-0">
+                            <SequenceEnrollmentBadge 
+                              enrollment={getEnrollmentForProspect(prospect.id)} 
+                              compact 
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-
-              {filteredProspects.length === 0 && (
-                <div className="p-8 text-center text-slate-400 text-sm" role="row">
-                  No prospects found.
-                </div>
-              )}
+                ) : (
+                  <div className="p-8 text-center space-y-3" role="row">
+                    {prospects.length === 0 ? (
+                      <>
+                        <p className="font-medium text-slate-600">No prospects loaded</p>
+                        <p className="text-slate-400 text-sm">Import data from the Import tab to get started.</p>
+                        <button
+                          onClick={() => setActiveTab('import')}
+                          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Go to Import
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-medium text-slate-600">No matches for current filters</p>
+                        <p className="text-slate-400 text-sm">Try adjusting your filters or search query.</p>
+                        <button
+                          onClick={() => { 
+                            setFilter(''); 
+                            setTierFilter('All'); 
+                            setEmailFilter('all'); 
+                          }}
+                          className="px-4 py-2 bg-slate-200 text-slate-700 text-sm rounded-lg hover:bg-slate-300 transition-colors"
+                        >
+                          Clear Filters
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
