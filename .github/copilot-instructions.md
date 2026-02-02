@@ -8,14 +8,17 @@ Calendly handles scheduling — no calendar integration needed.
 
 | Sprint | Focus | Status |
 |--------|-------|--------|
-| 900 | Webhook Integration Tests | ✅ Complete |
-| 901 | App.tsx Decomposition | 🔄 In Progress |
-| 902 | Type Safety Layer | ✅ Complete |
-| 903 | SequenceBuilder Railway | ⏳ Pending |
-| 904 | Production Monitoring | ⏳ Pending |
-| 905 | E2E Desktop Coverage | ⏳ Pending |
+| 1000 | **Data Bootstrap** (UNBLOCK DEMO) | 🔴 **TODAY** |
+| 1002 | Outreach Flow Polish | ⏳ Next |
+| 1003 | Production Reliability (INP Fix) | ⏳ Next |
+| 1001 | Email Pattern Inference | ⏳ Deferred |
 
-*Last updated: 2026-02-01 — See [SPRINT_PLAN_V18_COMPREHENSIVE.md](../SPRINT_PLAN_V18_COMPREHENSIVE.md) for details*
+*Last updated: 2026-02-01 — See [SPRINT_PLAN_V19_OUTREACH_UNBLOCK.md](../SPRINT_PLAN_V19_OUTREACH_UNBLOCK.md) for details*
+
+### Current Blockers
+- **0 prospects visible**: Hitlist has 5,409 prospects but NO emails; "Has Email" filter shows nothing
+- **INP blocking 713.5ms**: Need virtualization for 5,409 row list
+- **Email data available**: New enriched CSV has 1,103 verified emails ready to import
 
 ## Architecture
 

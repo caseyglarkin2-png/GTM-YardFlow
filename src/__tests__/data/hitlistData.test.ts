@@ -1,9 +1,21 @@
 import { describe, it, expect } from 'vitest'
-import { HITLIST_PROSPECTS, getAllProspects, getTier1Prospects, getQualifiedProspects } from '../../data/hitlistData'
+import { 
+  HITLIST_PROSPECTS, 
+  HITLIST_STATS,
+  getAllProspects, 
+  getTier1Prospects, 
+  getQualifiedProspects,
+  getProspectsWithEmail,
+} from '../../data/hitlistData'
+import { isValidEmail } from '../../utils/emailValidator'
 
 describe('Hitlist Data', () => {
   it('should have prospect data loaded', () => {
     expect(HITLIST_PROSPECTS.length).toBeGreaterThan(0)
+  })
+
+  it('should have more than 5000 prospects', () => {
+    expect(HITLIST_PROSPECTS.length).toBeGreaterThan(5000)
   })
 
   it('should have required fields for each prospect', () => {
@@ -84,6 +96,42 @@ describe('Prospect Data Integrity', () => {
   it('should have non-empty company names', () => {
     HITLIST_PROSPECTS.forEach(prospect => {
       expect(prospect.company.trim().length).toBeGreaterThan(0)
+    })
+  })
+})
+
+describe('Email Coverage', () => {
+  it('should have at least 700 prospects with emails', () => {
+    const withEmail = HITLIST_PROSPECTS.filter(p => p.email)
+    expect(withEmail.length).toBeGreaterThanOrEqual(700)
+  })
+
+  it('should have accurate withEmail count in stats', () => {
+    const actualWithEmail = HITLIST_PROSPECTS.filter(p => p.email).length
+    expect(HITLIST_STATS.withEmail).toBe(actualWithEmail)
+  })
+
+  it('should only have valid email formats', () => {
+    const withEmail = HITLIST_PROSPECTS.filter(p => p.email)
+    withEmail.forEach(p => {
+      expect(isValidEmail(p.email)).toBe(true)
+    })
+  })
+
+  it('should have emailConfidence set when email exists', () => {
+    const withEmail = HITLIST_PROSPECTS.filter(p => p.email)
+    withEmail.forEach(p => {
+      expect(p.emailConfidence).toBeDefined()
+      expect(['verified', 'high', 'medium', 'low', 'inferred']).toContain(p.emailConfidence)
+    })
+  })
+
+  it('getProspectsWithEmail returns only prospects with email', () => {
+    const withEmail = getProspectsWithEmail()
+    expect(withEmail.length).toBeGreaterThan(0)
+    withEmail.forEach(p => {
+      expect(p.email).toBeDefined()
+      expect(p.email).toContain('@')
     })
   })
 })

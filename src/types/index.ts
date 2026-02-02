@@ -20,6 +20,15 @@ export interface Prospect {
   revenue?: string;
   // Extended fields for import/sync
   email?: string;
+  /**
+   * Confidence level for the email address
+   * - verified: Confirmed valid (from enriched data or bounce check)
+   * - high: Strong pattern match with domain verification
+   * - medium: Pattern match without verification
+   * - low: Weak pattern match or guessed
+   * - inferred: Generated from email pattern (not verified)
+   */
+  emailConfidence?: 'verified' | 'high' | 'medium' | 'low' | 'inferred';
   phone?: string;
   linkedinUrl?: string;
   source?: string;

@@ -200,3 +200,28 @@ export function getFeatureFlagSummary(): Record<string, boolean | number> {
 if (featureFlags.DEBUG_FEATURE_FLAGS) {
   console.log('🚩 Feature Flags:', getFeatureFlagSummary());
 }
+
+/**
+ * Log feature flags at app startup.
+ * Call this from App.tsx to see current configuration.
+ * Always logs in development, respects DEBUG_FEATURE_FLAGS in production.
+ */
+export function logFeatureFlagsOnStartup(): void {
+  const isDev = import.meta.env.DEV;
+  const shouldLog = isDev || featureFlags.DEBUG_FEATURE_FLAGS;
+  
+  if (!shouldLog) return;
+  
+  console.group('🚩 [YardFlow] Feature Flags');
+  console.log('Railway Enabled:', featureFlags.RAILWAY_ENABLED);
+  console.log('Railway Auth:', featureFlags.RAILWAY_AUTH_ENABLED);
+  console.log('Railway Email:', featureFlags.RAILWAY_EMAIL_ENABLED);
+  console.log('Railway Data:', featureFlags.RAILWAY_DATA_ENABLED);
+  console.log('Dual Write:', featureFlags.DUAL_WRITE_ENABLED);
+  console.log('Traffic %:', featureFlags.RAILWAY_TRAFFIC_PERCENT);
+  console.log('---');
+  console.log('shouldUseRailway():', shouldUseRailway());
+  console.log('shouldUseRailwayData():', shouldUseRailwayData());
+  console.log('shouldUseRailwayEmail():', shouldUseRailwayEmail());
+  console.groupEnd();
+}

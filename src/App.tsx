@@ -51,6 +51,10 @@ const appId = import.meta.env.VITE_FIREBASE_APP_ID || 'default-app-id';
 // T100.2: Initialize error tracking
 initErrorTracking();
 
+// T1000.3: Log feature flags at startup for debugging
+import { logFeatureFlagsOnStartup } from './config/featureFlags';
+logFeatureFlagsOnStartup();
+
 // --- Types ---
 import { Prospect, MessageTemplate, ChatMessage } from './types';
 // HITLIST_PROSPECTS now loaded via useProspectState hook
