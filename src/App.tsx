@@ -102,6 +102,7 @@ import { sendEmailViaRailway, isRailwayAvailable } from './services/RailwayEmail
 
 // --- Sprint 81 Sequence Enrollment ---
 import { useSequenceEnrollment } from './hooks/useSequenceEnrollment';
+import { useSequences } from './hooks/useSequences';
 import { SequenceEnrollmentBadge } from './components/SequenceEnrollmentBadge';
 import { useReplyNotifications } from './hooks/useReplyNotifications';
 
@@ -441,6 +442,12 @@ export default function App() {
     isEnrolling,
     // enrollmentProgress - available for future progress UI
   } = useSequenceEnrollment();
+
+  // Sprint 1005: Railway Sequence Management
+  const { 
+    createSequence, 
+    updateSequence, 
+  } = useSequences();
 
   // Sprint 83.6: Real-time reply notifications
   useReplyNotifications({
@@ -2533,10 +2540,39 @@ ${generatedMessage}`;
               {showSequenceBuilder ? (
                 <div className="flex-1 overflow-hidden">
                   <SequenceBuilder
-                    onSave={(sequence) => {
-                      showSuccess('Sequence Created', `"${sequence.name}" has been saved`);
-                      setShowSequenceBuilder(false);
-                      refreshSequences();
+                    onSave={async (sequence) => {
+                      // Sprint 1005: Actually save the sequence to Railway/Firestore
+                      try {
+                        // Convert local sequence to Railway format
+                        // Map our email step types to Railway's step types
+                        const railwaySequence = await createSequence({
+                          name: sequence.name,
+                          description: sequence.description || '',
+                          steps: sequence.steps.map((step, index) => ({
+                            order: index,
+                            type: 'email' as const, // All our steps are email steps
+                            subject: step.subject,
+                            body: step.body,
+                            delayDays: step.delayDays,
+                            metadata: {
+                              originalType: step.type, // Preserve for UI display
+                            },
+                          })),
+                        });
+                        
+                        if (railwaySequence) {
+                          showSuccess('Sequence Created', `"${sequence.name}" has been saved`);
+                        } else {
+                          // Fallback: Firestore-only save (Railway may be disabled)
+                          showSuccess('Sequence Created', `"${sequence.name}" has been saved locally`);
+                        }
+                        
+                        setShowSequenceBuilder(false);
+                        refreshSequences();
+                      } catch (err) {
+                        showError('Save Failed', 'Could not save sequence. Please try again.');
+                        console.error('Failed to save sequence:', err);
+                      }
                     }}
                     onCancel={() => setShowSequenceBuilder(false)}
                   />

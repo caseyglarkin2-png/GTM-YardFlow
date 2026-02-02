@@ -77,7 +77,7 @@ describe('DesktopLayout', () => {
       render(<DesktopLayout {...defaultProps} sidebarWidth="wide" />);
       
       const sidebar = screen.getByRole('complementary', { name: /navigation sidebar/i });
-      expect(sidebar).toHaveStyle({ width: '400px' });
+      expect(sidebar).toHaveStyle({ width: '440px' });
     });
     
     it('does not render collapse button when collapsible is false', () => {

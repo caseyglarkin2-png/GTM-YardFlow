@@ -101,9 +101,19 @@ describe('Prospect Data Integrity', () => {
 })
 
 describe('Email Coverage', () => {
-  it('should have at least 700 prospects with emails', () => {
+  it('should have at least 1300 prospects with emails (verified + inferred)', () => {
     const withEmail = HITLIST_PROSPECTS.filter(p => p.email)
-    expect(withEmail.length).toBeGreaterThanOrEqual(700)
+    expect(withEmail.length).toBeGreaterThanOrEqual(1300)
+  })
+
+  it('should have at least 700 verified emails', () => {
+    const verified = HITLIST_PROSPECTS.filter(p => p.emailConfidence === 'verified')
+    expect(verified.length).toBeGreaterThanOrEqual(700)
+  })
+
+  it('should have at least 500 inferred emails', () => {
+    const inferred = HITLIST_PROSPECTS.filter(p => p.emailConfidence === 'inferred')
+    expect(inferred.length).toBeGreaterThanOrEqual(500)
   })
 
   it('should have accurate withEmail count in stats', () => {

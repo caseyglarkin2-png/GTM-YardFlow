@@ -30,7 +30,19 @@ const ROOT = path.join(__dirname, '..');
 const PEOPLE_CSV = path.join(ROOT, 'YardFlow_Manifest2026_Hitlist_v3.xlsx - People Hitlist (1).csv');
 const COMPANY_CSV = path.join(ROOT, 'YardFlow_Manifest2026_Hitlist_v3.xlsx - Company Hitlist (2).csv');
 const ENRICHED_CSV = path.join(ROOT, 'enriched attendee list 2 - enriched attendee list 2 (1).csv');
+const DOMAIN_PATTERNS_FILE = path.join(ROOT, 'src/data/domainPatterns.json');
 const OUTPUT_FILE = path.join(ROOT, 'src/data/hitlistData.ts');
+
+// Email pattern types for inference
+type EmailPattern = 
+  | 'first.last' | 'first' | 'flast' | 'f.last' 
+  | 'firstlast' | 'first_last' | 'last' | 'lastf' | 'last.first' | 'unknown';
+
+interface DomainPatternData {
+  pattern: EmailPattern;
+  sampleCount: number;
+  confidence: number;
+}
 
 interface PersonRow {
   name: string;
@@ -146,6 +158,51 @@ function sanitizeEmail(email: string): string | null {
   return email.trim().toLowerCase();
 }
 
+// Normalize name for pattern matching
+function normalizeNameForPattern(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z]/g, '');
+}
+
+// Generate email based on pattern
+function generateEmailFromPattern(
+  firstName: string,
+  lastName: string,
+  domain: string,
+  pattern: EmailPattern
+): string {
+  const first = normalizeNameForPattern(firstName);
+  const last = normalizeNameForPattern(lastName);
+  
+  if (!first || !last || !domain) return '';
+  
+  switch (pattern) {
+    case 'first.last':
+      return `${first}.${last}@${domain}`;
+    case 'first':
+      return `${first}@${domain}`;
+    case 'flast':
+      return `${first[0]}${last}@${domain}`;
+    case 'f.last':
+      return `${first[0]}.${last}@${domain}`;
+    case 'firstlast':
+      return `${first}${last}@${domain}`;
+    case 'first_last':
+      return `${first}_${last}@${domain}`;
+    case 'last':
+      return `${last}@${domain}`;
+    case 'lastf':
+      return `${last}${first[0]}@${domain}`;
+    case 'last.first':
+      return `${last}.${first}@${domain}`;
+    default:
+      return `${first}.${last}@${domain}`;
+  }
+}
+
 // Normalize name for matching (handles variations)
 function normalizeNameKey(firstName: string, lastName: string, company: string): string {
   const fn = (firstName || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -230,6 +287,43 @@ function generate() {
     console.log(`   ⚠️ Enriched CSV not found at ${ENRICHED_CSV}\n`);
   }
 
+  // 2b. Load domain patterns for email inference
+  console.log('2b️⃣ Loading domain patterns for inference...');
+  let domainPatterns: Record<string, DomainPatternData> = {};
+  let companyDomains = new Map<string, string>(); // company name -> domain
+  
+  if (fs.existsSync(DOMAIN_PATTERNS_FILE)) {
+    domainPatterns = JSON.parse(fs.readFileSync(DOMAIN_PATTERNS_FILE, 'utf-8'));
+    console.log(`   ✅ ${Object.keys(domainPatterns).length} domain patterns loaded`);
+    
+    // Build company -> domain lookup from enriched data
+    // We need to map company names to their email domains
+    if (fs.existsSync(ENRICHED_CSV)) {
+      const enrichedData = fs.readFileSync(ENRICHED_CSV, 'utf-8').replace(/\r/g, '');
+      const enrichedLines = enrichedData.split('\n').filter(l => l.trim());
+      const headers = parseCSVLine(enrichedLines[0]);
+      const emailIdx = headers.indexOf('Email');
+      const companyIdx = headers.indexOf('Company Name');
+      const companyFallbackIdx = headers.indexOf('Company');
+      
+      for (let i = 1; i < enrichedLines.length; i++) {
+        const fields = parseCSVLine(enrichedLines[i]);
+        const email = fields[emailIdx]?.trim().toLowerCase();
+        const company = (fields[companyIdx] || fields[companyFallbackIdx] || '').toLowerCase();
+        
+        if (email && email.includes('@') && company) {
+          const domain = email.split('@')[1];
+          if (domain && domainPatterns[domain]) {
+            companyDomains.set(company, domain);
+          }
+        }
+      }
+    }
+    console.log(`   ✅ ${companyDomains.size} companies mapped to domains\n`);
+  } else {
+    console.log(`   ⚠️ Domain patterns not found. Run: npx tsx scripts/generateDomainPatterns.ts\n`);
+  }
+
   // 3. Parse People CSV
   console.log('3️⃣ Parsing People Hitlist...');
   const peopleData = fs.readFileSync(PEOPLE_CSV, 'utf-8').replace(/\r/g, '');
@@ -261,6 +355,31 @@ function generate() {
       const matchKey = normalizeNameKey(firstName, lastName, company);
       const enrichedMatch = enrichedEmails.get(matchKey);
       
+      // Try to infer email if no enriched match found
+      let inferredEmail: string | undefined;
+      let inferredConfidence: 'inferred' | undefined;
+      
+      if (!enrichedMatch) {
+        const companyLower = company.toLowerCase();
+        const domain = companyDomains.get(companyLower);
+        
+        if (domain && domainPatterns[domain]) {
+          const patternData = domainPatterns[domain];
+          // Only infer if confidence is high enough (>=70%)
+          if (patternData.confidence >= 70 && firstName && lastName) {
+            inferredEmail = generateEmailFromPattern(
+              firstName,
+              lastName,
+              domain,
+              patternData.pattern
+            );
+            if (inferredEmail) {
+              inferredConfidence = 'inferred';
+            }
+          }
+        }
+      }
+      
       if (enrichedMatch) {
         emailMatchCount++;
       }
@@ -279,15 +398,20 @@ function generate() {
         isExecOps: parseBool(fields[10]),
         isProc: parseBool(fields[11]),
         isSales: parseBool(fields[12]),
-        // Merge enriched email data if available
-        email: enrichedMatch?.email,
-        emailConfidence: enrichedMatch?.confidence,
+        // Merge enriched email data if available, or use inferred
+        email: enrichedMatch?.email || inferredEmail,
+        emailConfidence: enrichedMatch?.confidence || inferredConfidence,
         linkedinUrl: enrichedMatch?.linkedinUrl,
       });
     }
   }
+  
+  // Count inferred emails
+  const inferredCount = prospects.filter(p => p.emailConfidence === 'inferred').length;
+  
   console.log(`   ✅ ${prospects.length} prospects loaded`);
-  console.log(`   📧 ${emailMatchCount} prospects matched with enriched emails\n`);
+  console.log(`   📧 ${emailMatchCount} prospects matched with enriched emails`);
+  console.log(`   🔮 ${inferredCount} prospects with inferred emails\n`);
 
   // 4. Generate TypeScript file
   console.log('4️⃣ Generating TypeScript...');
@@ -296,6 +420,9 @@ function generate() {
   // Track seen IDs to ensure uniqueness
   const outputIds = new Set<string>();
   let emailsInOutput = 0;
+  let verifiedInOutput = 0;
+  let inferredInOutput = 0;
+  
   const prospectData = prospects.map((p, index) => {
     const tier = lookupTier(p.company, companyTiers);
     const companyScore = companyScores.get(p.company.toLowerCase()) || 0;
@@ -311,7 +438,11 @@ function generate() {
     }
     outputIds.add(id);
     
-    if (p.email) emailsInOutput++;
+    if (p.email) {
+      emailsInOutput++;
+      if (p.emailConfidence === 'verified') verifiedInOutput++;
+      if (p.emailConfidence === 'inferred') inferredInOutput++;
+    }
     
     return {
       id,
@@ -334,7 +465,9 @@ function generate() {
     };
   });
   
-  console.log(`   📧 ${emailsInOutput} prospects with email in output\n`);
+  console.log(`   📧 ${emailsInOutput} prospects with email in output`);
+  console.log(`      ✓ ${verifiedInOutput} verified`);
+  console.log(`      🔮 ${inferredInOutput} inferred\n`);
   
   const output = `/**
  * YardFlow Manifest 2026 Hitlist Data

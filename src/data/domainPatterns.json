@@ -1,0 +1,3457 @@
+{
+  "1stchoicefreight.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "3csoftware.com": {
+    "pattern": "firstlast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "3plsystems.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "7-11.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "aduiepyle.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "a2bf.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "a3freightpayment.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "abacuscorporation.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "sembatechnologies.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "acmd.com": {
+    "pattern": "first_last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "adenmoves.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "adldelivery.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "admiralbeverage.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "adopt.ai": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "adp-merkur.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "awco.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "afs.net": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "nutonomy.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "agforcets.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "agillitics.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "aikey.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "ailo.us": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "aimms.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "aitworldwide.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "aliciabots.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "allegiantair.com": {
+    "pattern": "first.last",
+    "sampleCount": 5,
+    "confidence": 100
+  },
+  "allenlund.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "alom.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "alvys.com": {
+    "pattern": "first.last",
+    "sampleCount": 5,
+    "confidence": 80
+  },
+  "amazon.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "prologis.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "amsfulfillment.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sadc.nl": {
+    "pattern": "f.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "amsterdamairportarea.nl": {
+    "pattern": "f.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "amware.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "anyware-robotics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "apextransitllc.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "apmterminals.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "apspl.com.au": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "aquatiosoft.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "arda.cards": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "argents.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "aritzia.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "aps.com": {
+    "pattern": "first.last",
+    "sampleCount": 4,
+    "confidence": 100
+  },
+  "arnata.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "arrivelogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 4,
+    "confidence": 100
+  },
+  "article.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "arvist.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "ascentlogistics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "asendia.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "associatedlogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "nasb.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "arvato.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "atc-logistics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "athingz.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "atlassand.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "auger.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "goaugment.com": {
+    "pattern": "first",
+    "sampleCount": 5,
+    "confidence": 80
+  },
+  "autopallet.bot": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "avaloncsc.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "aviro360.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "avolta.net": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "azimut.ai": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "bclogisticsgroup.com": {
+    "pattern": "f.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "backcountry.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "backops.ai": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "bajafulfillment.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "bamboorose.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "banditrunning.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "barkbox.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "barrettdistribution.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "baf.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "beamup.ai": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "bearicebox.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "bedrocklogistics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "beitlerlogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "benorelogistics.com": {
+    "pattern": "first.last",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "berpar.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "bestdrayagecompany.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "bestdrayage.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "beye.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "blackberry.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "blecon.net": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "bluebox-systems.com": {
+    "pattern": "f.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "bluecargo.io": {
+    "pattern": "first",
+    "sampleCount": 3,
+    "confidence": 67
+  },
+  "bluerocktms.com": {
+    "pattern": "f.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "bnsf.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "boxc.com": {
+    "pattern": "first",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "bricz.com": {
+    "pattern": "first.last",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "bungii.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "calhountrucklines.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "cardinalhealth.com": {
+    "pattern": "first.last",
+    "sampleCount": 6,
+    "confidence": 100
+  },
+  "cargobase.com": {
+    "pattern": "f.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "carmeltransport.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "carrierlogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "carrier1.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "cart.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "cartoncloud.com": {
+    "pattern": "first.last",
+    "sampleCount": 4,
+    "confidence": 100
+  },
+  "castlery.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "catenaclearing.io": {
+    "pattern": "first.last",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "cdldelivers.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "cerealouro.com.br": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "usecervo.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "chrobinson.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "chainsight.ai": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "chartersync.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "chazki.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "chobani.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "cloudimsystems.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "cirroglobal.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "cloneops.ai": {
+    "pattern": "flast",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "cofactr.com": {
+    "pattern": "first",
+    "sampleCount": 3,
+    "confidence": 67
+  },
+  "completeshipping.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "concargo.co.il": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "condata.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "conglobal.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "connectiv.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "costco.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "gcl.global": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "crossmotion.com.mx": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "crowley.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "newcold.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "cummins.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "cyclelabs.io": {
+    "pattern": "first.last",
+    "sampleCount": 5,
+    "confidence": 80
+  },
+  "meetdandy.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "datahaul.ai": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "datatruck.io": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "datexcorp.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "dawnfoods.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "decisionbrain.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "freshdelmonte.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "deliver-solutions.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "dell.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "dermalogica.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "designedconveyor.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "govectura.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "desteia.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "dexory.com": {
+    "pattern": "first",
+    "sampleCount": 4,
+    "confidence": 75
+  },
+  "dhlglobalmail.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "dpdhl.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "directlogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "disney.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "dispatchit.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "dispatchscience.com": {
+    "pattern": "first.last",
+    "sampleCount": 3,
+    "confidence": 67
+  },
+  "diverselogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "diviofficial.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "docktimeapp.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "dockware.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "dollargeneral.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "doordash.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "daic.ai": {
+    "pattern": "first.last",
+    "sampleCount": 3,
+    "confidence": 67
+  },
+  "dotfoods.com": {
+    "pattern": "first.last",
+    "sampleCount": 3,
+    "confidence": 67
+  },
+  "dougandrus.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "dpworld.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "intelcomexpress.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "isp.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "dreamlogisticsusa.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "driverdoc.io": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "dropandhookcontent.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "dss-ok.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "shipdlx.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "eaigle.ai": {
+    "pattern": "first",
+    "sampleCount": 4,
+    "confidence": 100
+  },
+  "dekabatteries.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "echo.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "ecmsglobal.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "efl.global": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "egourmetsolutions.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "emberlifesciences.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "emergemarket.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "endava.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "shipenergy.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "enveyo.com": {
+    "pattern": "first.last",
+    "sampleCount": 3,
+    "confidence": 67
+  },
+  "helloenvio.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "epostglobalshipping.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "eurolog.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "eurosender.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "evolinq.io": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "evrnu.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "exactsciences.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "expediteall.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "exp-logistics.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "extensiv.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "exxonmobil.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "ezdc3pl.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "fbexpress.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "firstshift.ai": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "fixlogistix.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "flatworldsc.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rbinv.io": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "fleetnj.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "flexe.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "flockfreight.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "floxmind.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "avisystems.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "fountaincl.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "foxcarriers.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "fr8bot.ai": {
+    "pattern": "f.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "fracht.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "devhawk.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "fragile.co": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "freeport-logistics.com": {
+    "pattern": "f.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "freightflex.com": {
+    "pattern": "flast",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "freighte.ch": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "freightos.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "freightvana.io": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "freightwisellc.com": {
+    "pattern": "flast",
+    "sampleCount": 4,
+    "confidence": 100
+  },
+  "freshcleanthreads.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "freshdirect.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "freshxlogistics.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "getfreshx.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "frida.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "fromourplace.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "gofullstride.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "futurome.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "g2mint.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "gaiadynamics.ai": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "gap.com": {
+    "pattern": "first_last",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "gather.ai": {
+    "pattern": "first.last",
+    "sampleCount": 6,
+    "confidence": 100
+  },
+  "gathroutdoors.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "gw-world.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "genlogs.io": {
+    "pattern": "first.last",
+    "sampleCount": 4,
+    "confidence": 100
+  },
+  "globalesg.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "gesg.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "gi-de.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "glidtech.us": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "gfsmanagement.com": {
+    "pattern": "firstlast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "glc-inc.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "glifreight.com": {
+    "pattern": "firstlast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "glympse.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "goat.com": {
+    "pattern": "first",
+    "sampleCount": 4,
+    "confidence": 50
+  },
+  "goodr.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "google.com": {
+    "pattern": "firstlast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "gopro.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "gopuff.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "gfs.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "goricompany.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "pykglobalinc.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "gorjana.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "gpalogisticsgroup.com": {
+    "pattern": "firstlast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "gregoryfca.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "cfgo.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "grupoampm.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "gwii.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "hanwha.com": {
+    "pattern": "f.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "happyrobot.ai": {
+    "pattern": "first",
+    "sampleCount": 3,
+    "confidence": 67
+  },
+  "harman.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "harrys.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "kswhse.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "hdwarehousing.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "heineken.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "heinekenusa.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "henkel.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "heritagedistribution.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "hermanntds.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "hgtransportaciones.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "httransportation.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "hirschbach.com": {
+    "pattern": "first.last",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "hal.hitachi.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "hive.app": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "hived.space": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "hollandent.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "hologic.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "honestmed.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "honeywell.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "hoopo.tech": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "shiphoplite.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "hoptek.ai": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "hotglue.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "hourglasscosmetics.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "htrlogistics.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "hughandgrace.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "hwyhaul.com": {
+    "pattern": "last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "ibislabs.ai": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "id-logistics.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "ifit.com": {
+    "pattern": "first.last",
+    "sampleCount": 4,
+    "confidence": 100
+  },
+  "shipilg.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "imperativelogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "impledge.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "importyeti.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "imstransport.com": {
+    "pattern": "last.first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "imslog.com": {
+    "pattern": "last.first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "infios.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "infopluscommerce.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "ingredion.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "innoscale.eu": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "commercecentral.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "intelligentaudit.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "myib.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "invent.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "irissoftware.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "jbhunt.com": {
+    "pattern": "first_last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "jackhenry.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "jaguarfreight.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "jamesgroupintl.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "tollgroup.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "jas.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "jaygroup.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "erau.edu": {
+    "pattern": "lastf",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "gojitsu.com": {
+    "pattern": "f.last",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "jbssinc.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "journeydelivers.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "katoennatie.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "kbxlogistics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "kcelogistics.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "kerry.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "keysoftwaresystems.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "kgpco.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "kidou.systems": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "kcc.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "kith.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "kleinschmidtinc.com": {
+    "pattern": "first_last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rosendahlnextrom.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "kovix.co": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "kpler.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "kraftheinz.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "ktitrans.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "kuehne-nagel.com": {
+    "pattern": "first.last",
+    "sampleCount": 4,
+    "confidence": 100
+  },
+  "kurufootwear.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "l11.mx": {
+    "pattern": "firstlast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "getlaborai.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "getgoaler.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "landstar.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "transport-logic.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "leftbrainlogistics.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "legacydrayage.us": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "leman.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "level5fleet.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "levity.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "lighthouz.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "limberrobotics.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "lionenergy.com": {
+    "pattern": "first.last",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "loadar.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "golocad.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "logicpallet.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "lgfy.us": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "logistiview.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "logshare.com.br": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "lojistic.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "loopreturns.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "loop.com": {
+    "pattern": "first",
+    "sampleCount": 4,
+    "confidence": 75
+  },
+  "lynden.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "lynxis.com": {
+    "pattern": "flast",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "lyric.tech": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "machool.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "maersk.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "magaya.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "getmaintainx.com": {
+    "pattern": "first.last",
+    "sampleCount": 7,
+    "confidence": 100
+  },
+  "manifest.eco": {
+    "pattern": "first",
+    "sampleCount": 3,
+    "confidence": 67
+  },
+  "manifoldfreight.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "manscaped.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "maptransit.net": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "maritimelogs.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "maritimestreet.fr": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "marten.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "mastery.net": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "matom.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "mccain.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "mclanefs.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "vantix.net": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "m-v-t.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "metalearner.ai": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "meter.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "metro-logics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "metroscg.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sci.ca": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "milemaker.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "mdbmail.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "mixmove.io": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "draynow.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "moddule.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "molgroup.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "molsoncoors.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sunnysixteen.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "monin.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "mothershipmaterials.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "multipowr.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "mysavant.ai": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "nls.ca": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "getnauta.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "navix.io": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "nevoya.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "nivc.us": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "nextcenturyspirits.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "nfiindustries.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "nike.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "nodesystemsinc.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "spotontms.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "weareatem.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "gonorth.ai": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "novo-usa.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "nrsonline.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "ntlogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "nycrobotics.org": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "nyshex.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "octup.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "oecgroup.ca": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "drinkolipop.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "omnifold.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "omp.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "bettendorf.org": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "onetrack.ai": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "oocllogistics.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "opentrack.co": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "opentug.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "operatingcrew.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "optimaldynamics.com": {
+    "pattern": "flast",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "optimologic.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "cmu.edu": {
+    "pattern": "firstlast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "orangeev.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "drinkorgain.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "osacommerce.com": {
+    "pattern": "first",
+    "sampleCount": 4,
+    "confidence": 50
+  },
+  "otrboard.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "muddydogsnacks.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "outerspace.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "getox.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "packagex.io": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "palace.so": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "pallettrader.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "papertransport.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "parcelperform.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "partnerswarehouse.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "passportglobal.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "paxai.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "paxafe.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "paycargo.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "onepeloton.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "penske.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "pepsico.com": {
+    "pattern": "first.last",
+    "sampleCount": 7,
+    "confidence": 100
+  },
+  "picklerobot.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "pinch.ai": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "pipe17.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "plslogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "polaris.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "northstardigital.solutions": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "portoakland.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "tampaport.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "porter-logistics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "pricesmart.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "primeinc.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "shipprimus.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rupertport.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "princetontmx.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "priorityexpressinc.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "promixnutrition.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "prompt.global": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "librasoftwaregroup.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "proshipinc.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "prox.inc": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "prozis.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "interfreight-cargo.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "pyck.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "qargo.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "quickbox.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "quickcode.ai": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "loves.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rlglobal.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "radial.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "railinc.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rampsystems.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rapidintermodal.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "rapidlogistics.nl": {
+    "pattern": "f.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rapidcanvas.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "ratehero.io": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rbwlogistics.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "readycloud.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "longbowadvantage.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rb.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "danone.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "reconbv.eu": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rectanglehq.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "redstagfulfillment.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "repact.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "reformhq.com": {
+    "pattern": "first",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "thereformation.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rehrig.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "reindeer.ai": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "reliablelogistics.ca": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "totallogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "repurpose.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "resale.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "retailreadyai.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "returnbear.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "reveelgroup.com": {
+    "pattern": "first.last",
+    "sampleCount": 4,
+    "confidence": 100
+  },
+  "revenova.com": {
+    "pattern": "flast",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "revenuevessel.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "shiprfx.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rimlogistics.com": {
+    "pattern": "firstlast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "ritesize.io": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "shiprls.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "roadexamerica.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "robust.ai": {
+    "pattern": "first",
+    "sampleCount": 3,
+    "confidence": 67
+  },
+  "rocskincare.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rocketshippers.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "roehl.net": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "ruegiltgroupe.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "rugged-robotics.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "rwbtrucking.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "rxo.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "ryder.com": {
+    "pattern": "first_last",
+    "sampleCount": 7,
+    "confidence": 86
+  },
+  "rygen.com": {
+    "pattern": "flast",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "sclogistics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sage.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "sagefreight.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "salvador-tech.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sapphireventures.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "scarbroughglobal.com": {
+    "pattern": "flast",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "mail.schwarz": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "vmcentric.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "scope23.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "scopelitis.com": {
+    "pattern": "flast",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "scoutfreight.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "scurri.com": {
+    "pattern": "firstlast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "seabound.co": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "pelagic.co": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "seed.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sellerhardware.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sendcloud.com": {
+    "pattern": "first.last",
+    "sampleCount": 3,
+    "confidence": 67
+  },
+  "sendflex.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sensigo.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "servefreight.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "servo7.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "sglabs.tech": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sharetown.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "shipflow.co": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "shipflow.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "shipfusion.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "shiphero.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "lvk.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "shipium.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "shiplab.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sopecreekcap.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "shiplify.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "shipsaving.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "shipthis.co": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "shypple.com": {
+    "pattern": "f.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "siam-logistics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sigmasolve.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "simwell.io": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "skymirr.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "skypace.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "slice.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "slmgroup.net": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "izba.co": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "smartwarehousing.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "smarty.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "smc3.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "soartransport.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sobelwestex.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "carrillogonzalez.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sotira.co": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sourceiq.cloud": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sefl.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "shipspartan.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "spectrohm.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "speedydeliveryllc.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "spherewms.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "spi3pl.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "spirittea.co": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "spoileralert.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "spotwork.co": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "spring-gds.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "spscommerce.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "ssautomationllc.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "getvigil.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "standardls.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "steamlogistics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "stemregen.co": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "stitchfix.com": {
+    "pattern": "first.last",
+    "sampleCount": 4,
+    "confidence": 100
+  },
+  "stockx.com": {
+    "pattern": "firstlast",
+    "sampleCount": 4,
+    "confidence": 100
+  },
+  "stonearchlogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sunlandls.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sunnybrooksoftware.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "super.ai": {
+    "pattern": "last",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "supership.to": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "surgere.com": {
+    "pattern": "first.last",
+    "sampleCount": 7,
+    "confidence": 100
+  },
+  "sws-ps.com": {
+    "pattern": "f.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "syfancorp.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "synaos.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "synkka.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "synkrato.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "sysco.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "systemloco.com": {
+    "pattern": "f.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "warehouseinabox.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "tagntrac.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "tai-software.com": {
+    "pattern": "first",
+    "sampleCount": 4,
+    "confidence": 75
+  },
+  "takt.io": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "talonlogisticsinc.com": {
+    "pattern": "f.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "tansect.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "taoclean.com": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "tapestry.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "tatcha.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "tavio.io": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "techdinamics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "tecsys.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "tekletics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "gotemper.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "temu.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "tesla.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "tetro.one": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "texpower.us": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "textlocate.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "customco.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "godependable.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "evansdelivery.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "homedepot.com": {
+    "pattern": "first_last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "rikoko.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "thenewwarehouse.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "tpai.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "therealreal.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "thinklive.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "thirdlove.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "katielentile.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "thistle.co": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "thruputpartners.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "thruvision.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "tive.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "thejordancompany.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "toclogistics.ca": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "tow4tech.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "tractorsupply.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "tradeforcemultiplier.com": {
+    "pattern": "firstlast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "mesur.io": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "traffix.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "transimpact.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "trapezoid.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "traxtech.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "treedis.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "trilliumsc.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "southwestexpedited.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "tropicana.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "truckparkingclub.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "truckstop.com": {
+    "pattern": "firstlast",
+    "sampleCount": 7,
+    "confidence": 86
+  },
+  "truconnect.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "truecommerce.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "twelve.co": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "twoboxes.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "usmmg.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "unboxrobotics.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "unitailabs.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "tridenttransport.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "uvlogistics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "univarsolutions.com": {
+    "pattern": "first.last",
+    "sampleCount": 4,
+    "confidence": 100
+  },
+  "updikedl.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "ups.com": {
+    "pattern": "firstlast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "upwell.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "usfoods.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "utcoverseas.com": {
+    "pattern": "f.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "vaibe.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "valoroo.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "vendidit.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "veridianhealthcare.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "verifiedcarrier.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "verstlogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "vincerocollective.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "vinturas.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "vittilog.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "vivint.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "vooma.ai": {
+    "pattern": "first",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "walmart.com": {
+    "pattern": "first.last",
+    "sampleCount": 3,
+    "confidence": 100
+  },
+  "warematch.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "wearewarp.com": {
+    "pattern": "f.last",
+    "sampleCount": 2,
+    "confidence": 50
+  },
+  "wayfair.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "wcaworld.com": {
+    "pattern": "first",
+    "sampleCount": 3,
+    "confidence": 67
+  },
+  "freightoscope.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "wecanmoveit.net": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "weberlogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "wella.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "werner.com": {
+    "pattern": "flast",
+    "sampleCount": 3,
+    "confidence": 67
+  },
+  "weshipexpressgroup.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "wildgrain.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "winsupplyinc.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "wisor.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "wkkellogg.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "woodlandfoods.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "workwhile.ai": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "workwhilejobs.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "worldgrouplogistics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "wwex.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "xpeditedservices.us": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "yardmanagementsolutions.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "ymxlogistics.com": {
+    "pattern": "flast",
+    "sampleCount": 6,
+    "confidence": 100
+  },
+  "yonduai.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "ca.yusen-logistics.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "yyr.global": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "zazzle.com": {
+    "pattern": "first.last",
+    "sampleCount": 2,
+    "confidence": 100
+  },
+  "shipzeal.com": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "zeemsolutions.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "zencargo.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "zero100.com": {
+    "pattern": "first.last",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "zeroerror.ai": {
+    "pattern": "first",
+    "sampleCount": 1,
+    "confidence": 100
+  },
+  "aacb.com": {
+    "pattern": "flast",
+    "sampleCount": 1,
+    "confidence": 100
+  }
+}
