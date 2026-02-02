@@ -1,5 +1,5 @@
 // src/services/ErrorTracking.ts
-import { logger } from '../lib/logger';
+import { logger } from '../../lib/logger';
 
 export interface ErrorContext {
   [key: string]: any;

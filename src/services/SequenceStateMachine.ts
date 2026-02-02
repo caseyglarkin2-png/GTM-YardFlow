@@ -157,6 +157,38 @@ export class SequenceStateMachine {
   }
 
   /**
+   * Get the update payload for Railway synchronization
+   * Ensures the Railway state matches the Firestore logic
+   */
+  getRailwayUpdate(
+    status: EnrollmentStatus, 
+    trigger: TransitionTrigger,
+    metadata?: Record<string, any>
+  ): Record<string, any> {
+    const update: Record<string, any> = {
+      status, 
+      lastUpdated: new Date().toISOString()
+    };
+
+    // Add specific fields based on terminal states
+    if (this.isTerminal(status)) {
+      update.completionReason = trigger;
+      update.completedAt = new Date().toISOString();
+    }
+
+    if (status === 'paused') {
+      update.pauseReason = trigger;
+    }
+
+    // Merge any transition metadata (e.g., replyId, meetingId)
+    if (metadata) {
+      Object.assign(update, metadata);
+    }
+    
+    return update;
+  }
+
+  /**
    * Attempt to transition an enrollment to a new state
    * 
    * @param enrollment Current enrollment data

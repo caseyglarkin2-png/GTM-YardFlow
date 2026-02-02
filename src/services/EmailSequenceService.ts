@@ -679,6 +679,12 @@ export function checkStatisticalSignificance(test: ABTest): {
 // Email Queue Management
 // ============================================
 
+import { EmailComplianceService } from './EmailComplianceService';
+
+// ... existing code ...
+
+// ============================================
+
 /**
  * Queue an email for sending
  */
