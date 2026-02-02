@@ -10,6 +10,7 @@ import {
   SequenceStateMachine, 
   type TransitionTrigger 
 } from '../../src/services/SequenceStateMachine';
+import { InboundEmailSchema } from '../../lib/schemas/webhooks';
 
 const db = getAdminDb();
 const oooDetector = new OutOfOfficeDetector();
@@ -53,6 +54,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
+  const parseResult = InboundEmailSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    console.warn('[Inbound Webhook] Invalid payload:', parseResult.error);
+    res.status(400).json({ error: 'Invalid payload', details: parseResult.error });
+    return;
+  }
+
   try {
     // SendGrid Inbound Parse sends multipart/form-data
     const {
@@ -63,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       html,
       headers: headersRaw,
       envelope: envelopeRaw,
-    } = req.body;
+    } = parseResult.data;
 
     // Parse envelope for actual sender/recipient
     let envelope: { from: string; to: string[] } | undefined;

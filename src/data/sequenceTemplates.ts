@@ -55,5 +55,79 @@ Best,
 Jake`
       }
     ]
+  },
+  // T903.5 Standard Templates
+  {
+    id: 'quick-3-touch',
+    name: '3-Touch Quick',
+    description: 'Aggressive 1-week sprint to get a yes/no',
+    category: 'cold_outreach',
+    usageCount: 0,
+    tags: ['cold', 'short_cycle'],
+    steps: [
+      {
+        type: 'initial',
+        subjectTemplate: 'Quick question for {{company}}',
+        bodyTemplate: `Hi {{firstName}},
+
+Are you currently evaluating yard management solutions for {{company}}? 
+
+We helped reduce detention costs by 40% for carriers like yours.
+
+Best,
+{{senderName}}`,
+        delayDays: 0
+      },
+      {
+        type: 'follow_up_1',
+        subjectTemplate: 'Thoughts on this?',
+        bodyTemplate: `Hi {{firstName}},
+
+Just bubbling this up - did you see my note about yard management?`,
+        delayDays: 2
+      },
+      {
+        type: 'break_up',
+        subjectTemplate: 'Assume this isnt a priority',
+        bodyTemplate: `Hi {{firstName}},
+
+haven't heard back so I'll assume yard ops isn't top of mind right now. I'll take you off my list.`,
+        delayDays: 4
+      }
+    ]
+  },
+  {
+    id: 'standard-5-touch',
+    name: '5-Touch Standard',
+    description: '2-week value-add sequence',
+    category: 'cold_outreach',
+    usageCount: 0,
+    tags: ['cold', 'value_add'],
+    steps: [
+      {
+        type: 'initial',
+        subjectTemplate: 'Yard efficiency at {{company}}',
+        bodyTemplate: `Hi {{firstName}}, ...`,
+        delayDays: 0
+      },
+      {
+        type: 'follow_up_1',
+        subjectTemplate: 'Case study: 40% reduction',
+        bodyTemplate: `Hi {{firstName}}, ...`,
+        delayDays: 3
+      },
+      {
+        type: 'follow_up_2',
+        subjectTemplate: 'Any thoughts?',
+        bodyTemplate: `Hi {{firstName}}, ...`,
+        delayDays: 6
+      },
+      {
+        type: 'break_up',
+        subjectTemplate: 'Last attempt',
+        bodyTemplate: `Hi {{firstName}}, ...`,
+        delayDays: 10
+      }
+    ]
   }
 ];

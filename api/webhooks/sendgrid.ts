@@ -23,6 +23,9 @@ const SUPPRESSION_COLLECTION = 'email_suppressions';
  * 
  * @see https://docs.sendgrid.com/for-developers/tracking-events/event
  */
+import { SendGridPayloadSchema } from '../../lib/schemas/webhooks';
+
+// ... existing code ...
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -37,12 +40,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  const events = req.body as SendGridWebhookEvent[];
-  
-  if (!Array.isArray(events)) {
-    res.status(400).json({ error: 'Expected array of events' });
+  const parseResult = SendGridPayloadSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    console.warn('[SendGrid Webhook] Invalid payload:', parseResult.error);
+    res.status(400).json({ error: 'Invalid payload format', details: parseResult.error });
     return;
   }
+
+  const events = parseResult.data;
 
   const results = {
     processed: 0,
@@ -51,13 +56,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   };
 
   for (const event of events) {
+    // Cast to any to handle type mismatch between Zod output and internal interface if needed
+    // or better yet, prefer Zod's inferred type over the interface
+    const typedEvent = event as any; 
+    
     try {
-      await processEvent(event);
+      await processEvent(typedEvent);
       results.processed++;
 
       // Handle suppression events
       if (['bounce', 'spamreport', 'unsubscribe'].includes(event.event)) {
-        await addToSuppression(event);
+        await addToSuppression(typedEvent);
         results.suppressed++;
       }
     } catch (error) {

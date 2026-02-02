@@ -13,14 +13,11 @@ import { buildSystemPrompt } from './services/SystemPromptBuilder';
 import { generateTemplate, refineTemplate } from './services/TemplateGenerator';
 import { getActivityTracker } from './services/ActivityTracker';
 import type { Activity as ActivityType } from './services/ActivityTracker';
-import { initializeApp } from 'firebase/app';
 import { 
-  getAuth, 
   signInAnonymously, 
   onAuthStateChanged
 } from 'firebase/auth';
 import { 
-  getFirestore, 
   collection, 
   query, 
   where,
@@ -33,22 +30,20 @@ import {
   setDoc,
   serverTimestamp
 } from 'firebase/firestore';
+import { auth, db, appId, hasFirebaseConfig } from './lib/firebase';
 
+/*
 // --- Firebase Configuration ---
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || ''
-};
+// Moved to src/lib/firebase.ts
+*/
 
-const hasFirebaseConfig = firebaseConfig.apiKey && firebaseConfig.projectId;
-const app = hasFirebaseConfig ? initializeApp(firebaseConfig) : null;
-const auth = app ? getAuth(app) : null;
-const db = app ? getFirestore(app) : null;
-const appId = import.meta.env.VITE_FIREBASE_APP_ID || 'default-app-id';
+/* 
+const hasFirebaseConfig = ... 
+const app = ...
+const auth = ...
+const db = ...
+*/
+// appId is imported from ./lib/firebase
 
 // T100.2: Initialize error tracking
 initErrorTracking();
@@ -133,6 +128,7 @@ import { BulkActionsToolbar } from './components/BulkActionsToolbar';
 import { BulkSequenceModal } from './components/BulkSequenceModal';
 import { BulkTagModal } from './components/BulkTagModal';
 import { BulkDeleteModal } from './components/BulkDeleteModal';
+import { HitlistPanel } from './components/panels/HitlistPanel';
 import { BulkStatusModal } from './components/BulkStatusModal';
 
 // --- Toast Notification System ---
@@ -166,6 +162,7 @@ import { SequenceBuilder } from './components/SequenceBuilder';
 import { ChatPanel } from './components/panels/ChatPanel';
 import { CampaignDashboard } from './components/panels/CampaignDashboard';
 import { ProspectListPanel } from './components/panels/ProspectListPanel';
+import { ProspectDetailPanel } from './components/panels/ProspectDetailPanel';
 import { useFilteredProspects } from './hooks/useFilteredProspects';
 
 
@@ -215,76 +212,18 @@ function EmailConfidenceBadge({ email }: { email: string }): React.ReactElement 
   );
 }
 
-// --- Calendar Link Configuration ---
-// VITE_MEETING_LINK_SHORT is preferred for Manifest DMs (must be <=30 chars to fit 250 char limit)
-// Fallback to long Calendly URL if short link not configured
-const MEETING_LINK_SHORT = import.meta.env.VITE_MEETING_LINK_SHORT || '';
-const MEETING_LINK_LONG = 'https://calendly.com/jake-freightroll/manifest-meeting';
-const CALENDAR_LINK = MEETING_LINK_SHORT || MEETING_LINK_LONG;
-const IS_SHORT_LINK_CONFIGURED = !!MEETING_LINK_SHORT;
 
-// DM Character limit for Manifest app
-const DM_CHAR_LIMIT = 250;
 
-// --- Templates with Network Effects Messaging ---
-// Shortened for platform character limits (Manifest DM = 250 chars MAX, LinkedIn DM ~300 chars)
-// Using shorter templates when short link is configured
-const TEMPLATES = (prospect: Prospect, senderName: string): MessageTemplate[] => [
-  {
-    id: 'dm_codev',
-    label: 'DM: Co-Dev (Short)',
-    type: 'short_dm',
-    subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, Primo saving $1M+/facility. YardFlow Co-Dev: voting seats open. 15 min? ${CALENDAR_LINK} -${senderName}`
-  },
-  {
-    id: 'dm_exec',
-    label: 'DM: Exec - Headcount Neutral',
-    type: 'short_dm',
-    subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, Primo: $1M+/facility, headcount neutral. Curious about ${prospect.company}? ${CALENDAR_LINK} -${senderName}`
-  },
-  {
-    id: 'dm_ops',
-    label: 'DM: Ops - Dock Time',
-    type: 'short_dm',
-    subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, 5 min/shipment wasted on dock assignments. System fix. Compare notes? ${CALENDAR_LINK} -${senderName}`
-  },
-  {
-    id: 'dm_carrier',
-    label: 'DM: Carrier Benchmarking',
-    type: 'short_dm',
-    subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, benchmarking driver yard performance. Relevant for ${prospect.company}? ${CALENDAR_LINK} -${senderName}`
-  },
-  {
-    id: 'codev_invite',
-    label: 'Email: Co-Dev Invitation',
-    type: 'codev',
-    subject: `Manifest: Design Partner for ${prospect.company}?`,
-    body: `Hi ${prospect.name.split(' ')[0]},
+// --- Templates moved to src/config/templates.ts ---
 
-Saw you're at Manifest—wanted to flag something for ${prospect.company}.
-
-We're launching the YardFlow Co-Dev Program: 2-3 enterprise partners get a voting seat on the 2026 roadmap.
-
-**The proof:** Primo Brands is rolling YardFlow from 25→260 facilities. Each averages $1M+ margin improvement—headcount neutral.
-
-**Network effects:**
-• Standard data model = carrier benchmarking + bottleneck ID
-• Real-time visibility = trailer optimization + dwell alerts
-• Standard protocols = faster driver navigation
-
-Given ${prospect.company}'s scale, I'd walk through this math.
-
-${CALENDAR_LINK}
-
--${senderName}`
-  }
-];
+import { StatusPage } from './components/StatusPage';
 
 export default function App() {
+  // Sprint 904: Status Page Route
+  if (typeof window !== 'undefined' && window.location.pathname === '/status') {
+    return <StatusPage />;
+  }
+
   // Sprint 800: Use desktop detection hook for responsive layout
   const isDesktop = useIsDesktop();
   const [user, setUser] = useState<unknown>(null);
@@ -387,9 +326,7 @@ export default function App() {
       default: return null;
     }
   }, [hitlistDatePeriod, hitlistCustomRange]);
-  const [generatedMessage, setGeneratedMessage] = useState('');
-  const [selectedTemplateId, setSelectedTemplateId] = useState('dm_codev');
-  const [showCopied, setShowCopied] = useState(false);
+
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailSendStatus, setEmailSendStatus] = useState<'idle' | 'success' | 'error' | 'no_email' | 'rate_limit'>('idle');
   const [emailErrorMessage, setEmailErrorMessage] = useState<string>('');
@@ -1339,70 +1276,11 @@ export default function App() {
     setBulkActionModal('sequence');
   }, [currentUser, toggleSelection, showSuccess, showWarning]);
 
-  const currentTemplates = useMemo(() => {
-    if (!selectedProspect) return [];
-    return TEMPLATES(selectedProspect, currentUser === 'Me' ? 'The YardFlow Team' : 'Jake');
-  }, [selectedProspect, currentUser]);
 
-  useEffect(() => {
-    if (selectedProspect && currentTemplates.length > 0) {
-      const tmpl = currentTemplates.find(t => t.id === selectedTemplateId) || currentTemplates[0];
-      setGeneratedMessage(tmpl.body);
-    }
-  }, [selectedProspect, selectedTemplateId, currentUser, currentTemplates]);
-
-  const charCount = generatedMessage.length;
-  // Only apply 250 char limit to short DM templates (for Manifest app), not emails
-  const currentTemplate = currentTemplates.find(t => t.id === selectedTemplateId);
-  const isShortDM = currentTemplate?.type === 'short_dm';
-  const isOverLimit = isShortDM && charCount > DM_CHAR_LIMIT;
-  const isNearLimit = isShortDM && charCount > DM_CHAR_LIMIT - 50;
-
-  const copyToClipboard = async () => {
-    // Block copy if over DM char limit for short DMs
-    if (isOverLimit) {
-      showError('Message Too Long', `Manifest DMs must be ${DM_CHAR_LIMIT} characters or less. Currently: ${charCount} chars.`);
-      return;
-    }
-    
-    const result = await clipboardCopy(generatedMessage);
-    if (result.success) {
-      setShowCopied(true);
-      setTimeout(() => setShowCopied(false), 2000);
-      handleStatusUpdate('drafted');
-      showSuccess('Copied!', 'Message copied to clipboard');
-    } else {
-      console.error('Copy to clipboard failed:', result.error);
-      showError('Copy failed', result.error || 'Could not copy to clipboard');
-    }
-  };
-
-  // Ship Today: Copy full email payload (subject + body) for manual sending
-  const copyEmailPayload = async () => {
-    if (!selectedProspect) return;
-    
-    const currentTemplate = currentTemplates.find(t => t.id === selectedTemplateId);
-    const subject = currentTemplate?.subject || `YardFlow for ${selectedProspect.company}`;
-    
-    const payload = `TO: ${selectedProspect.email || '[NO EMAIL - ADD EMAIL FIRST]'}
-
-SUBJECT: ${subject}
-
-BODY:
-${generatedMessage}`;
-    
-    const result = await clipboardCopy(payload);
-    if (result.success) {
-      showSuccess('Email Copied!', 'Full email payload copied. Paste into Gmail/Outlook.');
-      handleStatusUpdate('drafted');
-    } else {
-      showError('Copy failed', result.error || 'Could not copy email payload');
-    }
-  };
 
   // Send email to selected prospect
   // Sprint 101: Check feature flags to route email correctly
-  const sendEmailToProspect = async () => {
+  const sendEmailToProspect = async (templateId: string, body: string, subject: string = 'YardFlow Update') => {
     if (!selectedProspect) return;
     
     if (!selectedProspect.email) {
@@ -1426,13 +1304,13 @@ ${generatedMessage}`;
         const railwayResult = await sendEmailViaRailway({
           to: selectedProspect.email,
           toName: selectedProspect.name,
-          subject: `YardFlow for ${selectedProspect.company}`,
+          subject: subject,
           htmlBody: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            ${generatedMessage
+            ${body
               .replace(/https:\/\/calendly\.com\/[^\s]+/g, url => `<a href="${url}" style="color: #2563eb; text-decoration: underline;">${url}</a>`)
               .split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('')}
           </div>`,
-          textBody: generatedMessage,
+          textBody: body,
           prospectId: selectedProspect.id,
         });
 
@@ -1473,13 +1351,13 @@ ${generatedMessage}`;
           id: emailId,
           to: selectedProspect.email,
           toName: selectedProspect.name,
-          subject: `YardFlow for ${selectedProspect.company}`,
+          subject: subject,
           html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            ${generatedMessage
+            ${body
               .replace(/https:\/\/calendly\.com\/[^\s]+/g, url => `<a href="${url}" style="color: #2563eb; text-decoration: underline;">${url}</a>`)
               .split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('')}
           </div>`,
-          text: generatedMessage,
+          text: body,
           metadata: {
             prospectId: selectedProspect.id,
             prospectName: selectedProspect.name,
@@ -1827,40 +1705,34 @@ ${generatedMessage}`;
                 />
               )}
               {activeTab === 'prospects' && (
-                viewMode === 'companies' ? (
-                  selectedCompany ? (
-                    <CompanyDetailPanel
-                      company={selectedCompany}
-                      onContactSelect={setSelectedProspect}
-                      onBack={() => setSelectedCompany(null)}
-                    />
-                  ) : (
-                    <CompanyListView
-                      companies={aggregatedCompanies}
-                      onCompanySelect={setSelectedCompany}
-                      onContactSelect={setSelectedProspect}
-                    />
-                  )
-                ) : (
-                  <ProspectListPanel
-                    filteredProspects={filteredProspects}
-                    isLoading={isProspectsLoading}
-                    prospectsCount={prospects.length}
-                    selectedProspectId={selectedProspect?.id || null}
-                    onSelectProspect={setSelectedProspect}
-                    selection={{
-                      isSelected,
-                      handleSelectionClick,
-                      toggleSelection,
-                      toggleAll: handleSelectAllToggle,
-                      isAllSelected
-                    }}
-                    getEnrollmentForProspect={getEnrollmentForProspect}
-                    onClearFilters={() => { setFilter(''); setTierFilter('All'); setEmailFilter('all'); }}
-                    onGoToImport={() => setActiveTab('import')}
-                    currentUser={currentUser}
-                  />
-                )
+                <HitlistPanel
+                  viewMode={viewMode}
+                  selectedCompany={selectedCompany}
+                  companies={aggregatedCompanies}
+                  filteredProspects={filteredProspects}
+                  allProspects={prospects}
+                  isLoading={isProspectsLoading}
+                  selectedProspect={selectedProspect}
+                  onSelectProspect={setSelectedProspect}
+                  onSelectCompany={setSelectedCompany}
+                  currentUser={currentUser}
+                  getEnrollmentForProspect={getEnrollmentForProspect}
+                  selection={{
+                    isSelected,
+                    handleSelectionClick,
+                    toggleSelection,
+                    toggleAll: handleSelectAllToggle,
+                    isAllSelected
+                  }}
+                  onClearFilters={() => { setFilter(''); setTierFilter('All'); setEmailFilter('all'); }}
+                  onGoToImport={() => setActiveTab('import')}
+                  onUpdateProspect={async (updates) => {
+                    if (updates.status) await handleStatusUpdate(updates.status);
+                    if (updates.email !== undefined) await handleEmailUpdate(updates.email || '');
+                  }}
+                  onBookMeeting={() => setShowMeetingModal(true)}
+                  onSendEmail={sendEmailToProspect}
+                />
               )}
           </div>
         )}

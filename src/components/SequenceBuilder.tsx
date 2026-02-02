@@ -13,12 +13,12 @@
  * - Template selection
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 // Sprint 800: Use LazyIcon for better INP performance
 import { LazyIcon } from '@/components/icons';
 import type { EmailSequence, EmailStep, SequenceTemplate, EmailStepType } from '@/types/emailSequence';
 import { 
-  createSequence, 
+  createSequence as createClientSequence, 
   addStep, 
   updateStep, 
   removeStep, 
@@ -28,6 +28,10 @@ import {
   SEQUENCE_TEMPLATES,
   type ValidationError 
 } from '@/services/EmailSequenceService';
+// Sprint 903: Railway Integration
+import { useSequences } from '@/hooks/useSequences';
+import { toRailwayCreateRequest, toClientSequence } from '@/utils/sequenceMapper';
+import { useToast, ToastContainer } from '@/components/Toast';
 
 // =============================================================================
 // Types
@@ -70,7 +74,29 @@ const MERGE_TAGS = [
   { tag: '{{title}}', label: 'Title' },
   { tag: '{{senderName}}', label: 'Sender Name' },
   { tag: '{{senderTitle}}', label: 'Sender Title' },
+  { tag: '{{estimated_roi}}', label: 'Est. ROI' },
 ];
+
+const PREVIEW_DATA: Record<string, string> = {
+  '{{firstName}}': 'John',
+  '{{lastName}}': 'Doe',
+  '{{company}}': 'Acme Logistics',
+  '{{title}}': 'VP Operations',
+  '{{senderName}}': 'Jake',
+  '{{senderTitle}}': 'Account Executive',
+  '{{estimated_roi}}': '$1,500,000',
+};
+
+const interpolatePreview = (text: string) => {
+  let result = text;
+  Object.entries(PREVIEW_DATA).forEach(([tag, value]) => {
+    // Create a global regex for replacement to handle multiple occurrences
+    // formatting braces for regex
+    const escapedTag = tag.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    result = result.replace(new RegExp(escapedTag, 'g'), value);
+  });
+  return result;
+};
 
 const DEFAULT_DELAYS: Record<EmailStepType, number> = {
   initial: 0,
@@ -285,8 +311,11 @@ function StepEditor({
             </div>
             
             {showPreview ? (
-              <div className="w-full min-h-[160px] p-3 bg-white border border-gray-300 rounded-lg text-sm whitespace-pre-wrap">
-                {step.body || <span className="text-gray-400 italic">No content</span>}
+              <div className="w-full min-h-[160px] p-3 bg-blue-50/50 border border-blue-200 rounded-lg text-sm whitespace-pre-wrap relative group">
+                 <div className="absolute top-2 right-2 text-xs text-blue-400 opacity-50 font-mono">
+                    PREVIEW MODE
+                 </div>
+                {step.body ? interpolatePreview(step.body) : <span className="text-gray-400 italic">No content</span>}
               </div>
             ) : (
               <textarea
@@ -308,56 +337,7 @@ function StepEditor({
   );
 }
 
-interface TemplatePickerProps {
-  onSelect: (template: SequenceTemplate) => void;
-  onClose: () => void;
-}
-
-function TemplatePicker({ onSelect, onClose }: TemplatePickerProps) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="text-lg font-semibold">Choose a Template</h3>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded">
-            <LazyIcon name="X" className="w-5 h-5" />
-          </button>
-        </div>
-        
-        <div className="p-4 overflow-y-auto max-h-[60vh] space-y-3">
-          {SEQUENCE_TEMPLATES.map((template) => (
-            <button
-              key={template.id}
-              onClick={() => {
-                onSelect(template);
-                onClose();
-              }}
-              className="w-full text-left p-4 border rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h4 className="font-medium text-gray-900">{template.name}</h4>
-                  <p className="text-sm text-gray-600 mt-1">{template.description}</p>
-                </div>
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                  {template.steps.length} steps
-                </span>
-              </div>
-              <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
-                {template.avgReplyRate && (
-                  <span>~{template.avgReplyRate}% reply rate</span>
-                )}
-                {template.persona && (
-                  <span className="capitalize">{template.persona.replace('_', ' ')}</span>
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+import { SequenceTemplateLibrary } from '@/components/SequenceTemplateLibrary';
 
 // =============================================================================
 // Main Component
@@ -370,10 +350,15 @@ export function SequenceBuilder({
   readOnly = false,
 }: SequenceBuilderProps) {
   const [sequence, setSequence] = useState<EmailSequence>(
-    initialSequence || createSequence('New Sequence')
+    initialSequence || createClientSequence('New Sequence')
   );
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Sprint 903: Railway Hooks
+  const { createSequence, updateSequence, deleteSequence, isLoading: isRailwayLoading } = useSequences();
+  const { toasts, success: showSuccess, error: showError, dismissToast } = useToast();
   
   // Validation
   const validationErrors = useMemo(() => validateSequence(sequence), [sequence]);
@@ -429,14 +414,75 @@ export function SequenceBuilder({
     
     setIsSaving(true);
     try {
-      onSave?.(sequence);
+      // If ID starts with 'seq_', it's a local draft (from createSequence helper)
+      // Otherwise it's a Railway UUID
+      const isNew = !sequence.id || sequence.id.startsWith('seq_');
+      const railwayReq = toRailwayCreateRequest(sequence);
+      
+      if (isNew) {
+        const result = await createSequence(railwayReq);
+        if (result) {
+          const clientSeq = toClientSequence(result);
+          setSequence(clientSeq);
+          showSuccess('Saved', 'Sequence created successfully');
+          onSave?.(clientSeq);
+        } else {
+          showError('Error', 'Failed to save sequence');
+        }
+      } else {
+        const success = await updateSequence(sequence.id, {
+          name: sequence.name,
+          description: sequence.description,
+          steps: railwayReq.steps
+        });
+        
+        if (success) {
+          showSuccess('Saved', 'Sequence updated successfully');
+          onSave?.(sequence);
+        } else {
+          showError('Error', 'Failed to update sequence');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to save sequence:', err);
+      showError('Error', 'An unexpected error occurred');
     } finally {
       setIsSaving(false);
     }
-  }, [sequence, isValid, onSave]);
+  }, [sequence, isValid, onSave, createSequence, updateSequence, showSuccess, showError]);
+
+  const handleDelete = useCallback(async () => {
+    if (!sequence.id) return;
+    
+    // If it's a local draft, just cancel
+    if (sequence.id.startsWith('seq_')) {
+      onCancel?.();
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this sequence? This action cannot be undone.')) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const success = await deleteSequence(sequence.id);
+      if (success) {
+        showSuccess('Deleted', 'Sequence deleted');
+        onCancel?.();
+      } else {
+        showError('Error', 'Failed to delete sequence');
+      }
+    } catch (err) {
+      showError('Error', 'Failed to delete sequence');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [sequence.id, deleteSequence, onCancel, showSuccess, showError]);
   
   return (
     <div className="flex flex-col h-full bg-gray-50">
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       {/* Header */}
       <div className="bg-white border-b px-6 py-4">
         <div className="flex items-center justify-between">
@@ -465,6 +511,17 @@ export function SequenceBuilder({
           <div className="flex items-center gap-3">
             {!readOnly && (
               <>
+                {!sequence.id.startsWith('seq_') && (
+                  <button
+                    onClick={handleDelete}
+                    disabled={isDeleting || isSaving}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg mr-2 border border-transparent hover:border-red-200 transition-colors"
+                    title="Delete Sequence"
+                  >
+                    <LazyIcon name="Trash2" className="w-4 h-4" />
+                  </button>
+                )}
+                
                 <button
                   onClick={() => setShowTemplatePicker(true)}
                   className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -586,7 +643,7 @@ export function SequenceBuilder({
       
       {/* Template Picker Modal */}
       {showTemplatePicker && (
-        <TemplatePicker
+        <SequenceTemplateLibrary
           onSelect={handleTemplateSelect}
           onClose={() => setShowTemplatePicker(false)}
         />

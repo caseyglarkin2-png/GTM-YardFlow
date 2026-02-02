@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- --run
+
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Wait for deployment
+        run: sleep 30
+      
+      - name: Health Check
+        run: |
+           if [ -n "${{ secrets.PRODUCTION_URL }}" ]; then
+             echo "Checking health at ${{ secrets.PRODUCTION_URL }}..."
+             response=$(curl -s -L ${{ secrets.PRODUCTION_URL }}/api/health?details=true)
+             echo "Response: $response"
+             
+             # Simple check for OK status
+             if [[ "$response" != *"\"status\":\"ok\""* ]] && [[ "$response" != *"\"status\":\"healthy\""* ]]; then
+               echo "Health check failed!"
+               exit 1
+             fi
+             echo "Health check passed!"
+           else
+             echo "Skipping health check - PRODUCTION_URL not set"
+           fi

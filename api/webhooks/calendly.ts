@@ -25,6 +25,9 @@ const PROSPECTS_COLLECTION = 'prospects';
  * 
  * @see https://developer.calendly.com/api-docs/ZG9jOjM2MzE2MDM4-webhook-overview
  */
+import { CalendlyEventPayloadSchema } from '../../lib/schemas/webhooks';
+
+// ... existing code ...
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -39,12 +42,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  const { event, payload } = req.body;
-
-  if (!event || !payload) {
-    res.status(400).json({ error: 'Missing event or payload' });
+  const parseResult = CalendlyEventPayloadSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    console.warn('[Calendly Webhook] Invalid payload:', parseResult.error);
+    res.status(400).json({ error: 'Invalid payload format', details: parseResult.error });
     return;
   }
+
+  const { event, payload } = parseResult.data;
 
   try {
     switch (event) {
