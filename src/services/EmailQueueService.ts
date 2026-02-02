@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { DocumentReference, Firestore, Transaction } from 'firebase-admin/firestore';
 import type { EmailMessage, EmailQueueItem } from '../types/email';
-import { SendGridClient } from './SendGridClient';
+import type { IEmailSender } from './IEmailSender';
 import { EmailComplianceService } from './EmailComplianceService';
 import { EmailTrackingService } from './EmailTrackingService';
 import { EmailWarmupService } from './EmailWarmupService';
@@ -45,7 +45,7 @@ export class EmailQueueService {
 
   constructor(
     private readonly db: Firestore,
-    private readonly sendGrid: SendGridClient,
+    private readonly sender: IEmailSender,
     private readonly compliance: EmailComplianceService,
     private readonly warmup: EmailWarmupService,
     private readonly tracking: EmailTrackingService,
@@ -181,7 +181,7 @@ export class EmailQueueService {
     }
 
     try {
-      await this.sendGrid.sendEmail(item.message);
+      await this.sender.sendEmail(item.message);
       await this.warmup.recordSend(item.tenantId, 1);
       await ref.update({ status: 'sent', updatedAt: currentMs(), attempts: item.attempts });
       

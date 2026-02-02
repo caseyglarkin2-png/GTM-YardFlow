@@ -301,8 +301,8 @@ function StepEditor({
                 <button
                   key={tag}
                   onClick={() => insertMergeTag(tag, 'body')}
-                  disabled={readOnly}
-                  className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 flex items-center gap-1"
+                  disabled={readOnly || showPreview}
+                  className={`text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 flex items-center gap-1 ${(readOnly || showPreview) ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <LazyIcon name="Variable" className="w-3 h-3" />
                   {label}

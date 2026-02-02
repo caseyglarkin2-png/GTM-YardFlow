@@ -37,56 +37,15 @@ export interface BulkSequenceModalProps {
   onRetry?: () => void;
 }
 
-// Mock sequences for demo
-const MOCK_SEQUENCES: Sequence[] = [
-  {
-    id: 'seq-1',
-    name: 'Manifest Outreach - Tier 1',
-    description: 'High-touch sequence for Tier 1 prospects',
-    stepCount: 5,
-    activeProspects: 23,
-    status: 'active',
-  },
-  {
-    id: 'seq-2',
-    name: 'Manifest Outreach - General',
-    description: 'Standard outreach sequence for all prospects',
-    stepCount: 4,
-    activeProspects: 156,
-    status: 'active',
-  },
-  {
-    id: 'seq-3',
-    name: 'Meeting Follow-up',
-    description: 'Post-meeting nurture sequence',
-    stepCount: 3,
-    activeProspects: 12,
-    status: 'active',
-  },
-  {
-    id: 'seq-4',
-    name: 'Re-engagement Campaign',
-    description: 'For prospects gone cold',
-    stepCount: 6,
-    activeProspects: 45,
-    status: 'paused',
-  },
-  {
-    id: 'seq-5',
-    name: 'Co-Dev Partner Invite',
-    description: 'Exclusive co-development program invitation',
-    stepCount: 4,
-    activeProspects: 8,
-    status: 'draft',
-  },
-];
+// Mock sequences removed for production polish
+
 
 export function BulkSequenceModal({
   isOpen,
   onClose,
   onConfirm,
   selectedCount,
-  sequences = MOCK_SEQUENCES,
+  sequences = [],
   isLoading = false,
   error = null,
   onRetry,

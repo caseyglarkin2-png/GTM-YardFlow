@@ -7,6 +7,8 @@ import { EmailComplianceService } from '../../src/services/EmailComplianceServic
 import { EmailWarmupService } from '../../src/services/EmailWarmupService';
 import { EmailTrackingService } from '../../src/services/EmailTrackingService';
 import { SendGridClient } from '../../src/services/SendGridClient';
+import { RailwayMailSender } from '../../src/services/RailwayMailSender';
+import type { IEmailSender } from '../../src/services/IEmailSender';
 
 const log = createLogger('cron-execute-sequences');
 
@@ -58,12 +60,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   try {
     const db = getAdminDb();
     
+    // Determine which sender to use based on env vars (for consistency, though only used for queuing here)
+    const useRailway = process.env.RAILWAY_EMAIL_ENABLED === 'true' || process.env.VITE_RAILWAY_EMAIL_ENABLED === 'true';
+    let sender: IEmailSender;
+    
+    if (useRailway) {
+        sender = new RailwayMailSender();
+    } else {
+        sender = new SendGridClient();
+    }
+    
     // Initialize dependencies for EmailQueueService
-    const sendGrid = new SendGridClient();
-    const compliance = new EmailComplianceService(db, sendGrid);
+    const compliance = new EmailComplianceService(db, sender instanceof SendGridClient ? sender : undefined);
     const warmup = new EmailWarmupService(db);
     const tracking = new EmailTrackingService(db);
-    const queueService = new EmailQueueService(db, sendGrid, compliance, warmup, tracking, 'sequence-scheduler');
+    const queueService = new EmailQueueService(db, sender, compliance, warmup, tracking, 'sequence-scheduler');
 
     const scheduler = new SequenceSchedulerService(db, queueService);
 

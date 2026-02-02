@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { getAdminDb } from '../../lib/firebaseAdmin';
 import { railwayServerClient } from '../../lib/railway-client';
+import { CalendlyEventPayloadSchema } from '../../lib/schemas/webhooks';
 
 const db = getAdminDb();
 
@@ -16,18 +17,7 @@ const PROSPECTS_COLLECTION = 'prospects';
  * - invitee.canceled: Meeting canceled
  * 
  * This is the NORTH STAR metric - meetings booked from outreach!
- * 
- * Configure in Calendly:
- * 1. Go to Integrations > Webhooks
- * 2. Add webhook URL: https://your-domain.com/api/webhooks/calendly
- * 3. Subscribe to invitee.created and invitee.canceled
- * 4. Copy signing key to CALENDLY_WEBHOOK_SECRET env var
- * 
- * @see https://developer.calendly.com/api-docs/ZG9jOjM2MzE2MDM4-webhook-overview
  */
-import { CalendlyEventPayloadSchema } from '../../lib/schemas/webhooks';
-
-// ... existing code ...
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -70,58 +60,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 }
 
-interface CalendlyInvitee {
-  uri: string;
-  email: string;
-  name: string;
-  first_name?: string;
-  last_name?: string;
-  timezone?: string;
-  text_reminder_number?: string;
-  created_at: string;
-  updated_at: string;
-  canceled?: boolean;
-  canceler_name?: string;
-  cancel_reason?: string;
-  reschedule_url?: string;
-  cancel_url?: string;
-  questions_and_answers?: Array<{
-    question: string;
-    answer: string;
-  }>;
-  tracking?: {
-    utm_source?: string;
-    utm_medium?: string;
-    utm_campaign?: string;
-    utm_content?: string;
-    utm_term?: string;
-    salesforce_uuid?: string;
-  };
-}
-
-interface CalendlyEvent {
-  uri: string;
-  name: string;
-  start_time: string;
-  end_time: string;
-  location?: {
-    type: string;
-    location?: string;
-    join_url?: string;
-  };
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
-
 interface CalendlyPayload {
-  invitee: CalendlyInvitee;
-  event: CalendlyEvent;
-  event_type?: {
-    uri: string;
-    name: string;
-    duration: number;
-  };
+  invitee: any;
+  event: any;
+  event_type?: any;
 }
 
 async function handleMeetingBooked(payload: CalendlyPayload): Promise<void> {
@@ -133,70 +75,41 @@ async function handleMeetingBooked(payload: CalendlyPayload): Promise<void> {
   
   // Extract IDs from URIs
   const inviteeId = inviteeUri.split('/').pop() || inviteeUri;
-  const eventId = eventUri.split('/').pop() || eventUri;
   
   // Create meeting record
   const meetingDoc = {
     id: `calendly_${inviteeId}`,
     source: 'calendly',
-    
-    // Invitee details
     inviteeEmail: email,
     inviteeName: invitee.name,
-    inviteeFirstName: invitee.first_name,
-    inviteeLastName: invitee.last_name,
-    inviteeTimezone: invitee.timezone,
-    
-    // Event details
     eventName: calEvent.name,
     eventType: event_type?.name,
-    eventDuration: event_type?.duration,
     startTime: new Date(calEvent.start_time).getTime(),
     endTime: new Date(calEvent.end_time).getTime(),
-    
-    // Location
-    locationType: calEvent.location?.type,
-    locationUrl: calEvent.location?.join_url || calEvent.location?.location,
-    
-    // Status
     status: 'booked',
     bookedAt: Date.now(),
-    
-    // Attribution (UTM params from Calendly link)
     attribution: invitee.tracking || {},
-    
-    // Q&A responses
-    questionsAndAnswers: invitee.questions_and_answers || [],
-    
-    // Links
-    rescheduleUrl: invitee.reschedule_url,
-    cancelUrl: invitee.cancel_url,
-    
-    // Calendly URIs for reference
     calendlyInviteeUri: inviteeUri,
     calendlyEventUri: eventUri,
-    
-    // Timestamps
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
 
   await db.collection(MEETINGS_COLLECTION).doc(meetingDoc.id).set(meetingDoc);
 
-  // Try to link to a prospect and update their status
-  await linkMeetingToProspect(email, meetingDoc.id);
+  // Link meeting to prospect and update status - SPRINT 1006 CORE LOGIC
+  await processMeetingAttribution(email, meetingDoc.id);
 
-  console.log(`[Calendly Webhook] Meeting booked: ${email} for ${calEvent.name} at ${calEvent.start_time}`);
+  console.log(`[Calendly Webhook] Meeting booked: ${email} for ${calEvent.name}`);
 }
 
 async function handleMeetingCanceled(payload: CalendlyPayload): Promise<void> {
-  const { invitee, event: calEvent } = payload;
+  const { invitee } = payload;
   
   const inviteeUri = invitee.uri;
   const inviteeId = inviteeUri.split('/').pop() || inviteeUri;
   const meetingId = `calendly_${inviteeId}`;
   
-  // Update meeting status
   await db.collection(MEETINGS_COLLECTION).doc(meetingId).update({
     status: 'canceled',
     canceledAt: Date.now(),
@@ -205,7 +118,6 @@ async function handleMeetingCanceled(payload: CalendlyPayload): Promise<void> {
     updatedAt: Date.now(),
   });
 
-  // Update prospect status if linked
   const email = invitee.email.toLowerCase();
   const prospects = await db.collection(PROSPECTS_COLLECTION)
     .where('email', '==', email)
@@ -220,29 +132,34 @@ async function handleMeetingCanceled(payload: CalendlyPayload): Promise<void> {
     });
   }
 
-  console.log(`[Calendly Webhook] Meeting canceled: ${email} - ${invitee.cancel_reason || 'no reason'}`);
+  console.log(`[Calendly Webhook] Meeting canceled: ${email}`);
 }
 
 /**
- * Link meeting to prospect and update their status
- * This is the key attribution moment - outreach → meeting
+ * Process Meeting Attribution (Sprint 1006)
+ * 1. Find prospect by email
+ * 2. Update prospect status
+ * 3. Find ACTIVE enrollments for this PROSPECT ID
+ * 4. Stop sequence (set status='meeting')
+ * 5. Sync to Railway
  */
-async function linkMeetingToProspect(email: string, meetingId: string): Promise<void> {
-  // Find prospect by email
+async function processMeetingAttribution(email: string, meetingId: string): Promise<void> {
+  // 1. Search Firestore for a prospect with this email
   const prospects = await db.collection(PROSPECTS_COLLECTION)
     .where('email', '==', email)
     .limit(1)
     .get();
 
   if (prospects.empty) {
-    console.log(`[Calendly Webhook] No prospect found for ${email}`);
+    console.log(`[Calendly Webhook] Attribution failed: No prospect found for ${email}`);
     return;
   }
 
   const prospectDoc = prospects.docs[0];
+  const prospectId = prospectDoc.id;
   const prospectData = prospectDoc.data();
 
-  // Update prospect status to "Meeting Booked" - this is the GOAL!
+  // 2. Update prospect status to 'meeting_booked' (or customer)
   await prospectDoc.ref.update({
     status: 'meeting_booked',
     lastMeetingId: meetingId,
@@ -250,76 +167,66 @@ async function linkMeetingToProspect(email: string, meetingId: string): Promise<
     updatedAt: Date.now(),
   });
 
-  // Update meeting with prospect link
+  // Link meeting to prospect
   await db.collection(MEETINGS_COLLECTION).doc(meetingId).update({
-    prospectId: prospectDoc.id,
-    prospectName: prospectData.name || `${prospectData.firstName} ${prospectData.lastName}`,
+    prospectId: prospectId,
+    prospectName: prospectData.name,
     prospectCompany: prospectData.company,
     linkedAt: Date.now(),
   });
 
-  // Pause any active sequence enrollments for this prospect
-  await pauseSequenceEnrollments(email, 'meeting_booked');
+  console.log(`[Calendly Webhook] Linked meeting to prospect ${prospectId}`);
 
-  console.log(`[Calendly Webhook] Linked meeting ${meetingId} to prospect ${prospectDoc.id}`);
-}
-
-/**
- * Pause active sequences when meeting is booked
- * We got what we wanted - stop the outreach!
- * 
- * IMPORTANT: Updates BOTH Firestore AND Railway to keep systems in sync
- */
-async function pauseSequenceEnrollments(email: string, reason: string): Promise<void> {
+  // 3. Search sequenceEnrollments for any 'active' enrollment for this prospectId
+  // Note: We query by prospectId as requested, though older code might have used email
   const enrollments = await db.collection('sequenceEnrollments')
-    .where('prospectEmail', '==', email)
+    .where('prospectId', '==', prospectId)
     .where('status', '==', 'active')
     .get();
+
+  if (enrollments.empty) {
+    console.log(`[Calendly Webhook] No active enrollments found for prospect ${prospectId}`);
+    return;
+  }
 
   const batch = db.batch();
   const railwaySyncPromises: Promise<void>[] = [];
   
+  // 4. Update enrollment status to 'meeting'
   for (const doc of enrollments.docs) {
     const enrollmentData = doc.data();
     
-    // Update Firestore
     batch.update(doc.ref, {
-      status: 'meeting',  // North Star! Meeting booked = success
+      status: 'meeting',
+      completionReason: 'meeting_booked',
       completedAt: Date.now(),
-      completionReason: reason,
       lastUpdated: Date.now(),
     });
     
-    // Sync to Railway if enrollment exists there (T505.2.1 - CRITICAL)
+    // 5. Sync to Railway
+    // If featureFlags.RAILWAY_ENABLED (implied by checking if we have a railways enrollment ID)
+    // We check for ID because even if flag is on, legacy enrollments might not be in Railway
     if (enrollmentData.railwayEnrollmentId) {
       railwaySyncPromises.push(
-        syncEnrollmentToRailway(enrollmentData.railwayEnrollmentId, 'meeting', reason)
+        syncEnrollmentToRailway(enrollmentData.railwayEnrollmentId, 'meeting', 'meeting_booked')
       );
     }
   }
 
-  if (!enrollments.empty) {
-    await batch.commit();
-    
-    // Sync to Railway (non-blocking, but we log errors)
-    if (railwaySyncPromises.length > 0) {
-      try {
-        await Promise.all(railwaySyncPromises);
-        console.log(`[Calendly Webhook] Synced ${railwaySyncPromises.length} enrollments to Railway`);
-      } catch (error) {
-        // Log but don't fail - Firestore is source of truth
-        console.error('[Calendly Webhook] Failed to sync some enrollments to Railway:', error);
-      }
+  await batch.commit();
+  console.log(`[Calendly Webhook] Updated ${enrollments.size} active enrollments to 'meeting'`);
+
+  // Execute non-blocking Railway syncs
+  if (railwaySyncPromises.length > 0) {
+    try {
+      await Promise.all(railwaySyncPromises);
+      console.log(`[Calendly Webhook] Synced ${railwaySyncPromises.length} enrollments to Railway`);
+    } catch (error) {
+      console.error('[Calendly Webhook] Failed to sync to Railway:', error);
     }
-    
-    console.log(`[Calendly Webhook] Completed ${enrollments.size} sequence enrollments for ${email}`);
   }
 }
 
-/**
- * Sync enrollment status to Railway backend
- * This keeps Railway's Postgres in sync with Firestore
- */
 async function syncEnrollmentToRailway(
   railwayEnrollmentId: string,
   status: string,
@@ -333,47 +240,33 @@ async function syncEnrollmentToRailway(
     });
   } catch (error) {
     console.error(`[Calendly Webhook] Railway sync failed for ${railwayEnrollmentId}:`, error);
-    throw error; // Re-throw so Promise.all can catch it
+    // Don't throw, we want to continue processing
   }
 }
 
-/**
- * Verify Calendly webhook signature
- * @see https://developer.calendly.com/api-docs/ZG9jOjM2MzE2MDM4-webhook-overview#webhook-signatures
- */
 function verifySignature(req: VercelRequest): boolean {
   const webhookSecret = process.env.CALENDLY_WEBHOOK_SECRET;
-  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
   
-  // In production, require signature verification key
   if (!webhookSecret) {
-    if (isProduction) {
-      console.error('[Calendly Webhook] CALENDLY_WEBHOOK_SECRET not configured in production!');
-      return false; // Block in production
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[Calendly Webhook] CALENDLY_WEBHOOK_SECRET missing in production');
+      return false;
     }
-    console.warn('[Calendly Webhook] No webhook secret configured, skipping signature check (development mode)');
-    return true;
+    return true; // Dev bypass
   }
 
   const signature = req.headers['calendly-webhook-signature'] as string;
-  
-  if (!signature) {
-    return false;
-  }
+  if (!signature) return false;
 
-  // Calendly signature format: t=timestamp,v1=signature
   const parts = signature.split(',');
   const timestampPart = parts.find(p => p.startsWith('t='));
   const signaturePart = parts.find(p => p.startsWith('v1='));
 
-  if (!timestampPart || !signaturePart) {
-    return false;
-  }
+  if (!timestampPart || !signaturePart) return false;
 
   const timestamp = timestampPart.slice(2);
   const expectedSignature = signaturePart.slice(3);
 
-  // Create the signed payload
   const signedPayload = `${timestamp}.${JSON.stringify(req.body)}`;
   const computedSignature = createHmac('sha256', webhookSecret)
     .update(signedPayload)

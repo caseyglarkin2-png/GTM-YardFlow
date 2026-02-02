@@ -14,6 +14,7 @@ export interface EmailMessage {
     tenantId?: string;
     sequenceId?: string;
     campaignId?: string;
+    prospectId?: string;
     doNotTrack?: boolean;
   };
   scheduledAt?: number;

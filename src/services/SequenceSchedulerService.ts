@@ -242,6 +242,7 @@ export class SequenceSchedulerService {
         sequenceId: sequence.id,
         tenantId: enrollment.customFields?.tenantId,
         userId: enrollment.userId,
+        prospectId: enrollment.prospectId,
       },
       customArgs: {
         enrollmentId: enrollment.id,
@@ -261,26 +262,8 @@ export class SequenceSchedulerService {
       return result.id;
     }
 
-    // FALLBACK: Create queue item manually (Legacy/Unsafe)
-    console.warn('[SequenceScheduler] Using unsafe legacy queuing - missing compliance footer!');
-    const queueItem: EmailQueueItem = {
-      id: queueItemId,
-      message,
-      status: 'pending',
-      attempts: 0,
-      maxAttempts: 3,
-      idempotencyKey: `seq:${enrollment.id}:${step.id}`,
-      scheduledAt: now,
-      createdAt: now,
-      updatedAt: now,
-      enrollmentId: enrollment.id,
-      stepId: step.id,
-    };
-
-    // Write to the email_queue collection (used by EmailQueueService)
-    await this.db.collection('email_queue').doc(queueItemId).set(queueItem);
-
-    return queueItemId;
+    // CRITICAL: Fail if no queue service available (removed unsafe fallback)
+    throw new Error('EmailQueueService is required for sequence execution to ensure compliance.');
   }
 
   /**

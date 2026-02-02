@@ -1,6 +1,7 @@
 import sgMail, { type MailDataRequired, type ClientResponse } from '@sendgrid/mail';
 import sgClient from '@sendgrid/client';
 import type { EmailMessage } from '../types/email';
+import type { IEmailSender } from './IEmailSender';
 
 const RETRIABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const MAX_RETRIES = 3;
@@ -10,7 +11,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export class SendGridClient {
+export class SendGridClient implements IEmailSender {
   private readonly apiKey?: string;
 
   constructor(apiKey: string | undefined = process.env.SENDGRID_API_KEY) {

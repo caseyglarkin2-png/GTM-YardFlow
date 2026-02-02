@@ -6,6 +6,8 @@ import { EmailComplianceService } from '../../src/services/EmailComplianceServic
 import { EmailWarmupService } from '../../src/services/EmailWarmupService';
 import { EmailTrackingService } from '../../src/services/EmailTrackingService';
 import { SendGridClient } from '../../src/services/SendGridClient';
+import { RailwayMailSender } from '../../src/services/RailwayMailSender';
+import type { IEmailSender } from '../../src/services/IEmailSender';
 
 const log = createLogger('cron-process-queue');
 
@@ -52,11 +54,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   try {
     const db = getAdminDb();
-    const sendGrid = new SendGridClient();
-    const compliance = new EmailComplianceService(db, sendGrid);
+    
+    // Determine which sender to use based on env vars
+    const useRailway = process.env.RAILWAY_EMAIL_ENABLED === 'true' || process.env.VITE_RAILWAY_EMAIL_ENABLED === 'true';
+    let sender: IEmailSender;
+    
+    if (useRailway) {
+        log.info('Using RailwayMailSender (Feature Flag Enabled)');
+        sender = new RailwayMailSender();
+    } else {
+        log.info('Using SendGridClient (Default)');
+        sender = new SendGridClient();
+    }
+
+    const startClient = Date.now();
+    
+    // Validate sender if possible
+    if (sender instanceof SendGridClient) {
+        // SendGrid validation logic if needed
+    }
+
+    // Only pass SendGrid client if we are using it
+    const compliance = new EmailComplianceService(db, sender instanceof SendGridClient ? sender : undefined); 
+    
     const warmup = new EmailWarmupService(db);
     const tracking = new EmailTrackingService(db);
-    const queue = new EmailQueueService(db, sendGrid, compliance, warmup, tracking, 'cron-worker');
+    
+    const queue = new EmailQueueService(db, sender, compliance, warmup, tracking, 'cron-worker');
 
     // Process up to 25 emails per invocation (fits in Vercel timeout)
     const processed = await queue.processBatch(25);
