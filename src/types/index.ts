@@ -42,6 +42,9 @@ export interface Prospect {
   companyFacilityCount?: number;
   companyIndustry?: string;
   companyPrimoScore?: number;
+  
+  // Sprint 906: Lead Scoring
+  estimatedFacilities?: number;
 }
 
 export interface MessageTemplate {

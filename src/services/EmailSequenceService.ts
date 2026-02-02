@@ -6,6 +6,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+import { MANIFEST_SEQUENCES } from '../data/sequenceTemplates';
 import type {
   EmailSequence,
   EmailStep,
@@ -40,6 +41,8 @@ export interface EmailProspect {
  * Pre-built sequence templates for common use cases
  */
 export const SEQUENCE_TEMPLATES: SequenceTemplate[] = [
+  // Sprint 906: Manifest Mission Sequences
+  ...MANIFEST_SEQUENCES,
   {
     id: 'cold-ops-director',
     name: 'Ops Director Cold Outreach',
@@ -370,6 +373,7 @@ function findUnresolvedMergeTags(content: string): string[] {
     'firstName', 'lastName', 'fullName', 'email',
     'company', 'title', 'industry', 'trailerCount',
     'senderName', 'senderTitle', 'senderCompany',
+    'calendly_link', // Added for Manifest sequences
   ];
   
   const tagPattern = /\{\{(\w+)\}\}/g;

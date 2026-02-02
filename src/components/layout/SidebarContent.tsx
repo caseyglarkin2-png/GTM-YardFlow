@@ -42,6 +42,9 @@ export interface SidebarContentProps {
   onTierFilterChange?: (value: string) => void;
   statusFilter?: string;
   onStatusFilterChange?: (value: string) => void;
+  // Sprint 1002 - Email Filter
+  emailFilter?: string;
+  onEmailFilterChange?: (value: string) => void;
   tagFilter?: string[];
   onTagFilterChange?: (tags: string[]) => void;
   viewMode?: ViewMode;
@@ -94,6 +97,10 @@ export function SidebarContent({
   onTierFilterChange,
   statusFilter = 'all',
   onStatusFilterChange,
+  emailFilter = 'all',
+  onEmailFilterChange,
+  tagFilter,
+  onTagFilterChange,
   viewMode = 'people',
   onViewModeChange,
   datePeriod,
@@ -227,24 +234,37 @@ export function SidebarContent({
               />
             </div>
             
-            {/* Tier and Status filters */}
-            <div className="grid grid-cols-2 gap-2">
-              <select
-                value={tierFilter}
-                onChange={(e) => onTierFilterChange?.(e.target.value)}
-                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                aria-label="Filter by tier"
-              >
-                <option value="all">All Tiers</option>
-                <option value="Tier 1">Tier 1</option>
-                <option value="Tier 2">Tier 2</option>
-                <option value="Tier 3">Tier 3</option>
-              </select>
-              
+            {/* Tier, Status, and Email filters */}
+            <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={tierFilter}
+                  onChange={(e) => onTierFilterChange?.(e.target.value)}
+                  className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                  aria-label="Filter by tier"
+                >
+                  <option value="All">All Tiers</option>
+                  <option value="Tier 1">Tier 1</option>
+                  <option value="Tier 2">Tier 2</option>
+                  <option value="Tier 3">Tier 3</option>
+                </select>
+                
+                <select
+                  value={emailFilter}
+                  onChange={(e) => onEmailFilterChange?.(e.target.value)}
+                  className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                  aria-label="Filter by email"
+                >
+                  <option value="all">Any Email</option>
+                  <option value="has_email">Has Email</option>
+                  <option value="no_email">No Email</option>
+                </select>
+              </div>
+
               <select
                 value={statusFilter}
                 onChange={(e) => onStatusFilterChange?.(e.target.value)}
-                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none w-full"
                 aria-label="Filter by status"
               >
                 <option value="all">All Status</option>

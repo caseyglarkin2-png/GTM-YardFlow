@@ -75,7 +75,7 @@ export const EmailSequenceSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string().optional(),
-  persona: z.enum(['ops_director', 'cfo', 'cio', 'vp_supply_chain']).optional(),
+  persona: z.enum(['ops_director', 'cfo', 'cio', 'vp_supply_chain', 'manifest_attendee', 'logistics_executive']).optional(),
   tier: z.enum(['Tier 1', 'Tier 2', 'Tier 3']).optional(),
   steps: z.array(EmailStepSchema),
   status: SequenceStatusSchema.default('draft'),
@@ -260,8 +260,9 @@ export const SequenceTemplateSchema = z.object({
     'content_nurture',
     'meeting_request',
     'break_up',
+    'manifest_outreach',
   ]),
-  persona: z.enum(['ops_director', 'cfo', 'cio', 'vp_supply_chain']).optional(),
+  persona: z.enum(['ops_director', 'cfo', 'cio', 'vp_supply_chain', 'manifest_attendee', 'logistics_executive']).optional(),
   
   steps: z.array(z.object({
     type: EmailStepTypeSchema,

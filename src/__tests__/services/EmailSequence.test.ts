@@ -102,7 +102,7 @@ describe('EmailSequenceService', () => {
 
   describe('createFromTemplate', () => {
     it('should create sequence from template', () => {
-      const template = SEQUENCE_TEMPLATES[0];
+      const template = SEQUENCE_TEMPLATES.find(t => t.id === 'cold-ops-director')!;
       const sequence = createFromTemplate(template);
       
       expect(sequence.steps.length).toBe(template.steps.length);
@@ -111,14 +111,14 @@ describe('EmailSequenceService', () => {
     });
 
     it('should allow custom name', () => {
-      const template = SEQUENCE_TEMPLATES[0];
+      const template = SEQUENCE_TEMPLATES.find(t => t.id === 'cold-ops-director')!;
       const sequence = createFromTemplate(template, 'Custom Name');
       
       expect(sequence.name).toBe('Custom Name');
     });
 
     it('should generate unique step IDs', () => {
-      const template = SEQUENCE_TEMPLATES[0];
+      const template = SEQUENCE_TEMPLATES.find(t => t.id === 'cold-ops-director')!;
       const sequence = createFromTemplate(template);
       
       const ids = sequence.steps.map(s => s.id);
@@ -264,7 +264,7 @@ describe('EmailSequenceService', () => {
 
   describe('validateSequence', () => {
     it('should pass valid sequence', () => {
-      const template = SEQUENCE_TEMPLATES[0];
+      const template = SEQUENCE_TEMPLATES.find(t => t.id === 'cold-ops-director')!;
       const sequence = createFromTemplate(template);
       
       const errors = validateSequence(sequence);
@@ -385,7 +385,7 @@ describe('EmailSequenceService', () => {
 
   describe('getSequenceStats', () => {
     it('should calculate total duration', () => {
-      const template = SEQUENCE_TEMPLATES[0];
+      const template = SEQUENCE_TEMPLATES.find(t => t.id === 'cold-ops-director')!;
       const sequence = createFromTemplate(template);
       
       const stats = getSequenceStats(sequence);
@@ -450,7 +450,7 @@ describe('EmailSequenceService', () => {
 
   describe('enrollProspect', () => {
     it('should create enrollment record', () => {
-      const template = SEQUENCE_TEMPLATES[0];
+      const template = SEQUENCE_TEMPLATES.find(t => t.id === 'cold-ops-director')!;
       const sequence = createFromTemplate(template);
       
       const enrollment = enrollProspect(sequence, mockProspect);
@@ -463,7 +463,7 @@ describe('EmailSequenceService', () => {
     });
 
     it('should include custom fields', () => {
-      const template = SEQUENCE_TEMPLATES[0];
+      const template = SEQUENCE_TEMPLATES.find(t => t.id === 'cold-ops-director')!;
       const sequence = createFromTemplate(template);
       
       const enrollment = enrollProspect(sequence, mockProspect, {
@@ -476,7 +476,7 @@ describe('EmailSequenceService', () => {
 
   describe('getEnrollmentProgress', () => {
     it('should calculate progress percentage', () => {
-      const template = SEQUENCE_TEMPLATES[0];
+      const template = SEQUENCE_TEMPLATES.find(t => t.id === 'cold-ops-director')!;
       const sequence = createFromTemplate(template);
       const enrollment = enrollProspect(sequence, mockProspect);
       
@@ -655,7 +655,7 @@ describe('EmailSequenceService', () => {
 
   describe('queueEmail', () => {
     it('should create queue item', () => {
-      const template = SEQUENCE_TEMPLATES[0];
+      const template = SEQUENCE_TEMPLATES.find(t => t.id === 'cold-ops-director')!;
       const sequence = createFromTemplate(template);
       const enrollment = enrollProspect(sequence, mockProspect);
       const step = sequence.steps[0];

@@ -25,6 +25,7 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
+  ArrowLeft,
 } from 'lucide-react';
 import type { CompanyRow } from '../services/CompanyAggregator';
 import type { Prospect } from '../types';
@@ -36,6 +37,7 @@ interface CompanyDetailPanelProps {
   onResearchClick?: (company: CompanyRow) => void;
   onQueueOutreach?: (company: CompanyRow, contacts: Prospect[]) => void;
   isResearching?: boolean;
+  onBack?: () => void;
 }
 
 // Tier badge colors
@@ -53,6 +55,7 @@ export function CompanyDetailPanel({
   onResearchClick,
   onQueueOutreach,
   isResearching = false,
+  onBack,
 }: CompanyDetailPanelProps) {
   const [showAllContacts, setShowAllContacts] = useState(false);
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
@@ -94,6 +97,15 @@ export function CompanyDetailPanel({
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-2">
+              {onBack && (
+                <button 
+                  onClick={onBack} 
+                  className="p-1 hover:bg-slate-200 rounded-full transition-colors mr-1"
+                  title="Back to list"
+                >
+                  <ArrowLeft className="h-5 w-5 text-slate-500" />
+                </button>
+              )}
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Building2 className="h-6 w-6 text-blue-600" />
               </div>

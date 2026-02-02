@@ -645,6 +645,24 @@ useEffect(() => {
 
 ---
 
+### T903.8: Inject "Primo" Presets
+
+**Implementation**:
+- Add a "Load Success Metrics" button to the Sequence Builder
+- Auto-populates the email body with the verified Primo stats:
+  - $30M EBITDA
+  - 4% Volume
+  - Headcount neutral
+
+### T903.9: Dynamic ROI Snippet
+
+**Implementation**:
+- Create a variable `{{estimated_roi}}`
+- Logic: `Facilities * $1M`
+- Inserts calculated value into the email template automatically
+
+---
+
 ## Sprint 904: Production Monitoring
 
 **Goal**: Automated verification of production readiness  
@@ -813,6 +831,39 @@ projects: [
 
 ---
 
+## Sprint 906: The "Manifest" Dashboard
+
+**Goal**: Enable on-floor sales at Manifest Conference  
+**Effort**: 6-8 hours  
+**Demoable**: Filter by "Network Size", instant ROI calculation  
+
+### T906.1: UI Component Scaffolding
+
+**Implementation**:
+- Create `src/components/ui/card.tsx` (or install shadcn/ui)
+- Create `src/components/ui/slider.tsx`
+- Ensure `ROICalculator` compiles with provided code.
+
+### T906.2: Lead Scorer View & Facility Inference
+
+**Implementation**:
+- Create `FacilityInferenceService`:
+  - Logic: IF industry = "Manufacturing/Logistics" AND employees > 1000 THEN facilities = employees / 200.
+  - Else default to 1.
+- Create Sortable Prospect List:
+  - Sort by `estimatedFacilities` desc.
+  - Filter: `isAssetBasedShipper` = true.
+
+### T906.3: "The Brain" Integration
+
+**Implementation**:
+- Connect `useSequences` to OpenAI API.
+- Prompt Engineering: 
+  - "Rewrite this email to increase tension (norepinephrine) about losing market share."
+  - "Rewrite this email to trigger dopamine (intrigue) about $30M savings."
+
+---
+
 ## Validation Checklist
 
 ### Sprint 900 ✓
@@ -939,4 +990,236 @@ npm run test:e2e -- --project="Desktop Chrome"
 
 # Health check
 curl https://gtm-yard-flow.vercel.app/api/health?details=true | jq
+```
+
+---
+
+## Appendix: Manifest Mission Components
+
+### A. ROI Calculator Component (src/components/panels/ROICalculator.tsx)
+
+```tsx
+import React, { useState, useEffect } from "react";
+// Assumes components created in T906.0
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  ResponsiveContainer, 
+  Cell 
+} from "recharts";
+
+const ROICalculator = () => {
+  const [facilities, setFacilities] = useState(50);
+  const [marginPerFacility, setMarginPerFacility] = useState(1000000);
+  const [networkEfficiencyGain, setNetworkEfficiencyGain] = useState(1.5); // %
+  
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    const paperSavings = facilities * 5000; // $5k/facility generic SaaS savings
+    const laborSavings = facilities * 45000; // 1 FTE efficiency/facility
+    
+    // The "Network Effect" - Volume impact
+    // 1.5% of Total Margin Volume = The big number
+    const totalMargin = facilities * marginPerFacility;
+    const networkSavings = totalMargin * (networkEfficiencyGain / 100);
+
+    const chartData = [
+      { 
+        name: "Paper/SaaS", 
+        value: paperSavings, 
+        color: "#94a3b8",
+        description: "Digitizing BOLs (Table Stakes)" 
+      },
+      { 
+        name: "Labor Efficiency", 
+        value: laborSavings, 
+        color: "#60a5fa",
+        description: "Gate/Dock Automation" 
+      },
+      { 
+        name: "Network Volume", 
+        value: networkSavings, 
+        color: "#2563eb", // Primary Brand Color
+        description: "Turnover & Asset Utilization (The Gold Mine)" 
+      }
+    ];
+    setData(chartData);
+  }, [facilities, marginPerFacility, networkEfficiencyGain]);
+
+  const totalROI = data.reduce((acc, curr) => acc + curr.value, 0);
+
+  const formatCurrency = (val) => {
+    if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
+    if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`;
+    return `$${val}`;
+  };
+
+  return (
+    <Card className="w-full max-w-4xl bg-slate-50">
+      <CardHeader>
+        <CardTitle className="text-2xl font-bold flex justify-between items-center">
+          <span>YardFlow Value Logic</span>
+          <span className="text-emerald-600 text-3xl">
+            {formatCurrency(totalROI)} <span className="text-sm text-slate-500 font-normal">/ yr</span>
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-8">
+        {/* Controls */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
+          <div className="space-y-4">
+            <label className="text-sm font-medium text-slate-700">
+              Facility Network Size
+            </label>
+            <div className="flex items-center gap-4">
+              <span className="text-2xl font-bold text-slate-800 w-16">{facilities}</span>
+              <Slider
+                value={[facilities]}
+                onValueChange={(vals) => setFacilities(vals[0])}
+                min={1}
+                max={500}
+                step={1}
+                className="flex-1"
+              />
+            </div>
+            <p className="text-xs text-slate-500">Distribution Centers / Plants</p>
+          </div>
+
+          <div className="space-y-4">
+            <label className="text-sm font-medium text-slate-700">
+              Avg. Margin / Facility
+            </label>
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-bold text-slate-800 w-20">
+                {formatCurrency(marginPerFacility)}
+              </span>
+              <Slider
+                value={[marginPerFacility]}
+                onValueChange={(vals) => setMarginPerFacility(vals[0])}
+                min={500000}
+                max={10000000}
+                step={500000}
+                className="flex-1"
+              />
+            </div>
+            <p className="text-xs text-slate-500">Revenue - COGS per site</p>
+          </div>
+
+          <div className="space-y-4">
+            <label className="text-sm font-medium text-slate-700">
+              Network Efficiency Gain
+            </label>
+            <div className="flex items-center gap-4">
+              <span className="text-2xl font-bold text-blue-600 w-16">
+                {networkEfficiencyGain}%
+              </span>
+              <Slider
+                value={[networkEfficiencyGain]}
+                onValueChange={(vals) => setNetworkEfficiencyGain(vals[0])}
+                min={0.1}
+                max={5.0} // Conservative upper bound
+                step={0.1}
+                className="flex-1"
+              />
+            </div>
+            <p className="text-xs text-slate-500">Volume throughput increase</p>
+          </div>
+        </div>
+
+        {/* Visualizer */}
+        <div className="h-96 w-full mt-8">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <XAxis type="number" tickFormatter={formatCurrency} />
+              <YAxis type="category" dataKey="name" width={120} tick={{fontSize: 12}} />
+              <Tooltip 
+                formatter={(value) => formatCurrency(value)}
+                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+              />
+              <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={40}>
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Narrative */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 text-center">
+          {data.map((item, idx) => (
+            <div key={idx} className="p-3 bg-slate-50 rounded border border-slate-100">
+              <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">{item.name}</div>
+              <div className="font-semibold text-slate-700">{formatCurrency(item.value)}</div>
+              <div className="text-xs text-slate-400 mt-1 italic">{item.description}</div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default ROICalculator;
+```
+
+### B. Sequence Templates (src/data/sequenceTemplates.ts)
+
+```typescript
+// src/data/sequenceTemplates.ts
+
+export const MANIFEST_SEQUENCES = [
+  {
+    id: 'manifest-meeting-room',
+    name: 'Manifest: "In the Area" (High Priority)',
+    description: 'For prospects with meeting rooms (Pepsi, Kraft, GXO, etc.)',
+    steps: [
+      {
+        day: 0,
+        type: 'email',
+        subject: 'Swing by your meeting room?',
+        body: `Hi {{firstName}},
+
+I'll be "holding court" in the meeting rooms area on Monday afternoon at Manifest. 
+
+We helped Primo Brands (fka Nestle Waters) scale volume by 4% across 24 facilities while keeping headcount flat. That's ~$1M incremental margin per facility. [cite: 43]
+
+I have a hunch we can deliver similar results for {{company}}.
+
+Since I'll be right next door to your team, should I swing by the {{company}} room? Or you can grab a slot on my calendar here: {{calendly_link}} [cite: 341]
+
+Best,
+Jake`
+      }
+    ]
+  },
+  {
+    id: 'manifest-co-dev',
+    name: 'Manifest: Co-Development Invitation',
+    description: 'Invitation to the Yard Network Protocol (YNP) cohort',
+    steps: [
+      {
+        day: 0,
+        type: 'email',
+        subject: 'Co-development partner for {{company}}?',
+        body: `Hi {{firstName}},
+
+We are selecting partners for a new co-development cohort at Manifest to roll out our Yard Network Protocol (YNP), and I’d love to include {{company}}. [cite: 32, 44]
+
+We recently deployed this with Primo Brands, generating $30M+ in network effects by standardizing their yard data models. [cite: 4]
+
+Are you open to discussing what a similar "Network Effect" strategy would look like for {{company}}'s facilities?
+
+Best,
+Jake`
+      }
+    ]
+  }
+];
 ```

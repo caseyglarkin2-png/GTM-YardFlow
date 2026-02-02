@@ -30,6 +30,7 @@ import { HITLIST_PROSPECTS } from '../data/hitlistData';
 import { featureFlags, isDualWriteEnabled } from '../config/featureFlags';
 import { railwayClient } from '../services/RailwayApiClient';
 import type { RailwayProspect, ProspectTier } from '../types/railway';
+import { FacilityInferenceService } from '../services/FacilityInferenceService';
 
 // =============================================================================
 // Types
@@ -195,7 +196,12 @@ export function useProspectState(options: UseProspectStateOptions = {}): UsePros
       if (!mountedRef.current) return;
 
       if (result.ok && result.data) {
-        const mapped = result.data.data.map(mapRailwayToProspect);
+        const mapped = result.data.data.map(p => {
+          const prospect = mapRailwayToProspect(p);
+          // Sprint 906.2: Infer estimated facilities
+          prospect.estimatedFacilities = FacilityInferenceService.inferFacilities(prospect);
+          return prospect;
+        });
         setProspects(mapped);
         setDataSource('railway');
         
@@ -250,14 +256,20 @@ export function useProspectState(options: UseProspectStateOptions = {}): UsePros
       (snapshot) => {
         if (!mountedRef.current) return;
         
-        const loaded: Prospect[] = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        } as Prospect));
+        const loaded: Prospect[] = snapshot.docs.map(doc => {
+          const p = { id: doc.id, ...doc.data() } as Prospect;
+          p.estimatedFacilities = FacilityInferenceService.inferFacilities(p);
+          return p;
+        });
         
         // Merge with hitlist data for prospects not in Firestore
         const firestoreIds = new Set(loaded.map(p => p.id));
-        const hitlistOnly = HITLIST_PROSPECTS.filter(p => !firestoreIds.has(p.id));
+        const hitlistOnly = HITLIST_PROSPECTS
+          .filter(p => !firestoreIds.has(p.id))
+          .map(p => ({
+            ...p,
+            estimatedFacilities: FacilityInferenceService.inferFacilities(p)
+          }));
         
         setProspects([...loaded, ...hitlistOnly]);
         setDataSource('firestore');
