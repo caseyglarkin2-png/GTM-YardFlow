@@ -172,6 +172,7 @@ import { MeetingsKPICard } from './components/MeetingsKPICard';
 
 // --- Sprint 1004: Data Quality Panel ---
 import { DataQualityPanel } from './components/DataQualityPanel';
+import { EmailQualityBadge } from './components/EmailQualityBadge';
 
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
@@ -2818,9 +2819,12 @@ ${generatedMessage}`;
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between">
-                              <h3 className={`font-semibold text-sm truncate ${selectedProspect?.id === prospect.id ? 'text-blue-700' : 'text-slate-800'}`}>
-                                {prospect.name}
-                              </h3>
+                              <div className="flex items-center gap-1.5">
+                                <h3 className={`font-semibold text-sm truncate ${selectedProspect?.id === prospect.id ? 'text-blue-700' : 'text-slate-800'}`}>
+                                  {prospect.name}
+                                </h3>
+                                <EmailQualityBadge prospect={prospect} />
+                              </div>
                               {prospect.lastEditedBy && prospect.lastEditedBy !== currentUser && prospect.status !== 'new' && (
                                 <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse flex-shrink-0 ml-1" title={`Updated by ${prospect.lastEditedBy}`} aria-label={`Updated by ${prospect.lastEditedBy}`} />
                               )}
