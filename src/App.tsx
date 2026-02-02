@@ -170,6 +170,9 @@ import { SequenceComparison } from './components/analytics/SequenceComparison';
 import { SequenceBuilder } from './components/SequenceBuilder';
 import { MeetingsKPICard } from './components/MeetingsKPICard';
 
+// --- Sprint 1004: Data Quality Panel ---
+import { DataQualityPanel } from './components/DataQualityPanel';
+
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
 const activityTracker = getActivityTracker();
@@ -2409,6 +2412,11 @@ ${generatedMessage}`;
                     ]}
                   />
                 </div>
+              )}
+
+              {/* Sprint 1004: Data Quality Panel */}
+              {!dashboard.isLoading && (
+                <DataQualityPanel prospects={prospects} className="lg:col-span-full" />
               )}
 
               {/* Sprint 2-4: Email Warmup & Analytics Section */}
