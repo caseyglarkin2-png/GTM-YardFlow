@@ -104,6 +104,9 @@ import { sendEmailViaRailway, isRailwayAvailable } from './services/RailwayEmail
 // --- Sprint 81 Sequence Enrollment ---
 import { useSequenceEnrollment } from './hooks/useSequenceEnrollment';
 import { useSequences } from './hooks/useSequences';
+
+// --- Sprint 24: Railway Email ---
+import { useRailwayEmail } from './hooks/useRailwayEmail';
 import { SequenceEnrollmentBadge } from './components/SequenceEnrollmentBadge';
 import { useReplyNotifications } from './hooks/useReplyNotifications';
 
@@ -769,7 +772,10 @@ export default function App() {
     }
   }, [deletedProspects, announce, showError]);
 
-  // Sprint 22A: Bulk Email Send Handler
+  // Sprint 24: Railway Email Hook
+  const { sendBatch, isRailwayEnabled } = useRailwayEmail();
+
+  // Sprint 22A: Bulk Email Send Handler (Updated for Railway in Sprint 24)
   const handleBulkSendEmail = useCallback(async (subject: string, body: string, templateId: string) => {
     const eligibleProspects = selectedProspects.filter(p => p.email);
     if (eligibleProspects.length === 0) {
@@ -789,79 +795,64 @@ export default function App() {
       }
 
       const token = await firebaseUser.getIdToken();
-      let sent = 0;
-      let failed = 0;
 
-      for (const prospect of eligibleProspects) {
-        try {
-          // Personalize the message
-          const firstName = prospect.name.split(' ')[0] || prospect.name;
-          const personalizedBody = body
-            .replace(/\{first_name\}/g, firstName)
-            .replace(/\{name\}/g, prospect.name)
-            .replace(/\{company\}/g, prospect.company)
-            .replace(/\{title\}/g, prospect.title);
+      // Build batch email items with personalization
+      const emails = eligibleProspects.map(prospect => {
+        const firstName = prospect.name.split(' ')[0] || prospect.name;
+        const personalizedBody = body
+          .replace(/\{first_name\}/g, firstName)
+          .replace(/\{name\}/g, prospect.name)
+          .replace(/\{company\}/g, prospect.company)
+          .replace(/\{title\}/g, prospect.title);
+        const personalizedSubject = subject
+          .replace(/\{first_name\}/g, firstName)
+          .replace(/\{name\}/g, prospect.name)
+          .replace(/\{company\}/g, prospect.company)
+          .replace(/\{title\}/g, prospect.title);
+        
+        return {
+          to: prospect.email!,
+          toName: prospect.name,
+          subject: personalizedSubject,
+          body: personalizedBody,
+          htmlBody: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">${personalizedBody.split('\n').map(line => `<p style="margin: 0 0 10px 0;">${line || '&nbsp;'}</p>`).join('')}</div>`,
+          prospectId: prospect.id,
+          metadata: { prospectName: prospect.name, templateId },
+        };
+      });
 
-          const personalizedSubject = subject
-            .replace(/\{first_name\}/g, firstName)
-            .replace(/\{name\}/g, prospect.name)
-            .replace(/\{company\}/g, prospect.company)
-            .replace(/\{title\}/g, prospect.title);
+      console.log(`[BulkEmail] Sending ${emails.length} emails via ${isRailwayEnabled ? 'Railway' : 'local'}`);
 
-          const response = await fetch('/api/email/send', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              to: prospect.email,
-              toName: prospect.name,
-              subject: personalizedSubject,
-              html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">${personalizedBody.split('\n').map(line => `<p style="margin: 0 0 10px 0;">${line || '&nbsp;'}</p>`).join('')}</div>`,
-              text: personalizedBody,
-              metadata: { 
-                prospectId: prospect.id, 
-                prospectName: prospect.name,
-                source: 'BulkEmail',
-                templateId,
-              },
-            }),
-          });
+      // Use the hook's sendBatch which handles Railway vs local routing
+      const result = await sendBatch(emails, token);
 
-          if (response.ok) {
-            sent++;
-            // Update prospect status to contacted
-            await updateProspect(prospect.id, { status: 'contacted', lastContactedAt: new Date().toISOString() });
-          } else {
-            failed++;
-            console.error(`Failed to send to ${prospect.email}:`, await response.text());
-          }
-        } catch (err) {
-          failed++;
-          console.error(`Error sending to ${prospect.email}:`, err);
+      // Update progress from result
+      setBulkEmailProgress({ sent: result.sent, total: result.total, failed: result.failed });
+
+      // Update prospect status for successful sends
+      for (const res of result.results) {
+        if (res.success) {
+          await updateProspect(res.prospectId, { status: 'contacted', lastContactedAt: new Date().toISOString() });
         }
-
-        setBulkEmailProgress({ sent, total: eligibleProspects.length, failed });
       }
 
       setIsSendingBulkEmail(false);
       setBulkActionModal(null);
       clearSelection();
       
-      if (sent > 0) {
-        showSuccess('Emails Sent', `Successfully sent ${sent} email${sent > 1 ? 's' : ''}.`);
-        announce(`Sent ${sent} emails`);
+      if (result.sent > 0) {
+        showSuccess('Emails Sent', `Successfully sent ${result.sent} email${result.sent > 1 ? 's' : ''}${isRailwayEnabled ? ' via Railway' : ''}.`);
+        announce(`Sent ${result.sent} emails`);
       }
-      if (failed > 0) {
-        showWarning('Some Failed', `${failed} email${failed > 1 ? 's' : ''} failed to send.`);
+      if (result.failed > 0) {
+        showWarning('Some Failed', `${result.failed} email${result.failed > 1 ? 's' : ''} failed to send.`);
       }
     } catch (err) {
       console.error('Bulk email failed:', err);
       showError('Email Failed', 'Failed to send bulk emails. Please try again.');
       setIsSendingBulkEmail(false);
     }
-  }, [selectedProspects, auth, updateProspect, clearSelection, showSuccess, showWarning, showError, announce]);
+  }, [selectedProspects, auth, updateProspect, clearSelection, showSuccess, showWarning, showError, announce, sendBatch, isRailwayEnabled]);
   
   // AI State
   const [geminiApiKey, setGeminiApiKey] = useState('');

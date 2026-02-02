@@ -4,23 +4,37 @@
 Sales automation platform: **enroll prospects → send tracked email sequences → book meetings**.
 Calendly handles scheduling — no calendar integration needed.
 
+## For AI Coding Agents (Quick Start)
+
+- **Role:** act like a precise pair-programmer—make small, correct edits, run tests, and iterate.
+- **Required tools:** always use `manage_todo_list` to plan multi-step work and `apply_patch` to edit files.
+- **Before any tool call:** send a one-line preamble stating what you're about to do (one sentence).
+- **Edit workflow:** use `apply_patch` with the repo-style diff format; do not output file contents directly.
+- **Verify changes:** run `npx tsc --noEmit` and `npm test -- --run` (or `npm run test` for watch) after edits.
+- **Patch example (use apply_patch):**
+
+```
+*** Update File: src/some/file.ts
+@@
+ -const x = 1
+ +const x = 2
+```
+
+- **Patches should be minimal** and focused on the requested change; avoid unrelated reformatting.
+- **When done:** ask for feedback and next steps; include which tests you ran and their results.
+
 ## Current Sprint Status
 
 | Sprint | Focus | Status |
 |--------|-------|--------|
-| 21 | Recovery & Stabilization | ✅ Complete |
-| 22A | Bulk Email Sending | ✅ Complete |
-| 22B | Sequence Fallback | ✅ Complete |
-| 23 | Railway Integration | ✅ Complete |
-| 24 | Prospect Data Sync | ⏳ Next |
+| 22A/B | Bulk Email + Sequence Fallback | ✅ Complete |
+| 23 | Railway S2S Auth | ✅ Complete |
+| **24** | **Railway Email Activation** | 🚀 **ACTIVE** |
 
-*Last updated: 2026-02-02 — Railway integration complete, S2S auth working*
+*Last updated: 2026-02-02*
 
-### Recent Completions
-- **Railway S2S Auth**: `RAILWAY_API_SECRET` aligned with `CRON_SECRET` 
-- **Bulk Email Modal**: Select prospects → pick template → send personalized emails
-- **Sequence Fallback**: Uses `MANIFEST_SEQUENCES` when Railway disabled
-- **TypeScript Fixes**: Dashboard crash, prop drilling, status enums resolved
+**Sprint 24 Phases** (see [SPRINT_PLAN_V24_EMAIL_ACTIVATION.md](../SPRINT_PLAN_V24_EMAIL_ACTIVATION.md)):
+- S0: Secrets verification → S1: E2E email test → S1.5: Compliance gates → S2: Frontend integration → S3: Error handling → S4: Monitoring
 
 ## Architecture
 
