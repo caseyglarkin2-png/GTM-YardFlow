@@ -27,6 +27,7 @@ import type { Prospect } from '../types';
 import type { EmailSequence, EnrollmentStatus } from '../types/emailSequence';
 import { v4 as uuidv4 } from 'uuid';
 import { railwayClient } from '@/services/RailwayApiClient';
+import type { RailwayEnrollment } from '@/types/railway';
 import { featureFlags } from '@/config/featureFlags';
 
 // ============================================
@@ -134,7 +135,12 @@ export function useSequenceEnrollment(): UseSequenceEnrollmentReturn {
         if (result.ok && result.data) {
           const newEnrollments = new Map<string, ProspectEnrollmentInfo>();
 
-          for (const enrollment of result.data) {
+          // Handle both array and paginated response formats
+          const enrollmentArray = Array.isArray(result.data) 
+            ? result.data 
+            : (result.data as { items?: RailwayEnrollment[] }).items ?? [];
+
+          for (const enrollment of enrollmentArray) {
             const sequenceDoc = sequences.find(s => s.id === enrollment.sequenceId);
 
             newEnrollments.set(enrollment.prospectId, {
