@@ -1,6 +1,6 @@
 # Sprint Plan V22: Mass Outreach Enablement
 
-**Status**: In Progress  
+**Status**: ✅ COMPLETE (Sprint 22A + 22B)  
 **Created**: February 2, 2026  
 **Goal**: Select any prospects → Send personalized emails → Track responses  
 **North Star**: Demo Casey/Jake selecting 50 Tier 1 prospects and sending emails in one session
@@ -505,16 +505,16 @@ for (let i = 0; i < data.length; i += BATCH_SIZE) {
 
 ## Execution Checklist
 
-### Sprint 22A (MVP - TODAY)
-- [ ] T22A.1: Add Send Email button to BulkActionsToolbar
-- [ ] T22A.2: Create BulkEmailModal component
-- [ ] T22A.3: Wire handleBulkSendEmail in App.tsx
-- [ ] T22A.4: Add email templates to config
-- [ ] T22A.5: Progress indicator
+### Sprint 22A (MVP - TODAY) ✅ COMPLETE
+- [x] T22A.1: Add Send Email button to BulkActionsToolbar
+- [x] T22A.2: Create BulkEmailModal component
+- [x] T22A.3: Wire handleBulkSendEmail in App.tsx
+- [x] T22A.4: Add email templates to config
+- [x] T22A.5: Progress indicator
 
-### Sprint 22B (Optional)
-- [ ] T22B.1: Seed default sequences
-- [ ] T22B.2: Firestore fallback for useSequenceEnrollment
+### Sprint 22B (Sequence Fallback) ✅ COMPLETE
+- [x] T22B.1: Default sequences loaded from MANIFEST_SEQUENCES when Railway disabled
+- [x] T22B.2: useSequences hook provides local sequences without Railway
 
 ### Sprint 23 (Railway)
 - [ ] T23.1: Environment variables

@@ -15,6 +15,38 @@ import type {
   SequenceAnalytics 
 } from '@/types/railway';
 import { featureFlags } from '@/config/featureFlags';
+import { MANIFEST_SEQUENCES } from '@/data/sequenceTemplates';
+import type { SequenceTemplate } from '@/types/emailSequence';
+
+// =============================================================================
+// Default Sequences (Fallback when Railway is disabled)
+// =============================================================================
+
+function templateToRailwaySequence(t: SequenceTemplate): RailwaySequence {
+  return {
+    id: t.id,
+    name: t.name,
+    description: t.description || null,
+    status: 'active' as const,
+    steps: t.steps.map((s, stepIdx) => ({
+      id: `${t.id}-step-${stepIdx}`,
+      order: stepIdx + 1,
+      type: 'email' as const,
+      delayDays: s.delayDays,
+      templateId: `${t.id}-template-${stepIdx}`,
+      subject: s.subjectTemplate,
+      body: s.bodyTemplate,
+    })),
+    enrollmentCount: 0,
+    activeEnrollmentCount: 0,
+    completedEnrollmentCount: 0,
+    ownerId: 'local-user',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+const DEFAULT_SEQUENCES: RailwaySequence[] = MANIFEST_SEQUENCES.map(templateToRailwaySequence);
 
 // =============================================================================
 // Types
@@ -75,8 +107,10 @@ export function useSequences(options: UseSequencesOptions = {}): UseSequencesRet
   // ---------------------------------------------------------------------------
 
   const loadSequences = useCallback(async (): Promise<void> => {
+    // Sprint 22B: Fallback to default sequences when Railway is disabled
     if (!featureFlags.RAILWAY_ENABLED) {
-      console.warn('[useSequences] Railway is disabled, skipping load');
+      console.log('[useSequences] Railway disabled, using default sequences');
+      setSequences(DEFAULT_SEQUENCES);
       return;
     }
 
@@ -117,9 +151,32 @@ export function useSequences(options: UseSequencesOptions = {}): UseSequencesRet
   const createSequence = useCallback(async (
     data: CreateSequenceRequest
   ): Promise<RailwaySequence | null> => {
+    // Sprint 22B: Allow local sequence creation when Railway is disabled
     if (!featureFlags.RAILWAY_ENABLED) {
-      console.warn('[useSequences] Railway is disabled');
-      return null;
+      console.log('[useSequences] Railway disabled, creating local sequence');
+      const newSequence: RailwaySequence = {
+        id: `local-${Date.now()}`,
+        name: data.name,
+        description: data.description || null,
+        status: 'active',
+        steps: data.steps?.map((s, idx) => ({
+          id: `local-step-${idx}`,
+          order: idx + 1,
+          type: s.type || 'email' as const,
+          delayDays: s.delayDays || 0,
+          templateId: s.templateId || '',
+          subject: s.subject || '',
+          body: s.body || '',
+        })) || [],
+        enrollmentCount: 0,
+        activeEnrollmentCount: 0,
+        completedEnrollmentCount: 0,
+        ownerId: 'local-user',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setSequences(prev => [...prev, newSequence]);
+      return newSequence;
     }
 
     try {
