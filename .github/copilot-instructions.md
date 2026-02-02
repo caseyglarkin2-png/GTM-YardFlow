@@ -8,17 +8,19 @@ Calendly handles scheduling — no calendar integration needed.
 
 | Sprint | Focus | Status |
 |--------|-------|--------|
-| 1000 | **Data Bootstrap** (UNBLOCK DEMO) | 🔴 **TODAY** |
-| 1002 | Outreach Flow Polish | ⏳ Next |
-| 1003 | Production Reliability (INP Fix) | ⏳ Next |
-| 1001 | Email Pattern Inference | ⏳ Deferred |
+| 21 | Recovery & Stabilization | ✅ Complete |
+| 22A | Bulk Email Sending | ✅ Complete |
+| 22B | Sequence Fallback | ✅ Complete |
+| 23 | Railway Integration | ✅ Complete |
+| 24 | Prospect Data Sync | ⏳ Next |
 
-*Last updated: 2026-02-01 — See [SPRINT_PLAN_V19_OUTREACH_UNBLOCK.md](../SPRINT_PLAN_V19_OUTREACH_UNBLOCK.md) for details*
+*Last updated: 2026-02-02 — Railway integration complete, S2S auth working*
 
-### Current Blockers
-- **0 prospects visible**: Hitlist has 5,409 prospects but NO emails; "Has Email" filter shows nothing
-- **INP blocking 713.5ms**: Need virtualization for 5,409 row list
-- **Email data available**: New enriched CSV has 1,103 verified emails ready to import
+### Recent Completions
+- **Railway S2S Auth**: `RAILWAY_API_SECRET` aligned with `CRON_SECRET` 
+- **Bulk Email Modal**: Select prospects → pick template → send personalized emails
+- **Sequence Fallback**: Uses `MANIFEST_SEQUENCES` when Railway disabled
+- **TypeScript Fixes**: Dashboard crash, prop drilling, status enums resolved
 
 ## Architecture
 
@@ -399,15 +401,27 @@ npx tsc --noEmit      # Type check only
 ## Environment Variables
 | Variable | Purpose |
 |----------|---------|
-| \`VITE_RAILWAY_ENABLED\` | Master Railway toggle |
-| \`VITE_RAILWAY_EMAIL_ENABLED\` | Route email via Railway |
-| \`RAILWAY_API_URL\` | Railway backend URL |
-| \`PLATFORM_TO_PLATFORM_SECRET\` | S2S auth between Vercel ↔ Railway |
-| \`CRON_SECRET\` | Cron job authentication |
-| \`SENDGRID_API_KEY\` | Email sending |
-| \`SENDGRID_WEBHOOK_VERIFICATION_KEY\` | Webhook signature verification |
-| \`CALENDLY_WEBHOOK_SECRET\` | Calendly webhook verification |
-| \`ALERT_WEBHOOK_URL\` | Slack/Teams webhook for alerts |
+| `VITE_RAILWAY_ENABLED` | Master Railway toggle (client-side) |
+| `VITE_RAILWAY_EMAIL_ENABLED` | Route email via Railway |
+| `VITE_RAILWAY_DATA_ENABLED` | Route data via Railway Postgres |
+| `RAILWAY_API_URL` | Railway backend URL |
+| `RAILWAY_API_SECRET` | **Must match Railway's `CRON_SECRET`** |
+| `SERVICE_TO_SERVICE_SECRET` | S2S auth (fallback for RAILWAY_API_SECRET) |
+| `CRON_SECRET` | Cron job auth (fallback for RAILWAY_API_SECRET) |
+| `SENDGRID_API_KEY` | Email sending |
+| `SENDGRID_WEBHOOK_VERIFICATION_KEY` | Webhook signature verification |
+| `CALENDLY_WEBHOOK_SECRET` | Calendly webhook verification |
+| `ALERT_WEBHOOK_URL` | Slack/Teams webhook for alerts |
+
+### Critical: S2S Auth Secret Alignment
+The Railway proxy (`api/railway/[...path].ts`) uses this priority:
+```typescript
+const RAILWAY_API_SECRET = process.env.RAILWAY_API_SECRET || process.env.CRON_SECRET;
+```
+**All three secrets must have the same value** for S2S auth to work:
+- Vercel: `RAILWAY_API_SECRET` 
+- Vercel: `CRON_SECRET`
+- Railway: `CRON_SECRET`
 
 ## Cron Jobs (vercel.json)
 - \`/api/cron/process-queue\` — Every 5 min, email queue processing
