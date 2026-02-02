@@ -22,6 +22,7 @@ import { SequenceComparison } from '../analytics/SequenceComparison';
 import { SequencePerformancePanel } from '../SequencePerformancePanel';
 import { Leaderboard } from '../Leaderboard';
 import { FunnelChart, BarChart, PieChart, LineChart } from '../charts';
+import { EmailAnalytics } from '../dashboard/EmailAnalytics';
 
 interface CampaignDashboardProps {
   prospects: Prospect[];
@@ -293,43 +294,9 @@ export function CampaignDashboard({ prospects, currentUser, stats }: CampaignDas
       {/* Charts Row */}
       <LoadingOverlay isLoading={dashboard.isLoading} message="Loading charts...">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Outreach Trends */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 lg:col-span-2">
-          <h3 className="text-sm font-bold text-slate-700 mb-4">Outreach Trends (Last 7 Days)</h3>
-          <LineChart
-            data={{
-              series: [
-                {
-                  name: 'Prospects Contacted',
-                  color: '#3B82F6',
-                  data: Array.from({ length: 7 }, (_, i) => {
-                    const date = new Date();
-                    date.setDate(date.getDate() - (6 - i));
-                    return {
-                      date: date.toISOString().split('T')[0],
-                      value: Math.floor(Math.random() * 10) + (stats.contacted / 7),
-                    };
-                  }),
-                },
-                {
-                  name: 'Meetings Booked',
-                  color: '#10B981',
-                  data: Array.from({ length: 7 }, (_, i) => {
-                    const date = new Date();
-                    date.setDate(date.getDate() - (6 - i));
-                    return {
-                      date: date.toISOString().split('T')[0],
-                      value: Math.floor(Math.random() * 3) + (stats.booked / 7),
-                    };
-                  }),
-                },
-              ],
-            }}
-            height={200}
-            showLegend={true}
-            showGrid={true}
-            smooth={true}
-          />
+        {/* Email Analytics (Real Data) */}
+        <div className="lg:col-span-2">
+          <EmailAnalytics />
         </div>
 
         {/* Funnel Chart */}
