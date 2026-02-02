@@ -23,27 +23,6 @@ interface SessionResponse {
   error?: string;
 }
 
-// =============================================================================
-// Utilities
-// =============================================================================
-
-/**
- * Parse cookies from request
- */
-function parseCookies(cookieHeader: string | undefined): Record<string, string> {
-  const cookies: Record<string, string> = {};
-  if (!cookieHeader) return cookies;
-  
-  cookieHeader.split(';').forEach(cookie => {
-    const [name, ...rest] = cookie.split('=');
-    if (name && rest.length > 0) {
-      cookies[name.trim()] = rest.join('=').trim();
-    }
-  });
-  
-  return cookies;
-}
-
 /**
  * Clear the token cookie
  */
