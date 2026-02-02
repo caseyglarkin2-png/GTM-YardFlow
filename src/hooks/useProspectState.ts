@@ -205,11 +205,22 @@ export function useProspectState(options: UseProspectStateOptions = {}): UsePros
           prospect.estimatedFacilities = FacilityInferenceService.inferFacilities(prospect);
           return prospect;
         });
-        setProspects(mapped);
+
+        // Sprint V21.2: Merge with HITLIST_PROSPECTS to prevent data loss
+        // If Railway has partial data (or limited by pagination), we still want to show all static prospects
+        const railwayIds = new Set(mapped.map(p => p.id));
+        const hitlistOnly = HITLIST_PROSPECTS
+          .filter(p => !railwayIds.has(p.id))
+          .map(p => ({
+            ...p,
+            estimatedFacilities: FacilityInferenceService.inferFacilities(p)
+          }));
+        
+        setProspects([...mapped, ...hitlistOnly]);
         setDataSource('railway');
         
         if (featureFlags.DEBUG_RAILWAY_REQUESTS) {
-          console.log(`[useProspectState] Loaded ${mapped.length} prospects from Railway`);
+          console.log(`[useProspectState] Loaded ${mapped.length} from Railway, merged with ${hitlistOnly.length} local`);
         }
       } else {
         throw new Error(result.error || 'Failed to load prospects from Railway');

@@ -35,10 +35,13 @@ interface CampaignDashboardProps {
   };
 }
 
-export function CampaignDashboard({ prospects, currentUser, stats }: CampaignDashboardProps) {
+export function CampaignDashboard({ prospects = [], currentUser, stats }: CampaignDashboardProps) {
   const { success: showSuccess, error: showError } = useToast();
   const dashboardRef = useRef<HTMLDivElement>(null);
   
+  // Safe Prospects Map
+  const safeProspects = useMemo(() => Array.isArray(prospects) ? prospects : [], [prospects]);
+
   // State
   const [dashboardPeriod, setDashboardPeriod] = useState<TimePeriod>('month');
   const [dashboardCustomRange, setDashboardCustomRange] = useState<DateRange | undefined>(undefined);
@@ -84,7 +87,7 @@ export function CampaignDashboard({ prospects, currentUser, stats }: CampaignDas
 
   // Aggregator
   const aggregator = useMemo(() => {
-    const prospectData: ProspectData[] = prospects.map(p => ({
+    const prospectData: ProspectData[] = safeProspects.map(p => ({
       id: p.id,
       status: p.status,
       source: p.source,
@@ -97,7 +100,7 @@ export function CampaignDashboard({ prospects, currentUser, stats }: CampaignDas
     const activityData: ActivityData[] = []; 
     const userData = [{ id: 'me', name: currentUser }];
     return createAnalyticsAggregator({ prospects: prospectData, activities: activityData, users: userData });
-  }, [prospects, currentUser]);
+  }, [safeProspects, currentUser]);
 
   const dashboard = useDashboardData(dashboardDateRange, { aggregator });
 
