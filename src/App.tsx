@@ -170,6 +170,7 @@ import { ChatPanel } from './components/panels/ChatPanel';
 import { CampaignDashboard } from './components/panels/CampaignDashboard';
 import { ProspectListPanel } from './components/panels/ProspectListPanel';
 import { ProspectDetailPanel } from './components/panels/ProspectDetailPanel';
+import { InboxPanel } from './components/panels/InboxPanel';
 import { useFilteredProspects } from './hooks/useFilteredProspects';
 
 
@@ -244,11 +245,18 @@ export default function App() {
     setProspects,
     isLoading: isProspectsLoading,
     addProspects,
+    updateProspect,
     // These methods are available for Railway-integrated updates when ready:
-    // updateProspect, updateProspectStatus, updateProspectEmail,
+    // updateProspectStatus, updateProspectEmail,
     // deleteProspect, bulkDeleteProspects, bulkUpdateProspects,
     // dataSource: prospectDataSource,
   } = useProspectState();
+  
+  // Sprint 201: Inbox Badge Count
+  const unreadReplyCount = useMemo(() => {
+    return prospects.filter(p => p.status === 'replied' || p.needsResponse === true).length;
+  }, [prospects]);
+
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
   const [currentUser, setCurrentUser] = useState<'Jake' | 'Me'>('Me');
   // Sprint 1002: Filter state with localStorage persistence
@@ -1706,12 +1714,22 @@ export default function App() {
             emailFilter={emailFilter}
             onEmailFilterChange={(val) => setEmailFilter(val as any)}
             announce={announce}
+            badgeCounts={{ inbox: unreadReplyCount }}
           />
         )}
         main={(
           <div id="main-content" className="flex-1 flex flex-col bg-slate-50 overflow-hidden relative pt-14 lg:pt-0">
               {activeTab === 'dashboard' && (
                 <CampaignDashboard prospects={prospects} currentUser={currentUser} stats={stats} />
+              )}
+              {activeTab === 'inbox' && (
+                <InboxPanel 
+                  prospects={prospects} 
+                  isLoading={isProspectsLoading}
+                  onUpdateProspect={async (id, updates) => {
+                     await updateProspect(id, updates);
+                  }}
+                />
               )}
               {activeTab === 'assistant' && (
                 <ChatPanel selectedProspect={selectedProspect} stats={stats} geminiApiKey={geminiApiKey} />

@@ -267,8 +267,8 @@ async function handleReplyToOutreach(
     resumeAt: classification.resumeAt?.toISOString(),
   });
 
-  // Update prospect needsResponse for Reply Inbox
-  await updateProspectNeedsResponse(senderEmail, replyId, classification.type);
+  // Update prospect status and needsResponse
+  await updateProspectStatus(senderEmail, replyId, classification.type);
 
   // Handle based on classification type
   if (classification.shouldPauseSequence && classification.pauseTrigger) {
@@ -319,14 +319,18 @@ async function tryFuzzyMatchAndPause(
       originalEmailId: emailDoc.id,
       enrollmentId: emailData.enrollmentId,
     });
+  } else {
+    // Even if no outreach matched, if it's a prospect, we should mark them as replied
+    await updateProspectStatus(senderEmail, replyId, classification.type);
   }
 }
 
 /**
- * Update prospect needsResponse flag for inbox
- * This enables the Reply Inbox feature in the UI
+ * Update prospect status and needsResponse flag
+ * - Sets status to 'replied' if human reply
+ * - Sets needsResponse to true
  */
-async function updateProspectNeedsResponse(
+async function updateProspectStatus(
   senderEmail: string,
   replyId: string,
   replyType: ReplyType
@@ -340,16 +344,26 @@ async function updateProspectNeedsResponse(
 
     if (!prospects.empty) {
       const prospectDoc = prospects.docs[0];
-      await prospectDoc.ref.update({
+      const updates: any = {
         needsResponse: true,
         lastReplyAt: Date.now(),
         lastReplyType: replyType,
         lastReplyId: replyId,
-      });
-      console.log(`[Inbound Webhook] Updated prospect ${prospectDoc.id} needsResponse=true`);
+      };
+
+      if (replyType === 'human_reply') {
+        updates.status = 'replied';
+      } else if (replyType === 'unsubscribe') {
+        updates.status = 'unsubscribed';
+      } else if (replyType === 'bounce') {
+        updates.status = 'bounced';
+      }
+      
+      await prospectDoc.ref.update(updates);
+      console.log(`[Inbound Webhook] Updated prospect ${prospectDoc.id} status=${updates.status || 'unchanged'} needsResponse=true`);
     }
   } catch (error) {
-    console.error('[Inbound Webhook] Failed to update prospect needsResponse:', error);
+    console.error('[Inbound Webhook] Failed to update prospect status:', error);
     // Non-fatal - continue processing
   }
 }

@@ -11,7 +11,7 @@ export interface Prospect {
   score: number;
   isOps: boolean;
   isExec: boolean;
-  status: 'new' | 'drafted' | 'contacted' | 'meeting_booked';
+  status: 'new' | 'drafted' | 'contacted' | 'meeting_booked' | 'replied' | 'bounced' | 'unsubscribed';
   notes?: string;
   lastEditedBy?: string;
   category?: 'Speaker' | 'Attendee' | 'Sponsor';
