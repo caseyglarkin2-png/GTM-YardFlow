@@ -59,6 +59,15 @@ export function useFilteredProspects({
     searchIndexService.loadItems(searchableProspects);
   }, [prospects, searchIndexService]);
 
+  // Pre-calculate derived fields (Memoized)
+  const enrichedProspects = useMemo(() => {
+    return prospects.map(p => ({
+      ...p,
+      // Ensure facility count is ready for sorting
+      estimatedFacilities: FacilityInferenceService.inferFacilities(p, (p as any).employees)
+    }));
+  }, [prospects]);
+
   const filteredProspects = useMemo(() => {
     let matchingIds: Set<string> | null = null;
     
@@ -68,12 +77,7 @@ export function useFilteredProspects({
       matchingIds = new Set(searchResults.map(r => r.item.id));
     }
 
-    return prospects
-      .map(p => ({
-        ...p,
-        // Ensure facility count is ready for sorting
-        estimatedFacilities: FacilityInferenceService.inferFacilities(p, (p as any).employees)
-      }))
+    return enrichedProspects
       .filter((p) => {
         // Search Filter
         if (matchingIds && !matchingIds.has(p.id)) {

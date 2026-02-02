@@ -16,13 +16,6 @@ const log = createLogger('cron-execute-sequences');
  * 3. Track step advancement
  * 
  * Security: Requires CRON_SECRET in Authorization header.
- * 
- * Example Vercel cron config in vercel.json:
- * {
- *   "crons": [
- *     { "path": "/api/cron/execute-sequences", "schedule": "*/5 * * * *" }
- *   ]
- * }
  */
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   // Only allow POST (from external) or GET (from Vercel native crons)

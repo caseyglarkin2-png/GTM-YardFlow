@@ -52,6 +52,7 @@
     "@vercel/node": "^5.5.28",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
+    "dotenv": "^17.2.3",
     "jsdom": "^27.4.0",
     "postcss": "^8.4.32",
     "rollup-plugin-visualizer": "^6.0.5",

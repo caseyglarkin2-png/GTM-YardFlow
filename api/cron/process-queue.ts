@@ -16,17 +16,6 @@ const log = createLogger('cron-process-queue');
  * Should be called every 5 minutes via Vercel Cron or external scheduler.
  * 
  * Security: Requires CRON_SECRET in Authorization header.
- * 
- * Example Vercel cron config in vercel.json:
- * {
- *   "crons": [
- *     { "path": "/api/cron/process-queue", "schedule": "*/5 * * * *" }
- *   ]
- * }
- * 
- * For external schedulers (GitHub Actions, cron-job.org):
- * curl -X POST https://your-app.vercel.app/api/cron/process-queue \
- *   -H "Authorization: Bearer YOUR_CRON_SECRET"
  */
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   // Only allow POST (from external) or GET (from Vercel native crons)

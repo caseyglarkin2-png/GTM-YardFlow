@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "sequenceEnrollments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "nextSendAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "prospects",
       "queryScope": "COLLECTION",
       "fields": [
