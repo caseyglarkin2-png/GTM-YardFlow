@@ -323,6 +323,9 @@ export function CompanyDetailPanel({
           <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
             <Users className="h-4 w-4 text-slate-400" />
             Contacts ({company.contactCount})
+            <span className="text-slate-400 font-normal text-xs">
+              • {company.contacts.filter(c => c.email).length} with email
+            </span>
           </h3>
           {selectedContacts.length > 0 && onQueueOutreach && (
             <button

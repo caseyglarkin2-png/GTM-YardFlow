@@ -141,13 +141,22 @@ const createMockFirestore = () => {
 describe('SequenceSchedulerService', () => {
   let service: SequenceSchedulerService;
   let mockDb: ReturnType<typeof createMockFirestore>;
+  let mockQueueService: any;
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-27T10:00:00Z')); // Monday
     
     mockDb = createMockFirestore();
-    service = new SequenceSchedulerService(mockDb as unknown as FirebaseFirestore.Firestore);
+    
+    mockQueueService = {
+      enqueue: vi.fn().mockResolvedValue({ id: 'queued-123' }),
+    };
+
+    service = new SequenceSchedulerService(
+      mockDb as unknown as FirebaseFirestore.Firestore,
+      mockQueueService
+    );
   });
 
   afterEach(() => {
@@ -460,6 +469,38 @@ describe('SequenceSchedulerService', () => {
           'user-1'
         )
       ).rejects.toThrow('Sequence empty-seq has no steps');
+    });
+  });
+
+  describe('queueNextStep', () => {
+    it('uses EmailQueueService to enqueue email', async () => {
+      // Setup
+      const enrollment = { ...mockEnrollment };
+      const step = { ...mockStep };
+      const sequence = { ...mockSequence, steps: [step] };
+      const prospectData = { firstName: 'John', company: 'Acme' };
+
+      // Execute
+      const result = await service.queueNextStep(enrollment, sequence, step, prospectData);
+
+      // Verify
+      expect(result).toBe('queued-123');
+      expect(mockQueueService.enqueue).toHaveBeenCalledTimes(1);
+      
+      const [message, options] = mockQueueService.enqueue.mock.calls[0];
+      
+      // Verify message construction
+      expect(message).toEqual(expect.objectContaining({
+        to: enrollment.prospectEmail,
+        subject: 'Hello John', // Substituted
+        text: expect.stringContaining('Hi John'), // Substituted
+      }));
+
+      // Verify options
+      expect(options).toEqual(expect.objectContaining({
+        userId: enrollment.userId,
+        idempotencyKey: `seq:${enrollment.id}:${step.id}`,
+      }));
     });
   });
 });

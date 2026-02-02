@@ -2,7 +2,7 @@
  * YardFlow Manifest 2026 Hitlist Data
  * 
  * AUTO-GENERATED from CSV files - DO NOT EDIT MANUALLY
- * Generated: 2026-02-02T00:42:57.856Z
+ * Generated: 2026-02-02T15:14:49.461Z
  * 
  * Source files:
  * - YardFlow_Manifest2026_Hitlist_v3.xlsx - People Hitlist (1).csv
@@ -42,8 +42,8 @@ const RAW_PROSPECTS: RawProspect[] = rawProspectData;
 
 /**
  * Full Manifest 2026 Hitlist
- * Total: 5409 prospects
- * With Email: 1323 prospects
+ * Total: 5733 prospects
+ * With Email: 1647 prospects
  */
 export const HITLIST_PROSPECTS: Prospect[] = RAW_PROSPECTS.map(p => ({
   ...p,
@@ -104,14 +104,14 @@ export function getCompanyTier(company: string): { tier: string; score: number }
  * Stats summary
  */
 export const HITLIST_STATS = {
-  total: 5409,
-  withEmail: 1323,
+  total: 5733,
+  withEmail: 1647,
   tier1: 74,
   tier2: 233,
-  tier3: 1605,
+  tier3: 1929,
   qualified: 0,
   speakers: 456,
-  attendees: 3220,
+  attendees: 3544,
   companies: 2615,
 };
 

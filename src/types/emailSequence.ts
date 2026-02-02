@@ -145,6 +145,9 @@ export const SequenceEnrollmentSchema = z.object({
   
   // Personalization overrides
   customFields: z.record(z.string(), z.string()).optional(),
+  
+  // T904.4: User Attribution & Rate Limiting
+  userId: z.string().optional(),
 });
 
 export type SequenceEnrollment = z.infer<typeof SequenceEnrollmentSchema>;

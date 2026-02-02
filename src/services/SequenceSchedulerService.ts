@@ -21,6 +21,14 @@ import type {
 } from '../types/emailSequence';
 import type { EmailQueueItem, EmailMessage } from '../types/email';
 
+export interface IEmailQueueService {
+  enqueue(message: EmailMessage, options?: { 
+    userId?: string; 
+    idempotencyKey?: string; 
+    scheduledAt?: number 
+  }): Promise<EmailQueueItem>;
+}
+
 // ============================================
 // Types
 // ============================================
@@ -66,9 +74,11 @@ const DEFAULT_SEND_TIME = SEND_TIMES.morning;
 
 export class SequenceSchedulerService {
   private db: FirebaseFirestore.Firestore;
+  private queueService?: IEmailQueueService;
 
-  constructor(db: FirebaseFirestore.Firestore) {
+  constructor(db: FirebaseFirestore.Firestore, queueService?: IEmailQueueService) {
     this.db = db;
+    this.queueService = queueService;
   }
 
   /**
@@ -231,6 +241,7 @@ export class SequenceSchedulerService {
       metadata: {
         sequenceId: sequence.id,
         tenantId: enrollment.customFields?.tenantId,
+        userId: enrollment.userId,
       },
       customArgs: {
         enrollmentId: enrollment.id,
@@ -240,7 +251,18 @@ export class SequenceSchedulerService {
       },
     };
 
-    // Create queue item in format expected by EmailQueueService
+    if (this.queueService) {
+      // Logic Fix T904.4: Use EmailQueueService to get compliance footer and tracking
+      const result = await this.queueService.enqueue(message, {
+        userId: enrollment.userId,
+        idempotencyKey: `seq:${enrollment.id}:${step.id}`,
+        scheduledAt: now,
+      });
+      return result.id;
+    }
+
+    // FALLBACK: Create queue item manually (Legacy/Unsafe)
+    console.warn('[SequenceScheduler] Using unsafe legacy queuing - missing compliance footer!');
     const queueItem: EmailQueueItem = {
       id: queueItemId,
       message,

@@ -331,6 +331,7 @@ function generate() {
   
   const prospects: PersonRow[] = [];
   const seenIds = new Set<string>();
+  const usedEnrichedKeys = new Set<string>();
   let emailMatchCount = 0;
   
   for (let i = 1; i < peopleLines.length; i++) {
@@ -354,6 +355,7 @@ function generate() {
       const lastName = nameParts.slice(1).join(' ') || '';
       const matchKey = normalizeNameKey(firstName, lastName, company);
       const enrichedMatch = enrichedEmails.get(matchKey);
+      if (enrichedMatch) usedEnrichedKeys.add(matchKey);
       
       // Try to infer email if no enriched match found
       let inferredEmail: string | undefined;
@@ -406,7 +408,49 @@ function generate() {
     }
   }
   
-  // Count inferred emails
+  
+  // 3b. Add orphaned enriched prospects (Dedup)
+  console.log('3b️⃣ Adding orphaned enriched prospects...');
+  let addedOrphans = 0;
+  
+  for (const [key, data] of enrichedEmails.entries()) {
+    if (!usedEnrichedKeys.has(key)) {
+      // This person exists in Enriched List but not in People Hitlist
+      // Add them as a new prospect
+      const name = `${data.firstName || ''} ${data.lastName || ''}`.trim();
+      const company = data.company || 'Unknown';
+      
+      // Basic Roles
+      const titleLower = (data.title || '').toLowerCase();
+      const isExec = /vp|director|chief|head|president|founder|owner|partner|cxo/.test(titleLower);
+      const isOps = /operation|logistics|supply|chain|transport|warehouse|fleet|freight|shipping/.test(titleLower);
+      
+      const prospect = {
+        name: name || 'Unknown',
+        category: data.category || 'Attendee',
+        title: data.title || 'Unknown',
+        company,
+        country: data.country || '',
+        qualified: false,
+        revenue: '', // Unknown
+        score: 50, // Default for new import
+        isOps,
+        isExec,
+        isExecOps: isExec && isOps,
+        isProc: /procurement|purchase|buying|sourcing/.test(titleLower),
+        isSales: /sales|business dev|account/.test(titleLower),
+        email: data.email,
+        emailConfidence: 'verified' as const,
+        linkedinUrl: data.linkedinUrl
+      };
+      
+      prospects.push(prospect);
+      addedOrphans++;
+    }
+  }
+  console.log(`   ➕ Added ${addedOrphans} new prospects from enriched list (not in original hitlist)\n`);
+
+// Count inferred emails
   const inferredCount = prospects.filter(p => p.emailConfidence === 'inferred').length;
   
   console.log(`   ✅ ${prospects.length} prospects loaded`);

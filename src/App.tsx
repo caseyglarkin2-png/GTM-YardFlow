@@ -52,6 +52,13 @@ initErrorTracking();
 import { logFeatureFlagsOnStartup } from './config/featureFlags';
 logFeatureFlagsOnStartup();
 
+// T1003.1: Validate environment variables
+import { validateEnv } from './utils/envValidation';
+const envResult = validateEnv();
+if (!envResult.valid) {
+  console.error('❌ [YardFlow] Environment validation failed. Check console for details.');
+}
+
 // --- Types ---
 import { Prospect, MessageTemplate, ChatMessage } from './types';
 // HITLIST_PROSPECTS now loaded via useProspectState hook
@@ -346,6 +353,23 @@ export default function App() {
 
   // Toast Notifications
   const { toasts, dismissToast, success: showSuccess, error: showError, warning: showWarning, info: showInfo } = useToast();
+
+  // T1002.3: Quick Copy Shortcut
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && selectedProspect?.email) {
+        // Only if not in an input/textarea
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+        e.preventDefault();
+        clipboardCopy(selectedProspect.email);
+        showSuccess('Email copied!', selectedProspect.email);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedProspect, showSuccess]);
 
   // Sequence Enrollment (Sprint 81)
   const { 

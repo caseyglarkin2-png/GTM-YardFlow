@@ -2,6 +2,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAdminDb } from '../../lib/firebaseAdmin';
 import { createLogger } from '../../lib/logger';
 import { SequenceSchedulerService, type SchedulerResult } from '../../src/services/SequenceSchedulerService';
+import { EmailQueueService } from '../../src/services/EmailQueueService';
+import { EmailComplianceService } from '../../src/services/EmailComplianceService';
+import { EmailWarmupService } from '../../src/services/EmailWarmupService';
+import { EmailTrackingService } from '../../src/services/EmailTrackingService';
+import { SendGridClient } from '../../src/services/SendGridClient';
 
 const log = createLogger('cron-execute-sequences');
 
@@ -52,7 +57,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   try {
     const db = getAdminDb();
-    const scheduler = new SequenceSchedulerService(db);
+    
+    // Initialize dependencies for EmailQueueService
+    const sendGrid = new SendGridClient();
+    const compliance = new EmailComplianceService(db, sendGrid);
+    const warmup = new EmailWarmupService(db);
+    const tracking = new EmailTrackingService(db);
+    const queueService = new EmailQueueService(db, sendGrid, compliance, warmup, tracking, 'sequence-scheduler');
+
+    const scheduler = new SequenceSchedulerService(db, queueService);
 
     // Get enrollments due for their next step
     const dueEnrollments = await scheduler.getDueEnrollments(25);

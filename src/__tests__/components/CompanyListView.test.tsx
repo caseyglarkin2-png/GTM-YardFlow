@@ -11,6 +11,19 @@ import type { CompanyRow } from '../../services/CompanyAggregator';
 import type { Prospect } from '../../types';
 import type { CompanyTier } from '../../types/marketing';
 
+// Mock virtualizer for lists
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getVirtualItems: () => Array.from({ length: count }).map((_, i) => ({
+      index: i,
+      start: i * 50,
+      size: 50,
+      key: i,
+    })),
+    getTotalSize: () => count * 50,
+  }),
+}));
+
 // Helper to create mock prospects
 function createMockProspect(overrides: Partial<Prospect> = {}): Prospect {
   return {

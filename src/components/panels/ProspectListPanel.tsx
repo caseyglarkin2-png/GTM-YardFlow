@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { LazyIcon } from '../icons';
+import { copyToClipboard } from '../../services/ClipboardService';
 import { SequenceEnrollmentBadge } from '../SequenceEnrollmentBadge';
 import { EmailQualityBadge } from '../EmailQualityBadge';
 import { Prospect } from '../../types';
@@ -132,7 +133,7 @@ export function ProspectListPanel({
                     height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
-                  className={`px-4 py-3 flex items-start gap-3 cursor-pointer transition-colors relative focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 border-b border-slate-100 ${
+                  className={`group px-4 py-3 flex items-start gap-3 cursor-pointer transition-colors relative focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 border-b border-slate-100 ${
                     isActive ? 'bg-blue-50 ring-1 ring-inset ring-blue-200' : isRowSelected ? 'bg-blue-50/50' : 'hover:bg-slate-50'
                   }`}
                 >
@@ -156,6 +157,18 @@ export function ProspectListPanel({
                           {prospect.name}
                         </h3>
                         <EmailQualityBadge prospect={prospect} />
+                        {prospect.email && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (prospect.email) copyToClipboard(prospect.email);
+                            }}
+                            className="text-slate-400 hover:text-blue-600 p-0.5 rounded hover:bg-slate-200 transition-colors opacity-0 group-hover:opacity-100"
+                            title="Copy email"
+                          >
+                            <LazyIcon name="Copy" className="h-3 w-3" />
+                          </button>
+                        )}
                       </div>
                       {prospect.lastEditedBy && prospect.lastEditedBy !== currentUser && prospect.status !== 'new' && (
                         <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse flex-shrink-0 ml-1" title={`Updated by ${prospect.lastEditedBy}`} aria-label={`Updated by ${prospect.lastEditedBy}`} />
