@@ -20,7 +20,7 @@ export const getTemplates = (prospect: Prospect, senderName: string): MessageTem
     label: 'DM: Co-Dev (Short)',
     type: 'short_dm',
     subject: 'Manifest Connect',
-    body: `Hi ${prospect.name.split(' ')[0]}, Primo saving $1M+/facility. YardFlow Co-Dev: voting seats open. 15 min? ${CALENDAR_LINK} -${senderName}`
+    body: `Hi ${prospect.name.split(' ')[0]}, Primo saving $1M+/facility. FreightRoll Co-Dev: voting seats open. 15 min? ${CALENDAR_LINK} -${senderName}`
   },
   {
     id: 'dm_exec',
@@ -52,9 +52,9 @@ export const getTemplates = (prospect: Prospect, senderName: string): MessageTem
 
 Saw you're at Manifest—wanted to flag something for ${prospect.company}.
 
-We're launching the YardFlow Co-Dev Program: 2-3 enterprise partners get a voting seat on the 2026 roadmap.
+We're launching the FreightRoll Co-Dev Program: 2-3 enterprise partners get a voting seat on the 2026 roadmap.
 
-**The proof:** Primo Brands is rolling YardFlow from 25→260 facilities. Each averages $1M+ margin improvement—headcount neutral.
+**The proof:** Primo Brands is rolling FreightRoll from 25→260 facilities. Each averages $1M+ margin improvement—headcount neutral.
 
 **Network effects:**
 • Standard data model = carrier benchmarking + bottleneck ID

@@ -1,5 +1,5 @@
 /**
- * Approved Claims Registry - YardFlow Hub
+ * Approved Claims Registry - FreightRoll Hub
  * 
  * Centralized registry of approved customer claims and statistics.
  * Only these claims may be used in AI-generated content to prevent hallucination.
@@ -37,7 +37,7 @@ const APPROVED_CLAIMS: ApprovedClaim[] = [
   {
     id: 'ROI-002',
     category: 'roi',
-    claim: 'YardFlow typically reduces detention events by 50%',
+    claim: 'FreightRoll typically reduces detention events by 50%',
     source: 'Customer aggregate data, 2025',
     approved: true,
     lastVerified: '2026-01',
@@ -72,7 +72,7 @@ const APPROVED_CLAIMS: ApprovedClaim[] = [
     id: 'NET-003',
     category: 'network-effects',
     claim: 'Network value increases logarithmically with facility count',
-    source: 'YardFlow economics model',
+    source: 'FreightRoll economics model',
     approved: true,
     lastVerified: '2026-01',
   },

@@ -20,8 +20,8 @@ export interface EmailTemplate {
 
 export const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
-    id: 'intro_yardflow',
-    label: 'YardFlow Introduction',
+    id: 'intro_freightroll',
+    label: 'FreightRoll Introduction',
     category: 'intro',
     subject: 'Reducing trailer dwell time at {company}',
     body: `Hi {first_name},
@@ -33,7 +33,7 @@ We're helping distribution centers reduce yard congestion and trailer dwell time
 Would you be open to a quick 15-minute call to see if there's a fit?
 
 Best,
-The YardFlow Team`,
+The FreightRoll Team`,
   },
   {
     id: 'manifest_followup',
@@ -44,12 +44,12 @@ The YardFlow Team`,
 
 It was great connecting at Manifest 2026. I wanted to follow up on our conversation about yard management challenges.
 
-At YardFlow, we're helping companies like {company} gain real-time visibility into their yard operations. I'd love to schedule a quick demo to show you what we've built.
+At FreightRoll, we're helping companies like {company} gain real-time visibility into their yard operations. I'd love to schedule a quick demo to show you what we've built.
 
 Would next week work for a 15-minute call?
 
 Best,
-The YardFlow Team`,
+The FreightRoll Team`,
   },
   {
     id: 'tier1_executive',
@@ -65,7 +65,7 @@ We've helped companies reduce yard congestion by 40% and eliminate trailer deten
 Worth a 10-minute conversation?
 
 Best,
-The YardFlow Team`,
+The FreightRoll Team`,
   },
   {
     id: 'ops_director',
@@ -76,12 +76,12 @@ The YardFlow Team`,
 
 As {title} at {company}, you're likely dealing with the daily chaos of yard operations - lost trailers, detention fees, and drivers waiting for dock assignments.
 
-We built YardFlow to solve exactly this. Our platform gives you real-time visibility into every asset in your yard, automated check-in/out, and predictive dock scheduling.
+We built FreightRoll to solve exactly this. Our platform gives you real-time visibility into every asset in your yard, automated check-in/out, and predictive dock scheduling.
 
 Would love to show you a quick demo. Do you have 15 minutes this week?
 
 Best,
-The YardFlow Team`,
+The FreightRoll Team`,
   },
   {
     id: 'breakup',
@@ -95,7 +95,7 @@ I've reached out a couple of times and haven't heard back, so I'll assume the ti
 If yard management ever becomes a priority at {company}, feel free to reach out. I'm happy to help.
 
 Best,
-The YardFlow Team`,
+The FreightRoll Team`,
   },
 ];
 

@@ -7,7 +7,7 @@ import { ProspectContext, RecentAction } from './ConversationManager';
 
 // Base brain context - Updated with Network Effects Framework
 const BASE_BRAIN_CONTEXT = `
-You are the YardFlow Strategic Assistant for the Manifest 2026 conference.
+You are the FreightRoll Strategic Assistant for the Manifest 2026 conference.
 **Your Mission:** Help the team book meetings and fill the Co-Development Program.
 
 **Core Value Proposition:**

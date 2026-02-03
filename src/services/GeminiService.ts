@@ -68,7 +68,7 @@ function generateMockAssets(context: AssetContext): GeneratedAssets {
     {
       id: 'exec-1',
       type: 'exec',
-      content: `${context.prospectName} - Primo Brands saving $1M+ per facility with YardFlow. Happy to share how ${context.companyName} could see similar results. Book time: https://calendly.com/jake-freightroll/manifest-meeting`,
+      content: `${context.prospectName} - Primo Brands saving $1M+ per facility with FreightRoll. Happy to share how ${context.companyName} could see similar results. Book time: https://calendly.com/jake-freightroll/manifest-meeting`,
       characterCount: 0,
     },
     {
@@ -98,21 +98,21 @@ function generateMockAssets(context: AssetContext): GeneratedAssets {
         position: 1,
         delayDays: 0,
         subject: `Quick question about ${context.companyName}'s yard ops`,
-        body: `Hi ${context.prospectName.split(' ')[0]},\n\nI noticed ${context.companyName} is on our list of companies who could benefit from yard visibility improvements.\n\nPrimo Brands is averaging $1M+ in savings PER facility with YardFlow—eliminating paper-based check-in and reducing detention events by 50%.\n\nWould 15 minutes work to explore what this looks like for ${context.companyName}?\n\nBook time: https://calendly.com/jake-freightroll/manifest-meeting\n\nBest,\nJake`,
+        body: `Hi ${context.prospectName.split(' ')[0]},\n\nI noticed ${context.companyName} is on our list of companies who could benefit from yard visibility improvements.\n\nPrimo Brands is averaging $1M+ in savings PER facility with FreightRoll—eliminating paper-based check-in and reducing detention events by 50%.\n\nWould 15 minutes work to explore what this looks like for ${context.companyName}?\n\nBook time: https://calendly.com/jake-freightroll/manifest-meeting\n\nBest,\nJake`,
         persona: context.isExec ? 'exec' : context.isOps ? 'ops' : 'all',
       },
       {
         position: 2,
         delayDays: 2,
         subject: `Following up - yard efficiency for ${context.companyName}`,
-        body: `Hi ${context.prospectName.split(' ')[0]},\n\nJust following up on my note from a couple days ago.\n\nI wanted to share a quick stat: facilities using YardFlow typically save 2+ minutes per shipment through automated dock assignment. At scale, that adds up to significant labor savings.\n\nWould this week or next work for a quick call?\n\nBest,\nJake`,
+        body: `Hi ${context.prospectName.split(' ')[0]},\n\nJust following up on my note from a couple days ago.\n\nI wanted to share a quick stat: facilities using FreightRoll typically save 2+ minutes per shipment through automated dock assignment. At scale, that adds up to significant labor savings.\n\nWould this week or next work for a quick call?\n\nBest,\nJake`,
         persona: context.isExec ? 'exec' : context.isOps ? 'ops' : 'all',
       },
       {
         position: 3,
         delayDays: 5,
         subject: `One more try - ${context.companyName} + YardFlow`,
-        body: `Hi ${context.prospectName.split(' ')[0]},\n\nI'll keep this short - would a 15-minute demo of YardFlow be useful?\n\nWe're helping companies like Primo Brands reduce detention charges and paper-based bottlenecks. Happy to show you exactly how it works.\n\nIf timing isn't right, no worries at all. Just let me know.\n\nBest,\nJake`,
+        body: `Hi ${context.prospectName.split(' ')[0]},\n\nI'll keep this short - would a 15-minute demo of FreightRoll be useful?\n\nWe're helping companies like Primo Brands reduce detention charges and paper-based bottlenecks. Happy to show you exactly how it works.\n\nIf timing isn't right, no worries at all. Just let me know.\n\nBest,\nJake`,
         persona: context.isExec ? 'exec' : context.isOps ? 'ops' : 'all',
       },
       {

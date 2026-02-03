@@ -212,7 +212,7 @@ export function logFeatureFlagsOnStartup(): void {
   
   if (!shouldLog) return;
   
-  console.group('🚩 [YardFlow] Feature Flags');
+  console.group('🚩 [FreightRoll] Feature Flags');
   console.log('Railway Enabled:', featureFlags.RAILWAY_ENABLED);
   console.log('Railway Auth:', featureFlags.RAILWAY_AUTH_ENABLED);
   console.log('Railway Email:', featureFlags.RAILWAY_EMAIL_ENABLED);

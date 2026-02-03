@@ -32,7 +32,7 @@ export function ProspectDetailPanel({
   const [emailInput, setEmailInput] = useState(prospect.email || '');
 
   const templates = useMemo(() => 
-    getTemplates(prospect, currentUser === 'Me' ? 'The YardFlow Team' : 'Jake'),
+    getTemplates(prospect, currentUser === 'Me' ? 'The FreightRoll Team' : 'Jake'),
     [prospect, currentUser]
   );
 

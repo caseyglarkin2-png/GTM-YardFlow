@@ -20,6 +20,7 @@ import type {
   EmailStep,
 } from '../types/emailSequence';
 import type { EmailQueueItem, EmailMessage } from '../types/email';
+import { getCalendlyHtmlLink, CALENDLY_CONFIG } from '../config/calendly';
 
 export interface IEmailQueueService {
   enqueue(message: EmailMessage, options?: { 
@@ -234,7 +235,7 @@ export class SequenceSchedulerService {
     const message: EmailMessage = {
       id: messageId,
       to: enrollment.prospectEmail,
-      from: process.env.SENDGRID_FROM_EMAIL || 'outreach@yardflow.io',
+      from: process.env.SENDGRID_FROM_EMAIL || 'outreach@freightroll.io',
       subject: finalSubject,
       html: this.formatHtmlBody(finalBody),
       text: finalBody,
@@ -461,7 +462,11 @@ export class SequenceSchedulerService {
       '{{company}}': prospect.company || enrollment.companyName,
       '{{trailerCount}}': prospect.trailerCount?.toString() || '50',
       '{{industry}}': prospect.industry || 'logistics',
-      '{{senderName}}': enrollment.customFields?.senderName || 'The YardFlow Team',
+      '{{senderName}}': enrollment.customFields?.senderName || 'The FreightRoll Team',
+      // Sprint 27: Calendly links - HTML for emails, plain for DMs
+      '{{calendlyLink}}': getCalendlyHtmlLink(),
+      '{{calendly_link}}': getCalendlyHtmlLink(),
+      '{{calendlyUrl}}': CALENDLY_CONFIG.url, // Plain URL fallback
     };
 
     // Apply custom fields
