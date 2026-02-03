@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { applyRateLimitToRequest } from '../../lib/rateLimiter';
+import { randomUUID } from 'crypto';
 
 /**
  * Railway API Proxy
@@ -150,7 +151,7 @@ function isPathAllowed(path: string): boolean {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
-  const requestId = crypto.randomUUID().slice(0, 8);
+  const requestId = randomUUID().slice(0, 8);
   
   // =============================================================================
   // T92.1: Request Logging
