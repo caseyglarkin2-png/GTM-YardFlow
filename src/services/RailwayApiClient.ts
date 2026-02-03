@@ -629,15 +629,19 @@ class RailwayApiClient {
   // ===========================================================================
 
   ai = {
+    /**
+     * Generate AI content for outreach
+     * Note: Railway AI endpoint expects lowercase tones: 'luis' | 'professional' | 'challenger'
+     */
     generateContent: async (data: {
       type: 'email' | 'linkedin' | 'subject';
+      tone?: 'luis' | 'professional' | 'challenger';  // lowercase for AI endpoint
+      goal?: string;
       context: {
         prospectName?: string;
         companyName?: string;
         title?: string;
         previousMessages?: string[];
-        tone?: 'professional' | 'casual' | 'friendly';
-        goal?: string;
       };
     }): Promise<RailwayApiResult<{ content: string; subject?: string }>> => {
       return this.post('/ai/content/generate', data);

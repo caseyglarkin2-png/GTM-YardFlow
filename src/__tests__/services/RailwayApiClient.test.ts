@@ -409,10 +409,10 @@ describe('RailwayApiClient', () => {
 
       const result = await client.ai.generateContent({
         type: 'email',
+        tone: 'professional',  // top-level per Railway schema
         context: {
           prospectName: 'John',
           companyName: 'Acme',
-          tone: 'professional',
         },
       });
 
