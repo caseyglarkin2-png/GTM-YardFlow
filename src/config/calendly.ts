@@ -12,27 +12,27 @@ export const CALENDLY_CONFIG = {
   /** Jake's Manifest 2026 meeting booking URL */
   url: 'https://calendly.com/jake-freightroll/manifest-meeting',
   
-  /** Default display text for the link */
-  displayText: 'Book a meeting with Jake →',
+  /** Default display text for the link - short and clean like Google Docs hyperlinks */
+  displayText: "Jake's Calendar",
   
   /** Pre-built HTML link for quick use */
-  htmlLink: '<a href="https://calendly.com/jake-freightroll/manifest-meeting" style="color: #2563eb; text-decoration: underline;">Book a meeting with Jake →</a>',
+  htmlLink: '<a href="https://calendly.com/jake-freightroll/manifest-meeting" style="color: #2563eb; text-decoration: underline;">Jake\'s Calendar</a>',
 } as const;
 
 /**
  * Get HTML-formatted Calendly link for emails
  * 
- * @param customText - Optional custom link text (defaults to "Book a meeting with Jake →")
+ * @param customText - Optional custom link text (defaults to "Jake's Calendar")
  * @returns HTML anchor tag with proper styling
  * 
  * @example
- * // Default usage
+ * // Default usage - short and clean
  * getCalendlyHtmlLink() 
- * // => '<a href="..." style="color: #2563eb; ...">Book a meeting with Jake →</a>'
+ * // => '<a href="..." style="color: #2563eb; ...">Jake's Calendar</a>'
  * 
- * // Custom text
- * getCalendlyHtmlLink('Schedule time here')
- * // => '<a href="..." style="color: #2563eb; ...">Schedule time here</a>'
+ * // Custom text for specific CTAs
+ * getCalendlyHtmlLink('Book time here')
+ * // => '<a href="..." style="color: #2563eb; ...">Book time here</a>'
  */
 export function getCalendlyHtmlLink(customText?: string): string {
   const text = customText || CALENDLY_CONFIG.displayText;

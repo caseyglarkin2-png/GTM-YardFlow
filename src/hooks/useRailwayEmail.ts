@@ -6,6 +6,7 @@
  * - Feature flag integration (shouldUseRailwayEmail)
  * - Fallback to local /api/email/send when Railway disabled
  * - Batch sending with progress tracking
+ * - Timeout handling with user-friendly errors (Sprint 28)
  * - Suppression list check (TODO: integrate with compliance service)
  * - Idempotency keys for duplicate prevention
  */
@@ -15,11 +16,15 @@ import { railwayClient } from '@/services/RailwayApiClient';
 import { shouldUseRailwayEmail } from '@/config/featureFlags';
 import type { SendEmailRequest } from '@/types/railway';
 
+// Sprint 28: Timeout configuration (30 seconds)
+const REQUEST_TIMEOUT_MS = 30000;
+
 export interface EmailSendResult {
   success: boolean;
   messageId?: string;
   error?: string;
   prospectId: string;
+  retryable?: boolean;
 }
 
 export interface BatchEmailItem {
@@ -96,13 +101,43 @@ export function useRailwayEmail(): UseRailwayEmailReturn {
           success: false,
           error: 'Railway returned error',
           prospectId: email.prospectId,
+          retryable: true,
         };
       } catch (err) {
         console.error('[useRailwayEmail] Railway send failed:', err);
+        
+        // Sprint 28: Detect timeout and network errors
+        const isTimeout = err instanceof Error && (
+          err.name === 'AbortError' ||
+          err.message.includes('timeout') ||
+          err.message.includes('Timeout')
+        );
+        
+        const isNetworkError = err instanceof TypeError && err.message.includes('fetch');
+        
+        if (isTimeout) {
+          return {
+            success: false,
+            error: 'Request timed out. Email may have been queued—check inbox.',
+            prospectId: email.prospectId,
+            retryable: true,
+          };
+        }
+        
+        if (isNetworkError) {
+          return {
+            success: false,
+            error: 'Network error. Check your connection and try again.',
+            prospectId: email.prospectId,
+            retryable: true,
+          };
+        }
+        
         return {
           success: false,
           error: err instanceof Error ? err.message : 'Unknown error',
           prospectId: email.prospectId,
+          retryable: false,
         };
       }
     }
