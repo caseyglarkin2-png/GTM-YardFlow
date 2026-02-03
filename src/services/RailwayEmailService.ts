@@ -102,36 +102,84 @@ export async function isRailwayAvailable(): Promise<boolean> {
 }
 
 /**
- * Send email through Railway backend
- * Uses the Vercel proxy endpoint to forward to Railway
+ * Send email through Railway backend using the correct two-step flow:
+ * 1. Create outreach record with email content (POST /api/outreach)
+ * 2. Trigger send with outreachId (POST /api/outreach/send-email)
+ * 
+ * Uses the Vercel proxy endpoint to forward to Railway.
  */
 export async function sendEmailViaRailway(
   request: RailwayEmailRequest
 ): Promise<RailwayEmailResponse> {
   try {
-    // Use the proxy endpoint (works on Vercel)
-    const response = await fetch('/api/railway/outreach/send-email', {
+    console.log('[Railway Email] Creating outreach record...', {
+      to: request.to,
+      subject: request.subject,
+      prospectId: request.prospectId,
+    });
+
+    // Step 1: Create outreach record with email content
+    const createResponse = await fetch('/api/railway/outreach', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      credentials: 'include', // Include cookies for auth
-      body: JSON.stringify(request),
+      credentials: 'include',
+      body: JSON.stringify({
+        personId: request.prospectId, // Railway uses personId
+        subject: request.subject,
+        body: request.htmlBody,       // HTML goes in body field
+        textBody: request.textBody,   // Plain text fallback
+        channel: 'email',
+        metadata: {
+          recipientEmail: request.to,
+          recipientName: request.toName,
+          source: 'gtm-yardflow',
+        },
+      }),
     });
 
-    const data = await response.json();
+    const createData = await createResponse.json();
 
-    if (!response.ok) {
+    if (!createResponse.ok) {
+      console.error('[Railway Email] Failed to create outreach record:', createData);
       return {
         success: false,
-        error: data.error || `Railway request failed: ${response.status}`,
+        error: createData.error || `Failed to create outreach: ${createResponse.status}`,
       };
     }
 
+    const outreachId = createData.id;
+    console.log('[Railway Email] Outreach record created:', outreachId);
+
+    // Step 2: Trigger send with outreachId
+    const sendResponse = await fetch('/api/railway/outreach/send-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        outreachId: outreachId,
+        force: false,
+      }),
+    });
+
+    const sendData = await sendResponse.json();
+
+    if (!sendResponse.ok) {
+      console.error('[Railway Email] Failed to send email:', sendData);
+      return {
+        success: false,
+        error: sendData.error || `Failed to send: ${sendResponse.status}`,
+      };
+    }
+
+    console.log('[Railway Email] Email queued successfully:', sendData);
     return {
       success: true,
-      messageId: data.messageId,
-      queuedForProcessing: data.queued,
+      messageId: sendData.id || outreachId,
+      queuedForProcessing: sendData.status === 'queued',
     };
   } catch (error) {
     console.error('Railway email send error:', error);

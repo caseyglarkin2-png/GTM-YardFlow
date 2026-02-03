@@ -358,7 +358,7 @@ describe('RailwayApiClient', () => {
   });
 
   describe('email API', () => {
-    it('sends email', async () => {
+    it('sends email with outreachId (new schema)', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -367,9 +367,8 @@ describe('RailwayApiClient', () => {
       });
 
       const result = await client.email.send({
-        to: 'test@example.com',
-        subject: 'Hello',
-        body: 'Test message',
+        outreachId: 'outreach-123',
+        force: false,
       });
 
       expect(result.ok).toBe(true);

@@ -36,6 +36,10 @@ import type {
   BulkEnrollResponse,
   SendEmailRequest,
   SendEmailResponse,
+  SendBulkEmailRequest,
+  SendBulkEmailResponse,
+  CreateOutreachRequest,
+  OutreachRecord,
   EmailQueueStatusResponse,
   DeadLetterItem,
   EmailAnalytics,
@@ -479,10 +483,85 @@ class RailwayApiClient {
   };
 
   // ===========================================================================
-  // Email API
+  // Outreach API (Email Sending - Correct Flow)
+  // ===========================================================================
+
+  /**
+   * Railway email sending requires a two-step flow:
+   * 1. Create outreach record with email content (POST /api/outreach)
+   * 2. Trigger send with outreachId (POST /api/outreach/send-email)
+   * 
+   * The email content (to, subject, body) is stored in the outreach table,
+   * NOT passed directly in the send request.
+   */
+  outreach = {
+    /**
+     * Step 1: Create an outreach record with email content.
+     * Returns the outreach record with its ID.
+     */
+    create: async (data: CreateOutreachRequest): Promise<RailwayApiResult<OutreachRecord>> => {
+      return this.post('/outreach', data, { queueIfOffline: true });
+    },
+
+    /**
+     * Get an existing outreach record by ID.
+     */
+    get: async (id: UUID): Promise<RailwayApiResult<OutreachRecord>> => {
+      return this.get(`/outreach/${id}`);
+    },
+
+    /**
+     * List outreach records for a person.
+     */
+    list: async (params?: { personId?: UUID; status?: string }): Promise<RailwayApiResult<OutreachRecord[]>> => {
+      return this.get('/outreach', params);
+    },
+
+    /**
+     * Step 2: Send a single outreach email.
+     * The outreachId must reference an existing outreach record.
+     */
+    send: async (data: SendEmailRequest): Promise<RailwayApiResult<SendEmailResponse>> => {
+      return this.post('/outreach/send-email', data, { queueIfOffline: true });
+    },
+
+    /**
+     * Send multiple outreach emails in bulk.
+     */
+    sendBulk: async (data: SendBulkEmailRequest): Promise<RailwayApiResult<SendBulkEmailResponse>> => {
+      return this.post('/outreach/send-bulk', data, { queueIfOffline: true });
+    },
+
+    /**
+     * Convenience method: Create outreach record AND send in one call.
+     * Combines the two-step flow for simpler usage.
+     */
+    createAndSend: async (data: CreateOutreachRequest): Promise<RailwayApiResult<SendEmailResponse>> => {
+      // Step 1: Create outreach record
+      const createResult = await this.post<OutreachRecord>('/outreach', data, { queueIfOffline: true });
+      if (!createResult.ok || !createResult.data) {
+        return { ok: false, error: createResult.error || 'Failed to create outreach record', statusCode: createResult.statusCode || 500 };
+      }
+
+      // Step 2: Send the email
+      const sendResult = await this.post<SendEmailResponse>('/outreach/send-email', {
+        outreachId: createResult.data.id,
+        force: false,
+      }, { queueIfOffline: true });
+
+      return sendResult;
+    },
+  };
+
+  // ===========================================================================
+  // Email API (Analytics & Queue Management)
   // ===========================================================================
 
   email = {
+    /**
+     * @deprecated Use outreach.send() or outreach.createAndSend() instead.
+     * This method uses the old schema which Railway no longer accepts.
+     */
     send: async (data: SendEmailRequest): Promise<RailwayApiResult<SendEmailResponse>> => {
       return this.post('/outreach/send-email', data, { queueIfOffline: true });
     },

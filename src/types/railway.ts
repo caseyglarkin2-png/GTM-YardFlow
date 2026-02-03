@@ -276,7 +276,73 @@ export interface RailwayEmail extends Timestamps {
   sendgridMessageId: string | null;
 }
 
+// =============================================================================
+// Outreach Types (Railway Email Flow)
+// =============================================================================
+
+/**
+ * Request to create an outreach record in Railway.
+ * This stores the email content in the database.
+ */
+export interface CreateOutreachRequest {
+  personId: UUID;           // Railway person/prospect ID
+  subject: string;
+  body: string;             // HTML body
+  textBody?: string;        // Plain text fallback
+  channel?: 'email' | 'linkedin' | 'phone';
+  scheduledAt?: ISO8601;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Outreach record returned from Railway.
+ */
+export interface OutreachRecord {
+  id: UUID;
+  personId: UUID;
+  subject: string;
+  body: string;
+  textBody?: string;
+  channel: 'email' | 'linkedin' | 'phone';
+  status: 'pending' | 'queued' | 'sent' | 'delivered' | 'opened' | 'clicked' | 'replied' | 'bounced' | 'failed';
+  scheduledAt?: ISO8601;
+  sentAt?: ISO8601;
+  metadata?: Record<string, unknown>;
+  createdAt: ISO8601;
+  updatedAt: ISO8601;
+}
+
+/**
+ * Request to send an outreach email (trigger send for existing record).
+ * The outreachId must reference an existing outreach record in the database.
+ */
 export interface SendEmailRequest {
+  outreachId: UUID;
+  force?: boolean;  // Force send even if already sent
+}
+
+/**
+ * Request to send multiple outreach emails in bulk.
+ */
+export interface SendBulkEmailRequest {
+  outreachIds: UUID[];
+  force?: boolean;
+}
+
+export interface SendEmailResponse {
+  id: UUID;
+  status: 'queued' | 'sent';
+  scheduledAt?: ISO8601;
+}
+
+export interface SendBulkEmailResponse {
+  queued: number;
+  failed: number;
+  results: Array<{ outreachId: UUID; status: 'queued' | 'failed'; error?: string }>;
+}
+
+// Legacy type alias for backward compatibility
+export interface LegacySendEmailRequest {
   to: string;
   subject: string;
   body: string;
@@ -288,12 +354,6 @@ export interface SendEmailRequest {
   scheduledAt?: ISO8601;
   trackOpens?: boolean;
   trackClicks?: boolean;
-}
-
-export interface SendEmailResponse {
-  id: UUID;
-  status: 'queued' | 'sent';
-  scheduledAt?: ISO8601;
 }
 
 // =============================================================================

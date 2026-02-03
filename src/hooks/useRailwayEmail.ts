@@ -9,13 +9,17 @@
  * - Timeout handling with user-friendly errors (Sprint 28)
  * - Suppression list check (TODO: integrate with compliance service)
  * - Idempotency keys for duplicate prevention
+ * 
+ * IMPORTANT: Railway email sending requires a two-step flow:
+ * 1. Create outreach record (POST /api/outreach) with email content
+ * 2. Trigger send (POST /api/outreach/send-email) with outreachId
  */
 
 import { useState, useCallback } from 'react';
 import { railwayClient } from '@/services/RailwayApiClient';
 import { shouldUseRailwayEmail } from '@/config/featureFlags';
 import { useRailwayHealth } from './useRailwayHealth';
-import type { SendEmailRequest } from '@/types/railway';
+import type { CreateOutreachRequest } from '@/types/railway';
 
 // Sprint 28: Timeout configuration (30 seconds)
 const REQUEST_TIMEOUT_MS = 30000;
@@ -79,19 +83,26 @@ export function useRailwayEmail(): UseRailwayEmailReturn {
     const canUseRailway = isRailwayEnabled && isRailwayHealthy;
 
     if (canUseRailway) {
-      // Send via Railway
+      // Send via Railway using two-step outreach flow
       try {
-        const payload: SendEmailRequest = {
-          to: email.to,
+        // Create outreach request payload
+        const payload: CreateOutreachRequest = {
+          personId: email.prospectId,  // Railway uses personId
           subject: email.subject,
-          body: email.body,
-          htmlBody: email.htmlBody,
-          prospectId: email.prospectId,
-          trackOpens: true,
-          trackClicks: true,
+          body: email.htmlBody || email.body, // HTML content
+          textBody: email.body,                // Plain text fallback
+          channel: 'email',
+          metadata: {
+            recipientEmail: email.to,
+            recipientName: email.toName,
+            idempotencyKey,
+            source: 'gtm-yardflow',
+            ...email.metadata,
+          },
         };
 
-        const result = await railwayClient.email.send(payload);
+        // Use the combined createAndSend method
+        const result = await railwayClient.outreach.createAndSend(payload);
 
         if (result.ok && result.data) {
           return {
@@ -103,7 +114,7 @@ export function useRailwayEmail(): UseRailwayEmailReturn {
 
         return {
           success: false,
-          error: 'Railway returned error',
+          error: result.error || 'Railway returned error',
           prospectId: email.prospectId,
           retryable: true,
         };

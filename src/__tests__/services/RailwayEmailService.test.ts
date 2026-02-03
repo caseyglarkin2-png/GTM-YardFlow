@@ -160,34 +160,55 @@ describe('RailwayEmailService', () => {
       campaignId: 'campaign-456',
     };
 
-    it('sends email successfully and returns messageId', async () => {
+    it('sends email successfully using two-step flow', async () => {
+      // Step 1: Create outreach record
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          messageId: 'msg-789',
-          queued: false,
+          id: 'outreach-abc',
+          personId: 'prospect-123',
+          status: 'pending',
+        }),
+      });
+      // Step 2: Trigger send
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'outreach-abc',
+          status: 'queued',
         }),
       });
 
       const result = await sendEmailViaRailway(validRequest);
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/railway/outreach/send-email', {
+      // First call: POST /api/railway/outreach
+      expect(mockFetch).toHaveBeenNthCalledWith(1, '/api/railway/outreach', expect.objectContaining({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(validRequest),
-      });
+      }));
+      // Second call: POST /api/railway/outreach/send-email
+      expect(mockFetch).toHaveBeenNthCalledWith(2, '/api/railway/outreach/send-email', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ outreachId: 'outreach-abc', force: false }),
+      }));
       expect(result.success).toBe(true);
-      expect(result.messageId).toBe('msg-789');
-      expect(result.queuedForProcessing).toBe(false);
+      expect(result.messageId).toBe('outreach-abc');
+      expect(result.queuedForProcessing).toBe(true);
     });
 
     it('returns success with queued flag when email is queued', async () => {
+      // Step 1: Create outreach record
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'outreach-xyz' }),
+      });
+      // Step 2: Trigger send
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          messageId: 'msg-queued',
-          queued: true,
+          id: 'outreach-xyz',
+          status: 'queued',
         }),
       });
 
@@ -197,17 +218,36 @@ describe('RailwayEmailService', () => {
       expect(result.queuedForProcessing).toBe(true);
     });
 
-    it('returns error when Railway returns non-OK response', async () => {
+    it('returns error when outreach record creation fails', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
-        json: async () => ({ error: 'Invalid email address' }),
+        json: async () => ({ error: 'Invalid personId' }),
       });
 
       const result = await sendEmailViaRailway(validRequest);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Invalid email address');
+      expect(result.error).toBe('Invalid personId');
+    });
+
+    it('returns error when Railway send returns non-OK response', async () => {
+      // Step 1: Create succeeds
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'outreach-fail' }),
+      });
+      // Step 2: Send fails
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: 'Email address bounced' }),
+      });
+
+      const result = await sendEmailViaRailway(validRequest);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Email address bounced');
     });
 
     it('returns error when Railway returns 401 unauthorized', async () => {
