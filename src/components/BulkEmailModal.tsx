@@ -21,6 +21,7 @@ import { EMAIL_TEMPLATES, personalizeTemplate, type EmailTemplate } from '../con
 import { TONE_OPTIONS, DEFAULT_TONE, getTone, type ToneId } from '../config/tones';
 import { CALENDLY_CONFIG } from '../config/calendly';
 import { useAIGenerate } from '../hooks/useAIGenerate';
+import { useBulkEmailSend, type BulkRecipient, type RecipientStatus } from '../hooks/useBulkEmailSend';
 import { isValidEmail } from '../utils/emailValidator';
 import type { Prospect } from '../types';
 
@@ -54,6 +55,86 @@ interface SkippedProspect {
 /** Modal state machine */
 type ModalState = 'composing' | 'sending' | 'results';
 
+/** Helper to get status indicator color/icon */
+function getStatusDisplay(status: RecipientStatus): { icon: string; color: string; label: string } {
+  switch (status) {
+    case 'pending':
+      return { icon: 'Circle', color: 'text-slate-400', label: 'Pending' };
+    case 'generating':
+      return { icon: 'Loader2', color: 'text-purple-500', label: 'Generating...' };
+    case 'generated':
+      return { icon: 'CheckCircle2', color: 'text-green-500', label: 'Ready' };
+    case 'sending':
+      return { icon: 'Loader2', color: 'text-blue-500', label: 'Sending...' };
+    case 'sent':
+      return { icon: 'CheckCircle2', color: 'text-green-600', label: 'Sent' };
+    case 'failed':
+      return { icon: 'XCircle', color: 'text-red-500', label: 'Failed' };
+    default:
+      return { icon: 'Circle', color: 'text-slate-400', label: 'Unknown' };
+  }
+}
+
+/** Single recipient row in AI mode table */
+function RecipientRow({ 
+  recipient, 
+  onGenerate, 
+  disabled 
+}: { 
+  recipient: BulkRecipient; 
+  onGenerate: () => void;
+  disabled: boolean;
+}) {
+  const statusDisplay = getStatusDisplay(recipient.status);
+  const isGenerating = recipient.status === 'generating';
+  const canGenerate = recipient.status === 'pending' || recipient.status === 'failed';
+  
+  return (
+    <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 last:border-b-0 hover:bg-slate-50">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        {/* Status icon */}
+        <LazyIcon 
+          name={statusDisplay.icon} 
+          className={`h-4 w-4 flex-shrink-0 ${statusDisplay.color} ${isGenerating ? 'animate-spin' : ''}`} 
+        />
+        
+        {/* Prospect info */}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-slate-800 truncate">
+            {recipient.prospect.name}
+          </p>
+          <p className="text-xs text-slate-500 truncate">
+            {recipient.prospect.company} • {recipient.prospect.email}
+          </p>
+        </div>
+      </div>
+      
+      {/* Status + action */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <span className={`text-xs ${statusDisplay.color}`}>
+          {statusDisplay.label}
+        </span>
+        
+        {canGenerate && (
+          <button
+            onClick={onGenerate}
+            disabled={disabled}
+            className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 disabled:opacity-50"
+          >
+            Generate
+          </button>
+        )}
+        
+        {recipient.status === 'failed' && recipient.error && (
+          <span className="text-xs text-red-500 truncate max-w-[100px]" title={recipient.error}>
+            {recipient.error}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export interface BulkEmailModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -86,6 +167,12 @@ export function BulkEmailModal({
   
   // AI generation hook
   const { generate: generateAI, isGenerating, error: aiError, clearError: clearAIError } = useAIGenerate();
+  
+  // Bulk email send hook for per-recipient AI generation mode
+  const bulkSend = useBulkEmailSend();
+  
+  // Mode: 'template' = same template for all, 'ai' = AI-generated per recipient
+  const [sendMode, setSendMode] = useState<'template' | 'ai'>('template');
   
   // Track local email updates for immediate UI feedback
   const [localEmailUpdates, setLocalEmailUpdates] = useState<Record<string, string>>({});
@@ -141,7 +228,17 @@ export function BulkEmailModal({
     return errors;
   }, [subject, body]);
 
-  const canSend = withEmail.length > 0 && validationErrors.length === 0;
+  // Validation depends on mode
+  const canSend = useMemo(() => {
+    if (sendMode === 'template') {
+      return withEmail.length > 0 && validationErrors.length === 0;
+    } else {
+      // AI mode: at least one recipient generated
+      return bulkSend.recipients.filter(r => 
+        r.status === 'generated' && r.subject && r.body
+      ).length > 0;
+    }
+  }, [sendMode, withEmail.length, validationErrors.length, bulkSend.recipients]);
 
   // Sample prospect for preview (first one with email)
   const sampleProspect = withEmail[0] || {
@@ -157,6 +254,31 @@ export function BulkEmailModal({
       setBody(currentTemplate.body);
     }
   }, [currentTemplate]);
+
+  // Initialize bulk recipients when switching to AI mode
+  useEffect(() => {
+    if (sendMode === 'ai' && withEmail.length > 0) {
+      bulkSend.initRecipients(withEmail, subject, body);
+    }
+    // Only re-init when switching mode or prospect list changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sendMode, withEmail.length]);
+
+  // Handle mode switch
+  const handleModeSwitch = useCallback((mode: 'template' | 'ai') => {
+    if (mode !== sendMode) {
+      setSendMode(mode);
+      if (mode === 'template') {
+        bulkSend.reset();
+      }
+    }
+  }, [sendMode, bulkSend]);
+
+  // Handle generate all for AI mode
+  const handleGenerateAll = useCallback(async () => {
+    if (sendMode !== 'ai') return;
+    await bulkSend.generateAll(selectedTone, 3);
+  }, [sendMode, selectedTone, bulkSend]);
 
   // Generate preview with personalization
   const preview = useMemo(() => {
@@ -256,8 +378,20 @@ export function BulkEmailModal({
 
   const handleSubmit = async () => {
     if (!canSend) return;
-    await onConfirm(subject, body, templateId);
+    
+    if (sendMode === 'template') {
+      // Template mode: use existing onConfirm which sends same template to all
+      await onConfirm(subject, body, templateId);
+    } else {
+      // AI mode: send each recipient with their personalized content
+      await bulkSend.sendAll(onConfirm);
+    }
   };
+
+  // Count ready recipients in AI mode
+  const readyToSendCount = sendMode === 'ai' 
+    ? bulkSend.recipients.filter(r => r.status === 'generated' && r.subject && r.body).length
+    : withEmail.length;
 
   if (!isOpen) return null;
 
@@ -488,7 +622,88 @@ export function BulkEmailModal({
             </div>
           </div>
 
-          {/* Subject Line */}
+          {/* Send Mode Toggle */}
+          <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+            <span className="text-sm font-medium text-slate-700">Mode:</span>
+            <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('template')}
+                disabled={isSending || bulkSend.isProcessing}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  sendMode === 'template' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Same Template
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('ai')}
+                disabled={isSending || bulkSend.isProcessing}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  sendMode === 'ai' 
+                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white' 
+                    : 'bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                AI Per-Recipient ✨
+              </button>
+            </div>
+          </div>
+
+          {/* AI Mode: Recipient Table with Status */}
+          {sendMode === 'ai' && modalState === 'composing' && (
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              {/* Header with Generate All button */}
+              <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-200">
+                <span className="text-sm font-medium text-slate-700">
+                  Recipients ({bulkSend.recipients.length})
+                </span>
+                <div className="flex items-center gap-2">
+                  {bulkSend.progress.generated > 0 && (
+                    <span className="text-xs text-slate-500">
+                      {bulkSend.progress.generated}/{bulkSend.progress.total} generated
+                    </span>
+                  )}
+                  <button
+                    onClick={handleGenerateAll}
+                    disabled={bulkSend.isProcessing || bulkSend.recipients.length === 0}
+                    className="px-3 py-1 text-xs font-medium bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {bulkSend.isProcessing ? (
+                      <>
+                        <LazyIcon name="Loader2" className="h-3 w-3 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <LazyIcon name="Sparkles" className="h-3 w-3" />
+                        Generate All
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+              
+              {/* Recipient list */}
+              <div className="max-h-48 overflow-y-auto">
+                {bulkSend.recipients.map((recipient) => (
+                  <RecipientRow 
+                    key={recipient.id} 
+                    recipient={recipient}
+                    onGenerate={() => bulkSend.generateForRecipient(recipient.id, selectedTone)}
+                    disabled={bulkSend.isProcessing}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Subject Line (only show in template mode) */}
+          {sendMode === 'template' && (
+          <>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
               Subject Line
@@ -569,6 +784,8 @@ export function BulkEmailModal({
               </div>
             </div>
           </div>
+          </>
+          )}
 
           {/* Progress indicator */}
           {modalState === 'sending' && (
@@ -665,6 +882,13 @@ export function BulkEmailModal({
                   <>, <span className="font-medium text-red-600">{progress.failed}</span> failed</>
                 )}
               </span>
+            ) : sendMode === 'ai' ? (
+              <span>
+                <span className="font-medium text-purple-700">{readyToSendCount}</span> ready to send
+                {bulkSend.progress.total > readyToSendCount && (
+                  <span className="text-slate-400"> of {bulkSend.progress.total}</span>
+                )}
+              </span>
             ) : (
               <span>
                 <span className="font-medium text-slate-700">{withEmail.length}</span> emails will be sent
@@ -674,7 +898,7 @@ export function BulkEmailModal({
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              disabled={modalState === 'sending'}
+              disabled={modalState === 'sending' || bulkSend.isProcessing}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
             >
               {modalState === 'results' ? 'Close' : 'Cancel'}
@@ -682,11 +906,18 @@ export function BulkEmailModal({
             {modalState === 'composing' && (
               <button
                 onClick={handleSubmit}
-                disabled={!canSend}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                disabled={!canSend || bulkSend.isProcessing}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
+                  sendMode === 'ai' 
+                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
               >
                 <LazyIcon name="Send" className="h-4 w-4" />
-                Send to {withEmail.length} prospect{withEmail.length !== 1 ? 's' : ''}
+                {sendMode === 'ai' 
+                  ? `Send ${readyToSendCount} personalized`
+                  : `Send to ${withEmail.length} prospect${withEmail.length !== 1 ? 's' : ''}`
+                }
               </button>
             )}
           </div>
