@@ -18,10 +18,10 @@ import { applyRateLimitToRequest } from '../../lib/rateLimiter';
  * Example: /api/railway/outreach/send-email → https://railway/api/outreach/send-email
  */
 
-// Trim to handle trailing newlines from copy/paste in Vercel dashboard
-const RAILWAY_API_URL = process.env.RAILWAY_API_URL?.trim();
+// Trim and sanitize to handle trailing newlines/escape chars from copy/paste in Vercel dashboard
+const RAILWAY_API_URL = process.env.RAILWAY_API_URL?.trim().replace(/\\n/g, '').replace(/\n/g, '');
 // Use RAILWAY_API_SECRET if set, otherwise fall back to CRON_SECRET (same as Railway's cron endpoints)
-const RAILWAY_API_SECRET = (process.env.RAILWAY_API_SECRET || process.env.CRON_SECRET)?.trim();
+const RAILWAY_API_SECRET = (process.env.RAILWAY_API_SECRET || process.env.CRON_SECRET)?.trim().replace(/\\n/g, '').replace(/\n/g, '');
 
 // P0 Security Fix: Fail if RAILWAY_API_URL is not configured
 if (!RAILWAY_API_URL && process.env.NODE_ENV === 'production') {

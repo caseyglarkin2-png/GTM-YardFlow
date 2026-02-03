@@ -19,6 +19,21 @@ export default defineConfig({
       'src/**/*.{test,spec}.{js,jsx,ts,tsx}',
       'lib/**/*.{test,spec}.{js,jsx,ts,tsx}',
     ],
+    // Use forks pool to avoid ESM/CJS issues with jsdom dependencies
+    pool: 'forks',
+    // Fix ESM compatibility issues with jsdom dependencies
+    deps: {
+      interopDefault: true,
+    },
+    server: {
+      deps: {
+        inline: [
+          /html-encoding-sniffer/,
+          /whatwg-encoding/,
+          /@exodus/,
+        ],
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
