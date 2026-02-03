@@ -273,6 +273,13 @@ export function useHubSpot(options: UseHubSpotOptions = {}): UseHubSpotReturn {
 
   // Check session status from server (GET /api/oauth/session)
   const checkSession = useCallback(async (): Promise<SessionInfo> => {
+    // Skip session check if HubSpot not configured
+    const clientId = import.meta.env.VITE_HUBSPOT_CLIENT_ID;
+    if (!clientId) {
+      setStatus('disconnected');
+      return { connected: false, error: 'HubSpot not configured' };
+    }
+
     try {
       const response = await fetch('/api/oauth/session', {
         method: 'GET',

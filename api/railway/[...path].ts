@@ -17,9 +17,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
  * Example: /api/railway/outreach/send-email → https://railway/api/outreach/send-email
  */
 
-const RAILWAY_API_URL = process.env.RAILWAY_API_URL;
+// Trim to handle trailing newlines from copy/paste in Vercel dashboard
+const RAILWAY_API_URL = process.env.RAILWAY_API_URL?.trim();
 // Use RAILWAY_API_SECRET if set, otherwise fall back to CRON_SECRET (same as Railway's cron endpoints)
-const RAILWAY_API_SECRET = process.env.RAILWAY_API_SECRET || process.env.CRON_SECRET;
+const RAILWAY_API_SECRET = (process.env.RAILWAY_API_SECRET || process.env.CRON_SECRET)?.trim();
 
 // P0 Security Fix: Fail if RAILWAY_API_URL is not configured
 if (!RAILWAY_API_URL && process.env.NODE_ENV === 'production') {

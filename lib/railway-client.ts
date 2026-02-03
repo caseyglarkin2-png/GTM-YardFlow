@@ -15,8 +15,9 @@
  * - SERVICE_TO_SERVICE_SECRET: Shared secret for S2S auth (same as Railway's CRON_SECRET)
  */
 
-const BASE_URL = process.env.RAILWAY_API_URL;
-const SERVICE_KEY = process.env.SERVICE_TO_SERVICE_SECRET || process.env.RAILWAY_API_SECRET || process.env.CRON_SECRET;
+// Trim to handle trailing newlines from copy/paste in Vercel dashboard
+const BASE_URL = process.env.RAILWAY_API_URL?.trim();
+const SERVICE_KEY = (process.env.SERVICE_TO_SERVICE_SECRET || process.env.RAILWAY_API_SECRET || process.env.CRON_SECRET)?.trim();
 
 interface FetchOptions extends RequestInit {
   params?: Record<string, string>;
