@@ -1,8 +1,9 @@
 # Sprint Plan V27: Voice, Templates & AI Content Integration
 
-**Status**: 📋 PLANNED  
+**Status**: � ACTIVE  
 **Created**: February 3, 2026  
 **Reviewed**: February 3, 2026 (Subagent review completed, issues fixed)  
+**Railway R3 Ready**: February 3, 2026 ✅  
 **Goal**: Integrate "Luis-style" voice/messaging into bulk email sends with AI content generation  
 **North Star**: Send 50+ personalized emails using consistent brand voice with 1-click template selection
 
@@ -777,12 +778,12 @@ ai = {
 
 ---
 
-## Sprint S4: Template CRUD (Railway Backend Required)
+## Sprint S4: Template CRUD (Railway Backend Ready ✅)
 
 **Goal**: Save/edit/delete custom templates stored in Railway Postgres  
 **Demo**: Create new template → save → appears in dropdown next session
 
-> ⚠️ **NOTE**: This sprint requires Railway backend changes. Create issue in `yardflow-hitlist` repo.
+> ✅ **Railway R3 is ready!** Template CRUD endpoints available. See "Railway Backend Requirements" section for schema details.
 
 ---
 
@@ -1077,31 +1078,69 @@ test.describe('Bulk Email with Templates', () => {
 
 ## Railway Backend Requirements (yardflow-hitlist Repo)
 
-The following must be implemented or verified in the Railway backend:
+> ✅ **Railway R3 Backend is Ready!** (February 3, 2026)
 
-### R1: AI Content Generation Endpoint [Required]
+The following endpoints are now available in Railway:
+
+### R1: AI Content Generation Endpoint ✅ READY
 - **Endpoint**: `POST /api/ai/content/generate`
-- **Request**: `{ type, context: { prospectName, companyName, title, tone, goal } }`
-- **Response**: `{ content: string, subject?: string }`
-- **Implementation**: OpenAI/GPT-4o call with system prompt per tone
-
-### R2: Voice System Prompts [Required]
-- **Location**: `/lib/ai/voiceConfigs.ts` or similar
-- **Content**: System prompts for each tone (luis, professional, challenger)
-- **Luis Example**:
+- **Header**: `x-service-key: <SERVICE_TO_SERVICE_SECRET>`
+- **Request Schema** (aligned with GTM V27):
+  ```json
+  {
+    "type": "email",
+    "tone": "luis",           // top-level
+    "goal": "Schedule demo",  // top-level
+    "context": {
+      "prospectName": "Casey",
+      "companyName": "Pesti",
+      "title": "VP"
+    }
+  }
   ```
-  You are a busy logistics executive writing a quick DM.
-  - Maximum 250 characters
-  - Reference Primo: $1M+/facility, 25 facilities EOY25
-  - Always end with Calendly link
-  - Metrics-driven, no fluff
+- **Response**:
+  ```json
+  {
+    "subject": "...",
+    "content": "..."
+  }
   ```
 
-### R3: Template CRUD Endpoints [Optional for S4]
-- `GET /api/templates` - List all templates
-- `POST /api/templates` - Create template
-- `PATCH /api/templates/:id` - Update template
-- `DELETE /api/templates/:id` - Delete template
+### R2: Voice System Prompts ✅ READY
+- Uses Gemini API (verify `GEMINI_API_KEY` is set in Railway env vars)
+- Supports tones: `LUIS`, `PROFESSIONAL`, `CHALLENGER`
+
+### R3: Template CRUD Endpoints ✅ READY
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/templates` | List (supports `?tone=LUIS&channel=EMAIL`) |
+| POST | `/api/templates` | Create |
+| GET | `/api/templates/:id` | Get single |
+| PATCH | `/api/templates/:id` | Update |
+| DELETE | `/api/templates/:id` | Delete |
+
+**Template Schema** (Railway):
+```typescript
+{
+  name: string,
+  channel: "EMAIL" | "LINKEDIN" | "PHONE",  // Note: Different from GTM 'category'
+  tone?: "LUIS" | "PROFESSIONAL" | "CHALLENGER",  // UPPERCASE
+  subject?: string,
+  template: string,  // Note: Railway uses 'template', GTM uses 'body'
+  isActive?: boolean,
+  isDefault?: boolean
+}
+```
+
+### ⚠️ Schema Alignment Required (GTM-YardFlow)
+The GTM types need minor updates to match Railway:
+- `category` → `channel` (or map in adapter)
+- `body` → `template` (or map in adapter)
+- Tone values: `luis` → `LUIS` (uppercase)
+
+### 🔧 Action Required on Railway
+1. Verify `GEMINI_API_KEY` is set in Railway env vars
+2. Run migration: `npx prisma migrate deploy`
 
 ---
 
@@ -1110,20 +1149,21 @@ The following must be implemented or verified in the Railway backend:
 ```
 GTM-YardFlow Sprint Dependencies:
 
-S1 (Template UI)
+S1 (Template UI) ✅ COMPLETE
   ├── T1.1 ──▶ T1.2 ──▶ T1.3 ──▶ T1.4
   │
-  └──▶ S2 (AI Generation)
+  └──▶ S2 (AI Generation) ✅ COMPLETE
          ├── T2.1 ──▶ T2.2 ──▶ T2.3 ──▶ T2.4
          │
-         └──▶ S3 (Tone Selection)
+         └──▶ S3 (Tone Selection) ✅ COMPLETE
                 ├── T3.1 ──▶ T3.2 ──▶ T3.3
                 │
                 └──▶ S5 (E2E Integration)
                        └── T5.1 ──▶ T5.2 ──▶ T5.3
 
-S4 (Template CRUD) ← Requires Railway R3
-  └── T4.1 ──▶ T4.2 ──▶ T4.3 ──▶ T4.4
+S4 (Template CRUD) ✅ Railway R3 Ready! 
+  └── T4.1 ✅ ──▶ T4.2 ✅ ──▶ T4.3 ✅ ──▶ T4.4 ✅ ──▶ T4.5 ✅ ──▶ T4.6 ✅ ──▶ T4.7 ✅
+  └── ⚠️ Schema alignment task needed (see T4.8 below)
 ```
 
 ---
@@ -1170,10 +1210,15 @@ If Railway templates fail:
 
 ## Next Actions
 
-1. **This Repo (GTM-YardFlow)**: Implement S1-S3 (no Railway changes needed)
-2. **Railway Repo (yardflow-hitlist)**: Verify/implement R1, R2
-3. **After R1-R2 verified**: Implement S4 (template CRUD)
-4. **Final**: Run S5 E2E tests
+1. ✅ ~~**This Repo (GTM-YardFlow)**: Implement S1-S3~~ (COMPLETE)
+2. ✅ ~~**Railway Repo (yardflow-hitlist)**: Verify/implement R1, R2, R3~~ (READY)
+3. ✅ ~~**S4 Frontend Prep**: Template CRUD frontend ready~~ (COMPLETE - commit `f5f70f9`)
+4. **🔧 Schema Alignment (T4.8)**: Update GTM types to match Railway schema:
+   - Map `category` → `channel` (EMAIL/LINKEDIN/PHONE)
+   - Map `body` → `template`
+   - Uppercase tone values (LUIS/PROFESSIONAL/CHALLENGER)
+5. **Test E2E**: Enable `VITE_RAILWAY_TEMPLATES_ENABLED=true` and test against live Railway
+6. **Run S5 E2E tests**: Full integration validation
 
 ---
 

@@ -43,6 +43,8 @@ import type {
   EmailQueueStatusResponse,
   DeadLetterItem,
   EmailAnalytics,
+  TemplateTone,
+  TemplateCategory,
   SequenceAnalytics,
   UUID,
   RailwaySession,
@@ -53,6 +55,13 @@ import type {
   UpdateTemplateRequest,
   RailwayUser,
 } from '@/types/railway';
+import {
+  toRailwayCreateRequest,
+  toRailwayUpdateRequest,
+  toGtmTemplate,
+  toRailwayTone,
+  type RailwayTemplateRecord,
+} from '@/utils/templateAdapter';
 import { featureFlags } from '@/config/featureFlags';
 
 // =============================================================================
@@ -665,30 +674,109 @@ class RailwayApiClient {
     /**
      * List all templates (user + system defaults)
      * Falls back gracefully if Railway endpoint not yet deployed
+     * 
+     * Note: Railway uses different schema - we adapt the response to GTM format
      */
-    list: async (): Promise<RailwayApiResult<EmailTemplateRecord[]>> => {
-      return this.get('/templates');
+    list: async (params?: {
+      tone?: TemplateTone;
+      category?: TemplateCategory;
+    }): Promise<RailwayApiResult<EmailTemplateRecord[]>> => {
+      // Build query params using Railway's naming (tone, channel)
+      const queryParams = new URLSearchParams();
+      if (params?.tone) {
+        queryParams.append('tone', toRailwayTone(params.tone) ?? '');
+      }
+      if (params?.category) {
+        // Railway uses 'channel' for EMAIL/LINKEDIN/PHONE
+        queryParams.append('channel', 'EMAIL');
+      }
+      
+      const queryString = queryParams.toString();
+      const url = queryString ? `/templates?${queryString}` : '/templates';
+      
+      // Fetch Railway format and convert to GTM format
+      const result = await this.get<RailwayTemplateRecord[]>(url);
+      
+      if (result.ok && result.data) {
+        return {
+          ...result,
+          data: result.data.map(toGtmTemplate),
+        };
+      }
+      
+      // Error case - return with undefined data
+      return {
+        ok: false,
+        error: result.error,
+        statusCode: result.statusCode,
+      };
     },
 
     /**
      * Get a single template by ID
      */
     get: async (id: UUID): Promise<RailwayApiResult<EmailTemplateRecord>> => {
-      return this.get(`/templates/${id}`);
+      const result = await this.get<RailwayTemplateRecord>(`/templates/${id}`);
+      
+      if (result.ok && result.data) {
+        return {
+          ...result,
+          data: toGtmTemplate(result.data),
+        };
+      }
+      
+      // Error case - return with undefined data
+      return {
+        ok: false,
+        error: result.error,
+        statusCode: result.statusCode,
+      };
     },
 
     /**
      * Create a new custom template
+     * Converts GTM format to Railway format before sending
      */
     create: async (data: CreateTemplateRequest): Promise<RailwayApiResult<EmailTemplateRecord>> => {
-      return this.post('/templates', data);
+      const railwayData = toRailwayCreateRequest(data);
+      const result = await this.post<RailwayTemplateRecord>('/templates', railwayData);
+      
+      if (result.ok && result.data) {
+        return {
+          ...result,
+          data: toGtmTemplate(result.data),
+        };
+      }
+      
+      // Error case - return with undefined data
+      return {
+        ok: false,
+        error: result.error,
+        statusCode: result.statusCode,
+      };
     },
 
     /**
      * Update an existing template
+     * Converts GTM format to Railway format before sending
      */
     update: async (id: UUID, data: UpdateTemplateRequest): Promise<RailwayApiResult<EmailTemplateRecord>> => {
-      return this.patch(`/templates/${id}`, data);
+      const railwayData = toRailwayUpdateRequest(data);
+      const result = await this.patch<RailwayTemplateRecord>(`/templates/${id}`, railwayData);
+      
+      if (result.ok && result.data) {
+        return {
+          ...result,
+          data: toGtmTemplate(result.data),
+        };
+      }
+      
+      // Error case - return with undefined data
+      return {
+        ok: false,
+        error: result.error,
+        statusCode: result.statusCode,
+      };
     },
 
     /**
