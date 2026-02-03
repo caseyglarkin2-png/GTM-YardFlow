@@ -21,14 +21,16 @@
 
 | Sprint | Focus | Est. Time | Tasks | Demo |
 |--------|-------|-----------|-------|------|
-| **26** | Email Engine Validation | 2h | T26.1-T26.5 | Select → Send → Email arrives |
-| **27** | Messaging Templates | 2h | T27.1-T27.4 | Co-Dev invite + Pepsi-style templates |
-| **28** | Companies View Polish | 1.5h | T28.1-T28.4 | Readable company names |
-| **29** | Sequence Visibility | 2.5h | T29.1-T29.5 | Dashboard widget + badges |
-| **30** | Tags UX Improvement | 2h | T30.1-T30.5 | Filter by tag + visual indicators |
-| **31** | Quick Wins & Polish | 1.5h | T31.1-T31.4 | Console cleanup + states |
+| **26** | Branding: YardFlow → FreightRoll | 1h | T26.1-T26.8 | All emails say "FreightRoll" |
+| **27** | Calendly Link Enhancement | 30m | T27.1-T27.4 | Clean hyperlinks in emails |
+| **28** | Email Engine Validation | 2h | T28.1-T28.5 | Select → Send → Email arrives |
+| **29** | Messaging Templates | 2h | T29.1-T29.4 | Co-Dev invite + Pepsi-style templates |
+| **30** | Companies View Polish | 1.5h | T30.1-T30.4 | Readable company names |
+| **31** | Sequence Visibility | 2.5h | T31.1-T31.5 | Dashboard widget + badges |
+| **32** | Tags UX Improvement | 2h | T32.1-T32.5 | Filter by tag + visual indicators |
+| **33** | Quick Wins & Polish | 1.5h | T33.1-T33.4 | Console cleanup + states |
 
-**Total**: ~11.5 hours (~3-4 days at focused pace)
+**Total**: ~13 hours (~3-4 days at focused pace)
 
 ---
 
@@ -71,12 +73,439 @@ FreightRoll
 
 ---
 
-## Sprint 26: Email Engine Validation (2 hours)
+## Sprint 26: Branding Update - YardFlow → FreightRoll (1 hour)
+
+**Goal**: Update all customer-facing content from "YardFlow" to "FreightRoll"  
+**Demo**: Send test email → Signature says "The FreightRoll Team"
+
+### T26.1: Update emailTemplates.ts [S - 15 min]
+
+**Files**: `src/config/emailTemplates.ts`
+
+**Description**: Replace all YardFlow references with FreightRoll in email templates.
+
+**Before**:
+```typescript
+  {
+    id: 'intro_yardflow',
+    label: 'YardFlow Introduction',
+    // ...
+    body: `Hi {first_name},
+// ...
+Best,
+The YardFlow Team`,
+  },
+```
+
+**After**:
+```typescript
+  {
+    id: 'intro_freightroll',
+    label: 'FreightRoll Introduction',
+    // ...
+    body: `Hi {first_name},
+// ...
+Best,
+The FreightRoll Team`,
+  },
+```
+
+**Changes Required** (5 instances):
+1. `id: 'intro_yardflow'` → `id: 'intro_freightroll'`
+2. `label: 'YardFlow Introduction'` → `label: 'FreightRoll Introduction'`
+3. `The YardFlow Team` → `The FreightRoll Team` (appears in all 5 templates)
+4. `At YardFlow, we're helping` → `At FreightRoll, we're helping`
+5. `We built YardFlow to solve` → `We built FreightRoll to solve`
+
+**Tests**:
+```bash
+grep -r "YardFlow" src/config/emailTemplates.ts
+# Should return 0 matches
+```
+
+**Commit**: `refactor(branding): rename YardFlow to FreightRoll in email templates`
+
+---
+
+### T26.2: Update SequenceSchedulerService.ts [S - 10 min]
+
+**Files**: `src/services/SequenceSchedulerService.ts`
+
+**Description**: Update sender email and default sender name.
+
+**Before** (Line 237):
+```typescript
+      from: process.env.SENDGRID_FROM_EMAIL || 'outreach@yardflow.io',
+```
+
+**After**:
+```typescript
+      from: process.env.SENDGRID_FROM_EMAIL || 'outreach@freightroll.io',
+```
+
+**Before** (Line 464):
+```typescript
+      '{{senderName}}': enrollment.customFields?.senderName || 'The YardFlow Team',
+```
+
+**After**:
+```typescript
+      '{{senderName}}': enrollment.customFields?.senderName || 'The FreightRoll Team',
+```
+
+**Tests**:
+```typescript
+it('uses FreightRoll as default sender name', () => {
+  const result = service.personalizeTemplate('{{senderName}}', {}, { customFields: {} });
+  expect(result).toBe('The FreightRoll Team');
+});
+```
+
+**Commit**: `refactor(branding): rename YardFlow to FreightRoll in sequence scheduler`
+
+---
+
+### T26.3: Update ProspectDetailPanel.tsx [XS - 5 min]
+
+**Files**: `src/components/panels/ProspectDetailPanel.tsx`
+
+**Description**: Update default sender name in template generation.
+
+**Before** (Line 35):
+```typescript
+  const templates = useMemo(() => 
+    getTemplates(prospect, currentUser === 'Me' ? 'The YardFlow Team' : 'Jake'),
+    [prospect, currentUser]
+  );
+```
+
+**After**:
+```typescript
+  const templates = useMemo(() => 
+    getTemplates(prospect, currentUser === 'Me' ? 'The FreightRoll Team' : 'Jake'),
+    [prospect, currentUser]
+  );
+```
+
+**Tests**:
+```typescript
+it('uses FreightRoll as default sender', () => {
+  render(<ProspectDetailPanel prospect={mockProspect} currentUser="Me" />);
+  expect(screen.getByText(/FreightRoll Team/)).toBeInTheDocument();
+});
+```
+
+**Commit**: `refactor(branding): rename YardFlow to FreightRoll in prospect panel`
+
+---
+
+### T26.4: Update GeminiService.ts [S - 10 min]
+
+**Files**: `src/services/GeminiService.ts`
+
+**Description**: Update AI-generated content to use FreightRoll branding.
+
+**Before** (Line 71):
+```typescript
+      content: `${context.prospectName} - Primo Brands saving $1M+ per facility with YardFlow. Happy to share how ${context.companyName} could see similar results. Book time: https://calendly.com/jake-freightroll/manifest-meeting`,
+```
+
+**After**:
+```typescript
+      content: `${context.prospectName} - Primo Brands saving $1M+ per facility with FreightRoll. Happy to share how ${context.companyName} could see similar results. Book time: https://calendly.com/jake-freightroll/manifest-meeting`,
+```
+
+**Before** (Lines 98-101):
+```typescript
+        body: `Hi ${context.prospectName.split(' ')[0]},\n\nI noticed ${context.companyName} is on our list of companies who could benefit from yard visibility improvements.\n\nPrimo Brands is averaging $1M+ in savings PER facility with YardFlow—eliminating paper-based check-in and reducing detention events by 50%.\n\nWould 15 minutes work to explore what this looks like for ${context.companyName}?\n\nBook time: https://calendly.com/jake-freightroll/manifest-meeting\n\nBest,\nJake`,
+```
+
+**After**:
+```typescript
+        body: `Hi ${context.prospectName.split(' ')[0]},\n\nI noticed ${context.companyName} is on our list of companies who could benefit from yard visibility improvements.\n\nPrimo Brands is averaging $1M+ in savings PER facility with FreightRoll—eliminating paper-based check-in and reducing detention events by 50%.\n\nWould 15 minutes work to explore what this looks like for ${context.companyName}?\n\nBook time: https://calendly.com/jake-freightroll/manifest-meeting\n\nBest,\nJake`,
+```
+
+Also update Lines 106, 113 (follow-up emails mention YardFlow).
+
+**Tests**:
+```bash
+grep -n "YardFlow" src/services/GeminiService.ts
+# Should return 0 matches after fix
+```
+
+**Commit**: `refactor(branding): rename YardFlow to FreightRoll in Gemini service`
+
+---
+
+### T26.5: Update TemplateGenerator.ts [XS - 5 min]
+
+**Files**: `src/services/TemplateGenerator.ts`
+
+**Description**: Update the AI prompt to reference FreightRoll.
+
+**Before** (Line ~23):
+```typescript
+- Jake's Calendar: https://calendly.com/jake-freightroll/manifest-meeting
+```
+
+No YardFlow reference here, but verify the file. Check for any hardcoded YardFlow strings.
+
+**Validation**:
+```bash
+grep -n "YardFlow" src/services/TemplateGenerator.ts
+# Should return 0 matches
+```
+
+**Commit**: `refactor(branding): verify no YardFlow in template generator`
+
+---
+
+### T26.6: Update SystemPromptBuilder.ts [S - 10 min]
+
+**Files**: `src/services/SystemPromptBuilder.ts`
+
+**Description**: Update the AI system prompt to use FreightRoll branding.
+
+**Before** (Line 10):
+```typescript
+const BASE_BRAIN_CONTEXT = `
+You are the YardFlow Strategic Assistant for the Manifest 2026 conference.
+```
+
+**After**:
+```typescript
+const BASE_BRAIN_CONTEXT = `
+You are the FreightRoll Strategic Assistant for the Manifest 2026 conference.
+```
+
+Also update any other YardFlow references in the system prompt.
+
+**Tests**:
+```bash
+grep -n "YardFlow" src/services/SystemPromptBuilder.ts
+# Should return 0 matches after fix
+```
+
+**Commit**: `refactor(branding): rename YardFlow to FreightRoll in system prompt`
+
+---
+
+### T26.7: Update vite.config.js (PWA Name) [XS - 5 min]
+
+**Files**: `vite.config.js`
+
+**Description**: Update PWA manifest to use FreightRoll branding.
+
+**Before** (Lines 23-24):
+```javascript
+manifest: {
+    name: 'YardFlow GTM Hub',
+    short_name: 'YardFlow',
+```
+
+**After**:
+```javascript
+manifest: {
+    name: 'FreightRoll GTM Hub',
+    short_name: 'FreightRoll',
+```
+
+**Tests**:
+- [ ] Build app: `npm run build`
+- [ ] Check `dist/manifest.webmanifest` contains "FreightRoll"
+
+**Commit**: `refactor(branding): rename YardFlow to FreightRoll in PWA manifest`
+
+---
+
+### T26.8: Verify No YardFlow in Customer-Facing Content [S - 10 min]
+
+**Files**: Search across codebase
+
+**Description**: Run comprehensive search to verify no YardFlow remains in customer-facing content.
+
+**Validation Script**:
+```bash
+# Search all TypeScript/TSX files for YardFlow (case-insensitive)
+grep -ri "yardflow" --include="*.ts" --include="*.tsx" src/ | grep -v "yardflow.io" | grep -v "// Legacy"
+
+# Should return 0 matches (excluding email domain and legacy comments)
+```
+
+**Allowed Exceptions**:
+- `yardflow.io` email domain (can be updated later when domain changes)
+- Test files with legacy data
+- Internal variable names (not customer-facing)
+
+**Exit Criteria**:
+- [ ] No YardFlow in email templates
+- [ ] No YardFlow in sequence templates
+- [ ] No YardFlow in AI prompts
+- [ ] No YardFlow in PWA manifest
+
+**Commit**: `chore(branding): verify complete YardFlow → FreightRoll migration`
+
+---
+
+## Sprint 27: Calendly Link Enhancement (30 minutes)
+
+**Goal**: Replace raw Calendly URLs with clean, clickable hyperlinks  
+**Demo**: Email preview shows "Book a meeting with Jake →" as blue link
+
+### T27.1: Create CALENDLY_LINK Constant [XS - 5 min]
+
+**Files**: Create `src/config/calendly.ts`
+
+**Description**: Centralize Calendly configuration with both URL and display text.
+
+**Implementation**:
+```typescript
+// src/config/calendly.ts
+
+export const CALENDLY_CONFIG = {
+  url: 'https://calendly.com/jake-freightroll/manifest-meeting',
+  displayText: 'Book a meeting with Jake →',
+  htmlLink: '<a href="https://calendly.com/jake-freightroll/manifest-meeting" style="color: #2563eb; text-decoration: underline;">Book a meeting with Jake →</a>',
+} as const;
+
+/**
+ * Get HTML-formatted Calendly link for emails
+ */
+export function getCalendlyHtmlLink(customText?: string): string {
+  const text = customText || CALENDLY_CONFIG.displayText;
+  return `<a href="${CALENDLY_CONFIG.url}" style="color: #2563eb; text-decoration: underline;">${text}</a>`;
+}
+
+/**
+ * Get plain text Calendly link for DMs (no HTML)
+ */
+export function getCalendlyPlainLink(): string {
+  return CALENDLY_CONFIG.url;
+}
+```
+
+**Tests**:
+```typescript
+import { getCalendlyHtmlLink, CALENDLY_CONFIG } from '@/config/calendly';
+
+it('returns HTML formatted link', () => {
+  const link = getCalendlyHtmlLink();
+  expect(link).toContain('<a href=');
+  expect(link).toContain(CALENDLY_CONFIG.url);
+  expect(link).toContain('Book a meeting');
+});
+```
+
+**Commit**: `feat(calendly): add centralized CALENDLY_CONFIG constant`
+
+---
+
+### T27.2: Update Sequence Templates [S - 10 min]
+
+**Files**: `src/data/sequenceTemplates.ts`
+
+**Description**: Replace `{{calendly_link}}` token expansion to use HTML link format.
+
+**Before** (current token usage):
+```typescript
+bodyTemplate: `...grab a slot on my calendar here: {{calendly_link}} [cite: 341]...`
+```
+
+**After** (update personalization logic in SequenceSchedulerService.ts):
+```typescript
+// In SequenceSchedulerService.ts personalizeTemplate method
+import { getCalendlyHtmlLink, CALENDLY_CONFIG } from '@/config/calendly';
+
+// Add to replacements object:
+'{{calendly_link}}': getCalendlyHtmlLink(),
+'{{calendly_url}}': CALENDLY_CONFIG.url, // For plain text fallback
+```
+
+**Note**: The templates themselves stay the same, but the token replacement produces HTML.
+
+**Tests**:
+```typescript
+it('replaces calendly_link token with HTML link', () => {
+  const result = personalizeTemplate('Book here: {{calendly_link}}', {}, {});
+  expect(result).toContain('<a href=');
+  expect(result).toContain('jake-freightroll');
+});
+```
+
+**Commit**: `feat(calendly): expand calendly_link token to HTML hyperlink`
+
+---
+
+### T27.3: Update AI Services [S - 10 min]
+
+**Files**: 
+- `src/services/GeminiService.ts`
+- `src/services/TemplateGenerator.ts`
+- `src/services/SystemPromptBuilder.ts`
+
+**Description**: Update hardcoded Calendly URLs to use the centralized config.
+
+**Before** (GeminiService.ts):
+```typescript
+content: `...Book time: https://calendly.com/jake-freightroll/manifest-meeting`,
+```
+
+**After**:
+```typescript
+import { getCalendlyHtmlLink } from '@/config/calendly';
+
+// For HTML emails:
+body: `...Book time: ${getCalendlyHtmlLink()}`,
+
+// For DMs (plain text, keep short URL):
+content: `...Book time: https://calendly.com/jake-freightroll/manifest-meeting`,
+```
+
+**Note**: DMs (LinkedIn/Manifest App) don't support HTML, so keep plain URLs there. Only emails get HTML links.
+
+**Tests**:
+```bash
+# Verify imports are added
+grep -n "import.*calendly" src/services/GeminiService.ts
+```
+
+**Commit**: `feat(calendly): use centralized config in AI services`
+
+---
+
+### T27.4: Test Link Rendering in Email Preview [S - 5 min]
+
+**Files**: Manual verification
+
+**Description**: Verify HTML links render correctly in email preview modal.
+
+**Validation Steps**:
+1. Open bulk email modal
+2. Select a template with `{{calendly_link}}`
+3. View preview
+4. Verify link appears as blue, underlined text
+5. Click link → should open Calendly
+
+**Exit Criteria**:
+- [ ] Link displays as "Book a meeting with Jake →"
+- [ ] Link is blue (#2563eb) and underlined
+- [ ] Clicking opens correct Calendly URL
+- [ ] No raw URL visible in email body
+
+**Screenshots**: Capture before/after for PR review
+
+**Commit**: `test(calendly): verify HTML link rendering in email preview`
+
+---
+
+## Sprint 28: Email Engine Validation (2 hours)
+
+**(Previously Sprint 26)**
 
 **Goal**: Prove the full email flow works end-to-end  
 **Demo**: Select 3 prospects → Bulk email → See emails in inbox
 
-### T26.1: Verify Railway POST Route [XS - 15 min]
+### T28.1: Verify Railway POST Route [XS - 15 min]
 
 **Files**: Manual test only
 
@@ -94,7 +523,7 @@ curl -s -X POST "https://gtm-yard-flow.vercel.app/api/railway/outreach/send-emai
 
 ---
 
-### T26.2: Add Email Send Progress Toast [S - 30 min]
+### T28.2: Add Email Send Progress Toast [S - 30 min]
 
 **Files**: 
 - `src/App.tsx`
@@ -142,7 +571,7 @@ it('shows progress during send', () => {
 
 ---
 
-### T26.3: Add Success Toast with Summary [S - 30 min]
+### T28.3: Add Success Toast with Summary [S - 30 min]
 
 **Files**: `src/App.tsx`
 
@@ -178,7 +607,7 @@ it('shows success toast on complete', async () => {
 
 ---
 
-### T26.4: E2E Test for Bulk Email Flow [M - 45 min]
+### T28.4: E2E Test for Bulk Email Flow [M - 45 min]
 
 **Files**: Create `e2e/bulk-email.spec.ts`
 
@@ -227,7 +656,7 @@ npm run test:e2e -- bulk-email.spec.ts
 
 ---
 
-### T26.5: Handle Railway Timeout Gracefully [S - 30 min]
+### T28.5: Handle Railway Timeout Gracefully [S - 30 min]
 
 **Files**: `src/hooks/useRailwayEmail.ts`
 
@@ -263,12 +692,14 @@ it('handles timeout gracefully', async () => {
 
 ---
 
-## Sprint 27: Messaging Templates (2 hours)
+## Sprint 29: Messaging Templates (2 hours)
+
+**(Previously Sprint 27)**
 
 **Goal**: Deploy the Pepsi/Luis and Co-Dev invite messaging frames  
 **Demo**: Select "Manifest Cold Outreach" template → Preview shows Primo testimonial
 
-### T27.1: Create Pepsi/Luis Style Template [M - 45 min]
+### T29.1: Create Pepsi/Luis Style Template [M - 45 min]
 
 **Files**: `src/data/sequenceTemplates.ts`
 
@@ -330,7 +761,7 @@ it('has valid Pepsi/Luis template', () => {
 
 ---
 
-### T27.2: Create Co-Dev Invite Template [M - 45 min]
+### T29.2: Create Co-Dev Invite Template [M - 45 min]
 
 **Files**: `src/data/sequenceTemplates.ts`
 
@@ -412,7 +843,7 @@ it('has valid Co-Dev invite template with Primo testimonial', () => {
 
 ---
 
-### T27.3: Add Template Preview with Personalization [S - 30 min]
+### T29.3: Add Template Preview with Personalization [S - 30 min]
 
 **Files**: `src/components/BulkEmailModal.tsx`
 
@@ -438,7 +869,7 @@ it('has valid Co-Dev invite template with Primo testimonial', () => {
 
 ---
 
-### T27.4: Add Template to Dropdown [XS - 15 min]
+### T29.4: Add Template to Dropdown [XS - 15 min]
 
 **Files**: `src/components/BulkEmailModal.tsx`
 
@@ -463,12 +894,14 @@ const TEMPLATE_OPTIONS = [
 
 ---
 
-## Sprint 28: Companies View Polish (1.5 hours)
+## Sprint 30: Companies View Polish (1.5 hours)
+
+**(Previously Sprint 28)**
 
 **Goal**: Make company names fully readable  
 **Demo**: Open Companies tab → All names visible without truncation
 
-### T28.1: Increase Company Name Column Width [XS - 15 min]
+### T30.1: Increase Company Name Column Width [XS - 15 min]
 
 **Files**: `src/components/CompanyListView.tsx`
 
@@ -492,7 +925,7 @@ const TEMPLATE_OPTIONS = [
 
 ---
 
-### T28.2: Add Tooltip on Truncated Names [S - 30 min]
+### T30.2: Add Tooltip on Truncated Names [S - 30 min]
 
 **Files**: `src/components/CompanyListView.tsx`
 
@@ -537,7 +970,7 @@ it('shows tooltip when name is truncated', () => {
 
 ---
 
-### T28.3: Make Grid Responsive [S - 30 min]
+### T30.3: Make Grid Responsive [S - 30 min]
 
 **Files**: `src/components/CompanyListView.tsx`
 
@@ -569,7 +1002,7 @@ it('shows tooltip when name is truncated', () => {
 
 ---
 
-### T28.4: Add Horizontal Scroll on Overflow [XS - 15 min]
+### T30.4: Add Horizontal Scroll on Overflow [XS - 15 min]
 
 **Files**: `src/components/CompanyListView.tsx`
 
@@ -592,12 +1025,14 @@ it('shows tooltip when name is truncated', () => {
 
 ---
 
-## Sprint 29: Sequence Visibility (2.5 hours)
+## Sprint 31: Sequence Visibility (2.5 hours)
+
+**(Previously Sprint 29)**
 
 **Goal**: Know at a glance which sequences are running  
 **Demo**: Dashboard shows "12 active, 3 paused" + prospect cards show enrollment badge
 
-### T29.1: Create ActiveSequencesWidget [M - 45 min]
+### T31.1: Create ActiveSequencesWidget [M - 45 min]
 
 **Files**: Create `src/components/ActiveSequencesWidget.tsx`
 
@@ -650,7 +1085,7 @@ it('shows enrollment counts by status', () => {
 
 ---
 
-### T29.2: Add Widget to Dashboard [XS - 15 min]
+### T31.2: Add Widget to Dashboard [XS - 15 min]
 
 **Files**: `src/components/Dashboard.tsx` or `src/App.tsx`
 
@@ -671,7 +1106,7 @@ import { ActiveSequencesWidget } from './ActiveSequencesWidget';
 
 ---
 
-### T29.3: Add Enrollment Badge to ProspectCard [S - 30 min]
+### T31.3: Add Enrollment Badge to ProspectCard [S - 30 min]
 
 **Files**: `src/components/ProspectCard.tsx`
 
@@ -703,7 +1138,7 @@ import { ActiveSequencesWidget } from './ActiveSequencesWidget';
 
 ---
 
-### T29.4: Add Quick Pause/Resume Buttons [S - 30 min]
+### T31.4: Add Quick Pause/Resume Buttons [S - 30 min]
 
 **Files**: `src/components/ProspectDetailPanel.tsx`
 
@@ -744,7 +1179,7 @@ it('shows pause button for active enrollment', () => {
 
 ---
 
-### T29.5: Create useSequenceEnrollments Hook [M - 45 min]
+### T31.5: Create useSequenceEnrollments Hook [M - 45 min]
 
 **Files**: Create `src/hooks/useSequenceEnrollments.ts`
 
@@ -805,12 +1240,14 @@ it('fetches active and paused enrollments', async () => {
 
 ---
 
-## Sprint 30: Tags UX Improvement (2 hours)
+## Sprint 32: Tags UX Improvement (2 hours)
+
+**(Previously Sprint 30)**
 
 **Goal**: Tags are intuitive and useful for filtering  
 **Demo**: Click tag → Filter prospects by tag → See visual indicators
 
-### T30.1: Add Help Tooltip for Tags vs Add Prospect [XS - 15 min]
+### T32.1: Add Help Tooltip for Tags vs Add Prospect [XS - 15 min]
 
 **Files**: `src/components/BulkActionsToolbar.tsx`
 
@@ -837,7 +1274,7 @@ it('fetches active and paused enrollments', async () => {
 
 ---
 
-### T30.2: Add Tag Filter to Prospect List [M - 45 min]
+### T32.2: Add Tag Filter to Prospect List [M - 45 min]
 
 **Files**: `src/App.tsx`, `src/components/ProspectFilters.tsx`
 
@@ -889,7 +1326,7 @@ it('filters prospects by tag', () => {
 
 ---
 
-### T30.3: Show Tag Pills on Prospect Rows [S - 30 min]
+### T32.3: Show Tag Pills on Prospect Rows [S - 30 min]
 
 **Files**: `src/components/ProspectRow.tsx`
 
@@ -930,7 +1367,7 @@ const TAG_COLORS: Record<string, string> = {
 
 ---
 
-### T30.4: Add Quick Tag Button in Row [S - 30 min]
+### T32.4: Add Quick Tag Button in Row [S - 30 min]
 
 **Files**: `src/components/ProspectRow.tsx`
 
@@ -959,7 +1396,7 @@ const TAG_COLORS: Record<string, string> = {
 
 ---
 
-### T30.5: Tag Suggestions Based on Tier [XS - 15 min]
+### T32.5: Tag Suggestions Based on Tier [XS - 15 min]
 
 **Files**: `src/components/BulkTagModal.tsx`
 
@@ -997,12 +1434,14 @@ const TIER_SUGGESTIONS: Record<string, string[]> = {
 
 ---
 
-## Sprint 31: Quick Wins & Polish (1.5 hours)
+## Sprint 33: Quick Wins & Polish (1.5 hours)
+
+**(Previously Sprint 31)**
 
 **Goal**: Clean console, better loading/empty states  
 **Demo**: Open app → No console errors → Clear loading states
 
-### T31.1: Fix Remaining Console Errors [S - 30 min]
+### T33.1: Fix Remaining Console Errors [S - 30 min]
 
 **Files**: Various
 
@@ -1024,7 +1463,7 @@ const TIER_SUGGESTIONS: Record<string, string[]> = {
 
 ---
 
-### T31.2: Add Loading Skeleton for Prospects [S - 30 min]
+### T33.2: Add Loading Skeleton for Prospects [S - 30 min]
 
 **Files**: `src/components/ProspectList.tsx`
 
@@ -1057,7 +1496,7 @@ function ProspectSkeleton() {
 
 ---
 
-### T31.3: Add Empty State for No Results [S - 30 min]
+### T33.3: Add Empty State for No Results [S - 30 min]
 
 **Files**: `src/components/ProspectList.tsx`
 
@@ -1090,7 +1529,7 @@ function ProspectSkeleton() {
 
 ---
 
-### T31.4: Add Keyboard Shortcuts [XS - 15 min]
+### T33.4: Add Keyboard Shortcuts [XS - 15 min]
 
 **Files**: `src/App.tsx`
 
