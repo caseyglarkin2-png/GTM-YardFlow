@@ -431,8 +431,22 @@ export function CompanyListView({
             })}
           </div>
         ) : (
-          <div className="p-8 text-center text-slate-400 text-sm">
-            No companies found.
+          <div className="p-8 text-center">
+            <div className="mb-3">
+              <Building2 className="h-10 w-10 mx-auto text-slate-300" aria-hidden="true" />
+            </div>
+            <p className="font-medium text-slate-700">No companies found</p>
+            <p className="text-sm text-slate-500 mt-1">
+              {searchTerm ? 'Try adjusting your search or filters' : 'Import prospects to see companies here'}
+            </p>
+            {searchTerm && onSearchChange && (
+              <button 
+                onClick={() => onSearchChange('')}
+                className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Clear search
+              </button>
+            )}
           </div>
         )}
       </div>

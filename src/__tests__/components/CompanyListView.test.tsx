@@ -353,7 +353,9 @@ describe('CompanyListView', () => {
       />
     );
 
-    expect(screen.getByText('No companies found.')).toBeInTheDocument();
+    // Sprint 34: Updated empty state with better messaging
+    expect(screen.getByText('No companies found')).toBeInTheDocument();
+    expect(screen.getByText('Import prospects to see companies here')).toBeInTheDocument();
     expect(screen.getByText('0 Companies')).toBeInTheDocument();
   });
 

@@ -166,6 +166,9 @@ import { type TabId } from './config/navigation';
 // --- Sprint 800.3: Desktop Layout ---
 import { DesktopLayout, SidebarContent } from './components/layout';
 
+// --- Sprint 34: Error Boundary for Panel Protection ---
+import { ErrorBoundary } from './components/ErrorBoundary';
+
 // --- Sprint 2-4: Analytics & Sequence Components ---
 import { SequenceBuilder } from './components/SequenceBuilder';
 
@@ -1812,6 +1815,14 @@ export default function App() {
       )}
 
       {/* Mobile Header - visible only on mobile */}
+      {/* Skip to main content link for keyboard users */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-blue-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
+      
       <div className="fixed top-0 left-0 right-0 z-30 bg-white border-b border-slate-200 p-3 flex items-center justify-between lg:hidden">
         <button
           onClick={() => setIsMobileSidebarOpen(true)}
@@ -1864,42 +1875,59 @@ export default function App() {
         main={(
           <div id="main-content" className="flex-1 flex flex-col bg-slate-50 overflow-hidden relative pt-14 lg:pt-0">
               {activeTab === 'dashboard' && (
-                <CampaignDashboard prospects={prospects} currentUser={currentUser} stats={stats} />
+                <ErrorBoundary name="Dashboard">
+                  <CampaignDashboard prospects={prospects} currentUser={currentUser} stats={stats} />
+                </ErrorBoundary>
               )}
               {activeTab === 'inbox' && (
-                <InboxPanel 
-                  prospects={prospects} 
-                  isLoading={isProspectsLoading}
-                  onUpdateProspect={async (id, updates) => {
-                     await updateProspect(id, updates);
-                  }}
-                  currentUser={currentUser}
-                  onBookMeeting={() => setShowMeetingModal(true)}
-                  onSendEmail={sendEmailToProspect}
-                />
+                <ErrorBoundary name="Inbox">
+                  <InboxPanel 
+                    prospects={prospects} 
+                    isLoading={isProspectsLoading}
+                    onUpdateProspect={async (id, updates) => {
+                       await updateProspect(id, updates);
+                    }}
+                    currentUser={currentUser}
+                    onBookMeeting={() => setShowMeetingModal(true)}
+                    onSendEmail={sendEmailToProspect}
+                  />
+                </ErrorBoundary>
               )}
               {activeTab === 'assistant' && (
-                <ChatPanel selectedProspect={selectedProspect} stats={stats} geminiApiKey={geminiApiKey} />
+                <ErrorBoundary name="AI Assistant">
+                  <ChatPanel selectedProspect={selectedProspect} stats={stats} geminiApiKey={geminiApiKey} />
+                </ErrorBoundary>
               )}
-              {activeTab === 'roi' && <ROITab selectedProspect={selectedProspect} />}
-              {activeTab === 'assets' && <AssetsPanel selectedProspect={selectedProspect} />}
+              {activeTab === 'roi' && (
+                <ErrorBoundary name="ROI Calculator">
+                  <ROITab selectedProspect={selectedProspect} />
+                </ErrorBoundary>
+              )}
+              {activeTab === 'assets' && (
+                <ErrorBoundary name="Assets">
+                  <AssetsPanel selectedProspect={selectedProspect} />
+                </ErrorBoundary>
+              )}
               {activeTab === 'import' && (
-                <ImportWizard 
-                  onCancel={() => setActiveTab('prospects')}
-                  onComplete={(newProspects) => {
-                    if (addProspects) addProspects(newProspects);
-                    setActiveTab('prospects');
-                  }}
-                  existingProspects={prospects}
-                />
+                <ErrorBoundary name="Import">
+                  <ImportWizard 
+                    onCancel={() => setActiveTab('prospects')}
+                    onComplete={(newProspects) => {
+                      if (addProspects) addProspects(newProspects);
+                      setActiveTab('prospects');
+                    }}
+                    existingProspects={prospects}
+                  />
+                </ErrorBoundary>
               )}
               {activeTab === 'prospects' && (
-                <HitlistPanel
-                  viewMode={viewMode}
-                  selectedCompany={selectedCompany}
-                  companies={aggregatedCompanies}
-                  filteredProspects={filteredProspects}
-                  allProspects={prospects}
+                <ErrorBoundary name="Hitlist">
+                  <HitlistPanel
+                    viewMode={viewMode}
+                    selectedCompany={selectedCompany}
+                    companies={aggregatedCompanies}
+                    filteredProspects={filteredProspects}
+                    allProspects={prospects}
                   isLoading={isProspectsLoading}
                   selectedProspect={selectedProspect}
                   onSelectProspect={setSelectedProspect}
@@ -1929,6 +1957,7 @@ export default function App() {
                   onBookMeeting={() => setShowMeetingModal(true)}
                   onSendEmail={sendEmailToProspect}
                 />
+                </ErrorBoundary>
               )}
           </div>
         )}

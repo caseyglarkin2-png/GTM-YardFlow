@@ -5,6 +5,10 @@ import { getTemplates, DM_CHAR_LIMIT } from '../../config/templates';
 import { copyToClipboard } from '../../services/ClipboardService';
 import { EmailQualityBadge } from '../EmailQualityBadge';
 import { SequenceEnrollmentBadge } from '../SequenceEnrollmentBadge';
+import type { ProspectEnrollmentInfo } from '../../hooks/useSequenceEnrollment';
+
+// Email validation regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface ProspectDetailPanelProps {
   prospect: Prospect;
@@ -13,7 +17,7 @@ interface ProspectDetailPanelProps {
   onUpdateProspect: (updates: Partial<Prospect>) => Promise<void>;
   onBookMeeting: () => void;
   onSendEmail: (templateId: string, body: string, subject?: string) => Promise<void>;
-  enrollment?: any; // Type strictly if possible
+  enrollment?: ProspectEnrollmentInfo | null;
 }
 
 export function ProspectDetailPanel({
@@ -30,6 +34,8 @@ export function ProspectDetailPanel({
   const [showCopied, setShowCopied] = useState(false);
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [emailInput, setEmailInput] = useState(prospect.email || '');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   const templates = useMemo(() => 
     getTemplates(prospect, currentUser === 'Me' ? 'The FreightRoll Team' : 'Jake'),
@@ -57,10 +63,25 @@ export function ProspectDetailPanel({
   };
 
   const handleSaveEmail = async () => {
-    if (emailInput.trim() !== prospect.email) {
-      await onUpdateProspect({ email: emailInput.trim() || undefined });
+    const trimmedEmail = emailInput.trim();
+    
+    // Validate email if provided
+    if (trimmedEmail && !EMAIL_REGEX.test(trimmedEmail)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+    
+    setEmailError(null);
+    if (trimmedEmail !== prospect.email) {
+      await onUpdateProspect({ email: trimmedEmail || undefined });
     }
     setIsEditingEmail(false);
+  };
+  
+  // Clear error when input changes
+  const handleEmailInputChange = (value: string) => {
+    setEmailInput(value);
+    if (emailError) setEmailError(null);
   };
 
   const isShortDM = currentTemplate.type === 'short_dm';
@@ -106,21 +127,30 @@ export function ProspectDetailPanel({
             </div>
             
             {isEditingEmail ? (
-                <div className="flex gap-2">
-                    <input 
-                        type="email" 
-                        value={emailInput}
-                        onChange={(e) => setEmailInput(e.target.value)}
-                        className="flex-1 text-sm border rounded px-2 py-1"
-                        placeholder="email@company.com"
-                        autoFocus
-                    />
-                    <button onClick={handleSaveEmail} className="p-1 text-green-600 hover:bg-green-50 rounded">
-                        <LazyIcon name="Check" className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => { setIsEditingEmail(false); setEmailInput(prospect.email || ''); }} className="p-1 text-red-400 hover:bg-red-50 rounded">
-                        <LazyIcon name="X" className="h-4 w-4" />
-                    </button>
+                <div className="space-y-1">
+                    <div className="flex gap-2">
+                        <input 
+                            type="email" 
+                            value={emailInput}
+                            onChange={(e) => handleEmailInputChange(e.target.value)}
+                            className={`flex-1 text-sm border rounded px-2 py-1 ${emailError ? 'border-red-400 bg-red-50' : ''}`}
+                            placeholder="email@company.com"
+                            autoFocus
+                            aria-invalid={!!emailError}
+                            aria-describedby={emailError ? 'email-error' : undefined}
+                        />
+                        <button onClick={handleSaveEmail} className="p-1 text-green-600 hover:bg-green-50 rounded" aria-label="Save email">
+                            <LazyIcon name="Check" className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                        <button onClick={() => { setIsEditingEmail(false); setEmailInput(prospect.email || ''); setEmailError(null); }} className="p-1 text-red-400 hover:bg-red-50 rounded" aria-label="Cancel">
+                            <LazyIcon name="X" className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                    </div>
+                    {emailError && (
+                        <p id="email-error" className="text-xs text-red-600" role="alert">
+                            {emailError}
+                        </p>
+                    )}
                 </div>
             ) : (
                 <div className="flex items-center justify-between bg-slate-50 p-2 rounded border border-slate-100">
@@ -164,7 +194,7 @@ export function ProspectDetailPanel({
             </div>
             <div>
                  <label className="text-xs font-semibold text-slate-500 uppercase block mb-1">Sequence</label>
-                 <SequenceEnrollmentBadge enrollment={enrollment} />
+                 <SequenceEnrollmentBadge enrollment={enrollment ?? null} />
             </div>
         </div>
 
@@ -249,17 +279,33 @@ export function ProspectDetailPanel({
                 onClick={onBookMeeting}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg hover:bg-purple-100 transition-all text-sm font-medium"
             >
-                <LazyIcon name="Calendar" className="h-4 w-4" />
+                <LazyIcon name="Calendar" className="h-4 w-4" aria-hidden="true" />
                 Log Meeting
             </button>
             <button
-                onClick={() => onSendEmail(selectedTemplateId, generatedMessage, currentTemplate.subject)}
+                onClick={async () => {
+                    setIsSendingEmail(true);
+                    try {
+                        await onSendEmail(selectedTemplateId, generatedMessage, currentTemplate.subject);
+                    } finally {
+                        setIsSendingEmail(false);
+                    }
+                }}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!prospect.email}
+                disabled={!prospect.email || isSendingEmail}
                 title={!prospect.email ? 'Add email to send' : 'Send via Railway/SendGrid'}
             >
-                <LazyIcon name="Send" className="h-4 w-4" />
-                Send Email
+                {isSendingEmail ? (
+                    <>
+                        <LazyIcon name="Loader" className="h-4 w-4 animate-spin" aria-hidden="true" />
+                        Sending...
+                    </>
+                ) : (
+                    <>
+                        <LazyIcon name="Send" className="h-4 w-4" aria-hidden="true" />
+                        Send Email
+                    </>
+                )}
             </button>
         </div>
       </div>
