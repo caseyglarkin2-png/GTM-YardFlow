@@ -828,9 +828,18 @@ export default function App() {
     setBulkEmailProgress({ sent: 0, total: eligibleProspects.length, failed: 0 });
 
     try {
+      // Debug: log auth state
+      console.log('[YardFlow] handleBulkSendEmail - auth object exists:', !!auth);
+      console.log('[YardFlow] handleBulkSendEmail - currentUser:', auth?.currentUser?.uid || 'null');
+      
       const firebaseUser = auth?.currentUser;
       if (!firebaseUser) {
-        showError('Auth Required', 'Please sign in to send emails.');
+        // Provide more specific error message
+        if (!auth) {
+          showError('Firebase Not Configured', 'Check VITE_FIREBASE_* environment variables in Vercel.');
+        } else {
+          showError('Auth Required', 'Authentication pending. Please wait a moment and try again.');
+        }
         setIsSendingBulkEmail(false);
         return;
       }
@@ -949,13 +958,18 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       if (!auth) {
+        console.warn('[YardFlow] Firebase Auth not initialized - check VITE_FIREBASE_* env vars');
         setLoading(false);
         return;
       }
       try {
-        await signInAnonymously(auth);
+        console.log('[YardFlow] Attempting anonymous sign-in...');
+        const credential = await signInAnonymously(auth);
+        console.log('[YardFlow] Anonymous sign-in successful:', credential.user.uid);
       } catch (error) {
-        console.error("Auth failed", error);
+        console.error("[YardFlow] Auth failed:", error);
+        // Still set loading to false so UI doesn't hang
+        setLoading(false);
       }
     };
     initAuth();

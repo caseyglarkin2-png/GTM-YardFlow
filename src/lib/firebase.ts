@@ -24,6 +24,15 @@ const firebaseConfig = {
   appId: sanitize(import.meta.env.VITE_FIREBASE_APP_ID),
 };
 
+// Debug: Log Firebase config (without exposing full keys)
+console.log('[Firebase] Config check:', {
+  hasApiKey: !!firebaseConfig.apiKey,
+  apiKeyPrefix: firebaseConfig.apiKey?.substring(0, 8) + '...',
+  authDomain: firebaseConfig.authDomain,
+  projectId: firebaseConfig.projectId,
+  hasAppId: !!firebaseConfig.appId,
+});
+
 /**
  * Check if Firebase is properly configured
  */
