@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { applyRateLimitToRequest } from '../../lib/rateLimiter';
 import { randomUUID } from 'crypto';
 
 /**
@@ -11,9 +10,10 @@ import { randomUUID } from 'crypto';
  * Features:
  * - Auth token forwarding (T91.3)
  * - Request logging (T92.1)
- * - Rate limiting (T92.2)
  * - Circuit breaker (T92.3)
  * - Response caching (T92.4)
+ * 
+ * NOTE: Rate limiting is handled by Railway backend - no duplicate rate limiting here.
  * 
  * Usage: /api/railway/[...path]
  * Example: /api/railway/outreach/send-email → https://railway/api/outreach/send-email
@@ -180,11 +180,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const allowed = await applyRateLimitToRequest(req, res);
-  if (!allowed) {
-    logRequest(429, 'Rate limit exceeded');
-    return;
-  }
+  // NOTE: Rate limiting removed - Railway backend handles its own rate limiting
+  // This avoids double rate limiting and ES2015 compatibility issues with Map.entries()
 
   // =============================================================================
   // T92.3: Circuit Breaker Check
