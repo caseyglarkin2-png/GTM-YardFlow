@@ -45,8 +45,10 @@ export interface SidebarContentProps {
   // Sprint 1002 - Email Filter
   emailFilter?: string;
   onEmailFilterChange?: (value: string) => void;
-  tagFilter?: string[];
-  onTagFilterChange?: (tags: string[]) => void;
+  // Sprint 32 - Tag Filter
+  tagFilter?: string | null;
+  onTagFilterChange?: (tag: string | null) => void;
+  allTags?: string[];
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   
@@ -103,8 +105,9 @@ export function SidebarContent({
   onStatusFilterChange,
   emailFilter = 'all',
   onEmailFilterChange,
-  tagFilter,
+  tagFilter = null,
   onTagFilterChange,
+  allTags = [],
   viewMode = 'people',
   onViewModeChange,
   datePeriod,
@@ -285,6 +288,21 @@ export function SidebarContent({
                 <option value="meeting_booked">Meeting Booked</option>
                 <option value="not_interested">Not Interested</option>
               </select>
+              
+              {/* Sprint 32: Tag Filter Dropdown */}
+              {allTags.length > 0 && (
+                <select
+                  value={tagFilter || ''}
+                  onChange={(e) => onTagFilterChange?.(e.target.value || null)}
+                  className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none w-full"
+                  aria-label="Filter by tag"
+                >
+                  <option value="">All Tags</option>
+                  {allTags.map(tag => (
+                    <option key={tag} value={tag}>{tag}</option>
+                  ))}
+                </select>
+              )}
             </div>
             
             {/* View Mode Toggle */}

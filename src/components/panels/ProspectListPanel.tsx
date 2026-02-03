@@ -191,7 +191,26 @@ export function ProspectListPanel({
                         <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse flex-shrink-0 ml-1" title={`Updated by ${prospect.lastEditedBy}`} aria-label={`Updated by ${prospect.lastEditedBy}`} />
                       )}
                     </div>
-                    <p className="text-xs text-slate-500 truncate">{prospect.title}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <p className="text-xs text-slate-500 truncate">{prospect.title}</p>
+                      {/* Sprint 32: Tag Pills */}
+                      {prospect.tags && prospect.tags.length > 0 && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {prospect.tags.slice(0, 2).map(tag => (
+                            <span 
+                              key={tag}
+                              className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-slate-100 text-slate-600 border border-slate-200"
+                              title={tag}
+                            >
+                              {tag.length > 12 ? tag.slice(0, 12) + '…' : tag}
+                            </span>
+                          ))}
+                          {prospect.tags.length > 2 && (
+                            <span className="text-[10px] text-slate-400">+{prospect.tags.length - 2}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="w-32 min-w-0 text-right">

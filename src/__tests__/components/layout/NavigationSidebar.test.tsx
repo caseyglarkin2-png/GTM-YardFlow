@@ -30,7 +30,7 @@ describe('NavigationSidebar', () => {
       render(<NavigationSidebar {...defaultProps} />);
       
       expect(screen.getByRole('tablist')).toBeInTheDocument();
-      expect(screen.getAllByRole('tab')).toHaveLength(7); // NAVIGATION_TABS has 7 tabs
+      expect(screen.getAllByRole('tab')).toHaveLength(8); // NAVIGATION_TABS has 8 tabs
     });
     
     it('renders active tab with correct aria-selected', () => {

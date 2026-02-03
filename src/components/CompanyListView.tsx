@@ -247,10 +247,13 @@ export function CompanyListView({
                       )}
                     </button>
 
-                    {/* Company Name & Industry */}
-                    <div className="flex-1 min-w-[120px]">
+                    {/* Company Name & Industry - Sprint 30: Increased width for readability */}
+                    <div className="flex-1 min-w-[200px]">
                       <div className="flex items-center gap-2">
-                        <h3 className={`font-semibold text-sm truncate flex-shrink-0 ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>
+                        <h3 
+                          className={`font-semibold text-sm truncate flex-shrink-0 ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}
+                          title={company.company || company.id || 'Unknown Company'}
+                        >
                           {company.company || company.id || 'Unknown Company'}
                         </h3>
                         {company.needsResearch && (

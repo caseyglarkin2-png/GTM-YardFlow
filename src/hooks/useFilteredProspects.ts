@@ -13,6 +13,7 @@ interface UseFilteredProspectsProps {
   tierFilter: Tier | 'All';
   emailFilter: EmailFilter;
   hitlistDateRange: { start: Date; end: Date } | null;
+  tagFilter?: string | null; // Sprint 32: Filter by tag
 }
 
 export function useFilteredProspects({
@@ -20,7 +21,8 @@ export function useFilteredProspects({
   filter,
   tierFilter,
   emailFilter,
-  hitlistDateRange
+  hitlistDateRange,
+  tagFilter = null
 }: UseFilteredProspectsProps) {
   
   // Initialize search service once
@@ -92,6 +94,9 @@ export function useFilteredProspects({
         // Email status filter
         if (emailFilter === 'has_email' && !p.email) return false;
         if (emailFilter === 'no_email' && !!p.email) return false;
+        
+        // Sprint 32: Tag Filter
+        if (tagFilter && (!p.tags || !p.tags.includes(tagFilter))) return false;
           
         // Date Range Filter
         if (hitlistDateRange && p.createdAt) {
@@ -112,7 +117,14 @@ export function useFilteredProspects({
         if (facB !== facA) return facB - facA;
         return b.score - a.score;
       });
-  }, [prospects, filter, tierFilter, emailFilter, hitlistDateRange, searchIndexService]);
+  }, [prospects, filter, tierFilter, emailFilter, tagFilter, hitlistDateRange, searchIndexService]);
 
-  return { filteredProspects };
+  // Sprint 32: Extract all unique tags for filter dropdown
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    prospects.forEach(p => p.tags?.forEach(t => tagSet.add(t)));
+    return Array.from(tagSet).sort();
+  }, [prospects]);
+
+  return { filteredProspects, allTags };
 }

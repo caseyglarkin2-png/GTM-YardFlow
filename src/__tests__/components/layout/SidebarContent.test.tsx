@@ -58,7 +58,7 @@ describe('SidebarContent', () => {
     it('renders all 7 navigation tabs', () => {
       render(<SidebarContent {...defaultProps} />);
       const tabs = screen.getAllByRole('tab');
-      expect(tabs).toHaveLength(7);
+      expect(tabs).toHaveLength(8);
     });
 
     it('renders Railway link', () => {

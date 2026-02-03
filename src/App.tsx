@@ -290,6 +290,8 @@ export default function App() {
       return 'all';
     }
   });
+  // Sprint 32: Tag filter for filtering prospects by tag
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   // Sprint 72: View mode toggle (company vs person view) with localStorage persistence
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     try {
@@ -444,12 +446,13 @@ export default function App() {
   }, [filter, tierFilter, emailFilter]);
 
   // Hook for filtering and searching (replaces local logic)
-  const { filteredProspects } = useFilteredProspects({
+  const { filteredProspects, allTags } = useFilteredProspects({
     prospects,
     filter,
     tierFilter,
     emailFilter,
-    hitlistDateRange
+    hitlistDateRange,
+    tagFilter
   });
 
 
@@ -1853,6 +1856,9 @@ export default function App() {
             onEmailFilterChange={(val) => setEmailFilter(val as any)}
             announce={announce}
             badgeCounts={{ inbox: unreadReplyCount }}
+            tagFilter={tagFilter}
+            onTagFilterChange={setTagFilter}
+            allTags={allTags}
           />
         )}
         main={(
@@ -1910,7 +1916,7 @@ export default function App() {
                     toggleAll: handleSelectAllToggle,
                     isAllSelected
                   }}
-                  onClearFilters={() => { setFilter(''); setTierFilter('All'); setEmailFilter('all'); }}
+                  onClearFilters={() => { setFilter(''); setTierFilter('All'); setEmailFilter('all'); setTagFilter(null); }}
                   onGoToImport={() => setActiveTab('import')}
                   onAddProspect={() => {
                     setSelectedProspect(null);
