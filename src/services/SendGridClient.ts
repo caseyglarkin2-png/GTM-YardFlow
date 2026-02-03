@@ -14,7 +14,7 @@ function sleep(ms: number): Promise<void> {
 export class SendGridClient implements IEmailSender {
   private readonly apiKey?: string;
 
-  constructor(apiKey: string | undefined = process.env.SENDGRID_API_KEY) {
+  constructor(apiKey: string | undefined = process.env.SENDGRID_API_KEY?.trim() || process.env.SENDGRID_API_KEY_JAKE?.trim()) {
     this.apiKey = apiKey;
     if (apiKey) {
       sgMail.setApiKey(apiKey);
@@ -40,7 +40,7 @@ export class SendGridClient implements IEmailSender {
   }
 
   private buildPayload(message: EmailMessage): MailDataRequired {
-    const from = message.from || process.env.SENDGRID_FROM_EMAIL;
+    const from = message.from || process.env.SENDGRID_FROM_EMAIL?.trim();
     if (!from) {
       throw new Error('Missing sender email');
     }
