@@ -86,7 +86,7 @@ function parseMessage(req: VercelRequest): EmailMessage {
   // Validate with Zod schema
   const result = EmailMessageSchema.safeParse(body);
   if (!result.success) {
-    const errors = result.error.issues.map((e: { path: (string | number)[]; message: string }) => `${e.path.join('.')}: ${e.message}`).join(', ');
+    const errors = result.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
     throw new Error(`Validation failed: ${errors}`);
   }
   return result.data as EmailMessage;
