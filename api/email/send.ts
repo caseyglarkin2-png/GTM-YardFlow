@@ -11,6 +11,9 @@ import { EmailWarmupService } from '../../src/services/EmailWarmupService';
 import { EmailTrackingService } from '../../src/services/EmailTrackingService';
 import { SendGridClient } from '../../src/services/SendGridClient';
 import type { EmailMessage } from '../../src/types/email';
+import { withSentry } from '../../lib/sentry-server';
+import { getRequestId } from '../../lib/request-id';
+import { applyRateLimitToRequest } from '../../lib/rateLimiter';
 
 // Zod schema for email message validation
 const EmailMessageSchema = z.object({
@@ -89,11 +92,17 @@ function parseMessage(req: VercelRequest): EmailMessage {
   return result.data as EmailMessage;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
+
+  const allowed = await applyRateLimitToRequest(req, res);
+  if (!allowed) return;
+
+  const requestId = getRequestId(req);
+  const requestLog = log.withRequestId(requestId);
 
   // CSRF Protection
   if (!validateOrigin(req)) {
@@ -113,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   try {
     services = getServices();
   } catch (err) {
-    log.error('Failed to initialize email services', err as Error);
+    requestLog.error('Failed to initialize email services', err as Error);
     res.status(503).json({ error: 'Email service unavailable', detail: (err as Error).message });
     return;
   }
@@ -129,7 +138,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  const userLog = log.withUser(userId);
+  const userLog = requestLog.withUser(userId);
 
   try {
     await enforceRateLimit(db, userId);
@@ -149,13 +158,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   try {
     message = parseMessage(req);
   } catch (err) {
+    userLog.warn('Invalid payload', { detail: (err as Error).message });
     res.status(400).json({ error: 'Invalid payload', detail: (err as Error).message });
     return;
   }
 
   const validation = await compliance.validateEmail(message.to);
   if (!validation.valid) {
-    res.status(400).json({ error: 'Email invalid', reason: validation.reason });
+    const status = validation.reason === 'suppressed' ? 422 : 400;
+    userLog.warn('Email blocked by compliance', { to: message.to, reason: validation.reason });
+    res.status(status).json({ error: 'Email blocked', reason: validation.reason, requestId });
     return;
   }
 
@@ -187,9 +199,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       scheduledAt: message.scheduledAt,
     });
     userLog.info('Email enqueued successfully', { emailId: item.id, to: message.to });
-    res.status(202).json({ id: item.id, status: item.status });
+    res.status(202).json({ id: item.id, status: item.status, requestId });
   } catch (err) {
     userLog.error('Failed to enqueue email', err as Error, { to: message.to });
-    res.status(500).json({ error: 'Failed to enqueue', detail: (err as Error).message });
+    res.status(500).json({ error: 'Failed to enqueue', detail: (err as Error).message, requestId });
   }
 }
+
+export default withSentry(handler);

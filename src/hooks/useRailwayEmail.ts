@@ -14,6 +14,7 @@
 import { useState, useCallback } from 'react';
 import { railwayClient } from '@/services/RailwayApiClient';
 import { shouldUseRailwayEmail } from '@/config/featureFlags';
+import { useRailwayHealth } from './useRailwayHealth';
 import type { SendEmailRequest } from '@/types/railway';
 
 // Sprint 28: Timeout configuration (30 seconds)
@@ -63,6 +64,7 @@ export function useRailwayEmail(): UseRailwayEmailReturn {
   const [progress, setProgress] = useState({ sent: 0, failed: 0, total: 0 });
 
   const isRailwayEnabled = shouldUseRailwayEmail();
+  const { isHealthy: isRailwayHealthy } = useRailwayHealth();
 
   /**
    * Send a single email via Railway or local fallback
@@ -74,7 +76,9 @@ export function useRailwayEmail(): UseRailwayEmailReturn {
     // Generate idempotency key for duplicate prevention
     const idempotencyKey = `${email.prospectId}-${Date.now().toString(36)}`;
 
-    if (isRailwayEnabled) {
+    const canUseRailway = isRailwayEnabled && isRailwayHealthy;
+
+    if (canUseRailway) {
       // Send via Railway
       try {
         const payload: SendEmailRequest = {
@@ -104,7 +108,7 @@ export function useRailwayEmail(): UseRailwayEmailReturn {
           retryable: true,
         };
       } catch (err) {
-        console.error('[useRailwayEmail] Railway send failed:', err);
+        console.error('[useRailwayEmail] Railway send failed, falling back:', err);
         
         // Sprint 28: Detect timeout and network errors
         const isTimeout = err instanceof Error && (
@@ -142,7 +146,7 @@ export function useRailwayEmail(): UseRailwayEmailReturn {
       }
     }
 
-    // Fallback to local /api/email/send
+    // Fallback to local /api/email/send when Railway disabled or unhealthy
     try {
       const response = await fetch('/api/email/send', {
         method: 'POST',

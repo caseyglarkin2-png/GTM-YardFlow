@@ -15,6 +15,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import type { Prospect } from '../types';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 export interface BulkDeleteModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export function BulkDeleteModal({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showUndoToast, setShowUndoToast] = useState(false);
   const [undoCountdown, setUndoCountdown] = useState(10);
+  const dialogRef = useFocusTrap(isOpen, { onEscape: onClose, returnFocus: true });
 
   // Reset state when modal opens
   useEffect(() => {
@@ -96,13 +98,6 @@ export function BulkDeleteModal({
     }
   }, [onUndo]);
 
-  // Handle keyboard
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      onClose();
-    }
-  }, [onClose]);
-
   // Display first 5 prospect names
   const displayedProspects = selectedProspects.slice(0, 5);
   const remainingCount = selectedProspects.length - 5;
@@ -151,11 +146,11 @@ export function BulkDeleteModal({
       aria-modal="true"
       aria-labelledby="delete-modal-title"
       aria-describedby="delete-modal-description"
-      onKeyDown={handleKeyDown}
     >
       <div 
         className="bg-white rounded-xl shadow-2xl w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
       >
         {/* Header */}
         <div className="flex items-start gap-4 p-6 pb-4">

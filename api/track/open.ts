@@ -1,12 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAdminDb } from '../../lib/firebaseAdmin';
 import { EmailTrackingService } from '../../src/services/EmailTrackingService';
+import { applyRateLimitToRequest } from '../../lib/rateLimiter';
 
 const db = getAdminDb();
 const tracking = new EmailTrackingService(db);
 const PIXEL = Buffer.from('R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=', 'base64');
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  const allowed = await applyRateLimitToRequest(req, res);
+  if (!allowed) return;
+
   const token = req.query.token as string | undefined;
   if (!token) {
     res.status(400).json({ error: 'Missing token' });

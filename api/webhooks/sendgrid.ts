@@ -1,9 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { getAdminDb } from '../../lib/firebaseAdmin';
+import { createLogger } from '../../lib/logger';
+import { sendAlert, AlertSeverity } from '../../lib/alerting';
 import type { SendGridWebhookEvent } from '../../src/types/email';
 
 const db = getAdminDb();
+const log = createLogger('webhook-sendgrid');
 
 const EMAIL_EVENTS_COLLECTION = 'email_events';
 const SUPPRESSION_COLLECTION = 'email_suppressions';
@@ -27,6 +30,8 @@ import { SendGridPayloadSchema } from '../../lib/schemas/webhooks';
 
 // ... existing code ...
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  const requestId = (req.headers['x-request-id'] as string) || undefined;
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
@@ -35,14 +40,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   // Verify SendGrid signature
   const signatureValid = verifySignature(req);
   if (!signatureValid) {
-    console.warn('[SendGrid Webhook] Invalid signature');
+    log.warn('[SendGrid Webhook] Invalid signature', { requestId });
     res.status(401).json({ error: 'Invalid signature' });
     return;
   }
 
   const parseResult = SendGridPayloadSchema.safeParse(req.body);
   if (!parseResult.success) {
-    console.warn('[SendGrid Webhook] Invalid payload:', parseResult.error);
+    log.warn('[SendGrid Webhook] Invalid payload', { requestId, issues: parseResult.error });
     res.status(400).json({ error: 'Invalid payload format', details: parseResult.error });
     return;
   }
@@ -70,9 +75,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         results.suppressed++;
       }
     } catch (error) {
-      console.error('[SendGrid Webhook] Error processing event:', error);
+      log.error('[SendGrid Webhook] Error processing event', error instanceof Error ? error : undefined, {
+        requestId,
+        event,
+      });
       results.errors++;
     }
+  }
+
+  if (results.errors > 0) {
+    await sendAlert('SendGrid webhook processing errors', AlertSeverity.WARNING, {
+      requestId,
+      processed: results.processed,
+      errors: results.errors,
+      suppressed: results.suppressed,
+    });
   }
 
   res.status(200).json(results);

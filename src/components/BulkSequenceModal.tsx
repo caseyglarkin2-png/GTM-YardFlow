@@ -16,6 +16,7 @@ import {
   RefreshCw,
   ChevronRight
 } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 export interface Sequence {
   id: string;
@@ -55,6 +56,7 @@ export function BulkSequenceModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [partialSuccess, setPartialSuccess] = useState<{ success: number; failed: number } | null>(null);
+  const dialogRef = useFocusTrap(isOpen, { onEscape: onClose, returnFocus: true });
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -104,12 +106,10 @@ export function BulkSequenceModal({
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      onClose();
-    } else if (e.key === 'Enter' && selectedSequenceId && !isSubmitting) {
+    if (e.key === 'Enter' && selectedSequenceId && !isSubmitting) {
       handleConfirm();
     }
-  }, [onClose, selectedSequenceId, isSubmitting, handleConfirm]);
+  }, [selectedSequenceId, isSubmitting, handleConfirm]);
 
   if (!isOpen) return null;
 
@@ -124,6 +124,7 @@ export function BulkSequenceModal({
       <div 
         className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200">

@@ -8,6 +8,9 @@ import { EmailTrackingService } from '../../src/services/EmailTrackingService';
 import { SendGridClient } from '../../src/services/SendGridClient';
 import { RailwayMailSender } from '../../src/services/RailwayMailSender';
 import type { IEmailSender } from '../../src/services/IEmailSender';
+import { withSentry } from '../../lib/sentry-server';
+import { getRequestId } from '../../lib/request-id';
+import { sendAlert, AlertSeverity } from '../../lib/alerting';
 
 const log = createLogger('cron-process-queue');
 
@@ -19,10 +22,13 @@ const log = createLogger('cron-process-queue');
  * 
  * Security: Requires CRON_SECRET in Authorization header.
  */
-export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  const requestId = getRequestId(req);
+  const requestLog = log.withRequestId(requestId);
+
   // Only allow POST (from external) or GET (from Vercel native crons)
   if (req.method !== 'POST' && req.method !== 'GET') {
-    res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed', requestId });
     return;
   }
 
@@ -36,21 +42,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   if (!isVercelCron) {
     // External caller - require bearer token
     if (!cronSecret) {
-      log.warn('CRON_SECRET not configured - rejecting external cron request');
-      res.status(401).json({ error: 'Cron not configured' });
+      requestLog.warn('CRON_SECRET not configured - rejecting external cron request');
+      res.status(401).json({ error: 'Cron not configured', requestId });
       return;
     }
     
     const providedToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
     if (providedToken !== cronSecret) {
-      log.warn('Invalid cron authentication attempt');
-      res.status(401).json({ error: 'Unauthorized' });
+      requestLog.warn('Invalid cron authentication attempt');
+      res.status(401).json({ error: 'Unauthorized', requestId });
       return;
     }
   }
 
   const startTime = Date.now();
-  log.info('Starting queue processing');
+  requestLog.info('Starting queue processing');
 
   try {
     const db = getAdminDb();
@@ -60,10 +66,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     let sender: IEmailSender;
     
     if (useRailway) {
-        log.info('Using RailwayMailSender (Feature Flag Enabled)');
+        requestLog.info('Using RailwayMailSender (Feature Flag Enabled)');
         sender = new RailwayMailSender();
     } else {
-        log.info('Using SendGridClient (Default)');
+        requestLog.info('Using SendGridClient (Default)');
         sender = new SendGridClient();
     }
 
@@ -90,13 +96,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const rescheduled = processed.filter(p => p.status === 'scheduled').length;
     const duration = Date.now() - startTime;
 
-    log.info('Queue processing complete', { 
+    requestLog.info('Queue processing complete', { 
       total: processed.length, 
       sent, 
       failed, 
       rescheduled,
-      durationMs: duration 
+      durationMs: duration,
+      requestId,
     });
+
+    try {
+      await recordCronMetrics(db, {
+        cronName: 'process-queue',
+        durationMs: duration,
+        processed: processed.length,
+        sent,
+        failed,
+        rescheduled,
+        requestId,
+      });
+    } catch (err) {
+      requestLog.warn('Failed to record cron metrics', { error: (err as Error).message });
+    }
 
     res.status(200).json({
       success: true,
@@ -106,10 +127,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       rescheduled,
       durationMs: duration,
       timestamp: new Date().toISOString(),
+      requestId,
     });
   } catch (err) {
     const duration = Date.now() - startTime;
-    log.error('Queue processing failed', err as Error, { durationMs: duration });
+    requestLog.error('Queue processing failed', err as Error, { durationMs: duration });
+    try {
+      await sendAlert('process-queue failed', AlertSeverity.ERROR, {
+        durationMs: duration,
+        error: (err as Error).message,
+        requestId,
+      });
+    } catch (alertErr) {
+      requestLog.warn('Failed to send alert for cron failure', { error: (alertErr as Error).message });
+    }
     
     res.status(500).json({
       success: false,
@@ -117,6 +148,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       detail: (err as Error).message,
       durationMs: duration,
       timestamp: new Date().toISOString(),
+      requestId,
     });
   }
 }
+
+async function recordCronMetrics(
+  db: ReturnType<typeof getAdminDb>,
+  metrics: {
+    cronName: string;
+    durationMs: number;
+    processed: number;
+    sent: number;
+    failed: number;
+    rescheduled: number;
+    requestId: string;
+  }
+): Promise<void> {
+  const success = metrics.failed === 0;
+  await db.collection('cron_metrics').add({
+    ...metrics,
+    success,
+    createdAt: Date.now(),
+  });
+
+  if (!success && metrics.failed > 0) {
+    await sendAlert('High failure rate in process-queue', AlertSeverity.WARNING, {
+      ...metrics,
+    });
+  }
+}
+
+export default withSentry(handler);

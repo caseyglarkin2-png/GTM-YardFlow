@@ -119,6 +119,58 @@ curl -X POST \
   -H "Authorization: Bearer $CRON_SECRET" \
   https://your-domain.vercel.app/api/cron/execute-sequences
 
+### 3.3 Retention Cron (Email Logs)
+
+```bash
+# Purge email logs/events older than 90 days
+curl -X POST \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  https://your-domain.vercel.app/api/cron/retention
+```
+
+Expected response:
+```json
+{ "cutoff": "2026-01-01T00:00:00.000Z", "results": { "email_logs": 10, "email_events": 4 } }
+```
+
+If Vercel managed cron triggers it, `x-vercel-cron: 1` is set and auth is skipped.
+
+---
+
+## 4. Privacy Operations
+
+### 4.1 Export User Data
+
+```bash
+# Requires Firebase ID token for the user
+curl -H "Authorization: Bearer $FIREBASE_ID_TOKEN" \
+  https://your-domain.vercel.app/api/privacy/export
+```
+
+Response: JSON blob containing docs from `prospects`, `email_logs`, `email_events`, `enrollments` scoped to the authenticated UID.
+
+### 4.2 Delete/Redact User Data
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $FIREBASE_ID_TOKEN" \
+  https://your-domain.vercel.app/api/privacy/delete
+```
+
+- Redacts user-linked docs (sets `redacted: true`, `deletedAt`).
+- Attempts Railway sync when `railwayUserId` or `railwayEnrollmentId` fields exist.
+- Returns `{ status: "deleted", redacted: <count> }`.
+
+---
+
+## 5. Staging Email Smoke (Railway)
+
+1) Enable flags: `VITE_RAILWAY_ENABLED=true`, `VITE_RAILWAY_EMAIL_ENABLED=true` in staging.
+2) In UI, select a few prospects and send bulk email; confirm success toast.
+3) Verify tracking: open/click pixel hits at `/api/track/open|click` (200), SendGrid webhook hits `/api/webhooks/sendgrid` (logs in Vercel).
+4) Check Railway dashboard for queued/sent counts and Firestore `email_events` for delivery/open/click.
+5) If issues, fallback by disabling `VITE_RAILWAY_EMAIL_ENABLED` to route via SendGrid path.
+
 # Process queue manually
 curl -X POST \
   -H "Authorization: Bearer $CRON_SECRET" \

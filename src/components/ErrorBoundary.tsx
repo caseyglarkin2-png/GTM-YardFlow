@@ -7,6 +7,7 @@
  */
 
 import { Component, type ReactNode, type ErrorInfo } from 'react';
+import { captureError } from '@/lib/sentry';
 
 export interface ErrorBoundaryProps {
   /** Child components to wrap */
@@ -68,6 +69,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     
     // Call custom error handler
     onError?.(error, errorInfo);
+
+    captureError(error, { componentStack: errorInfo.componentStack, boundary: name });
   }
 
   resetError = (): void => {

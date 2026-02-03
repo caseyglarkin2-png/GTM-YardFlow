@@ -142,9 +142,11 @@ import { BulkDeleteModal } from './components/BulkDeleteModal';
 import { HitlistPanel } from './components/panels/HitlistPanel';
 import { BulkStatusModal } from './components/BulkStatusModal';
 import { BulkEmailModal, type BulkEmailProgress } from './components/BulkEmailModal';
+import { KeyboardShortcutsHelp } from './components/KeyboardShortcutsHelp';
 
 // --- Toast Notification System ---
 import { ToastContainer, useToast } from './components/Toast';
+import { useRailwayHealth, type RailwayHealthStatus } from './hooks/useRailwayHealth';
 
 // --- Sprint 47 Tab Components ---
 import { IntegrationsTab, ImportTab } from './components/tabs';
@@ -375,6 +377,21 @@ export default function App() {
   // Toast Notifications
   const { toasts, dismissToast, success: showSuccess, error: showError, warning: showWarning, info: showInfo } = useToast();
 
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+
+  // Railway health (for status indicator and offline toasts)
+  const { status: railwayStatus } = useRailwayHealth();
+  const previousRailwayStatus = useRef<RailwayHealthStatus>('checking');
+
+  useEffect(() => {
+    if (previousRailwayStatus.current === 'healthy' && railwayStatus === 'unhealthy') {
+      showWarning('Connection lost', 'Working in offline mode.');
+    } else if (previousRailwayStatus.current === 'unhealthy' && railwayStatus === 'healthy') {
+      showSuccess('Connection restored', 'Railway is reachable again.');
+    }
+    previousRailwayStatus.current = railwayStatus;
+  }, [railwayStatus, showSuccess, showWarning]);
+
   // T1002.3: Quick Copy Shortcut
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -391,6 +408,24 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedProspect, showSuccess]);
+
+  // Keyboard Shortcuts Help (triggered by ?)
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      const isTextInput = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable;
+      if (isTextInput) return;
+
+      const isQuestionMark = event.key === '?' || (event.key === '/' && event.shiftKey);
+      if (!isQuestionMark) return;
+
+      event.preventDefault();
+      setShowShortcutsHelp(true);
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   // Sequence Enrollment (Sprint 81)
   const { 
@@ -1822,6 +1857,11 @@ export default function App() {
       >
         Skip to main content
       </a>
+
+      <KeyboardShortcutsHelp
+        isOpen={showShortcutsHelp}
+        onClose={() => setShowShortcutsHelp(false)}
+      />
       
       <div className="fixed top-0 left-0 right-0 z-30 bg-white border-b border-slate-200 p-3 flex items-center justify-between lg:hidden">
         <button
@@ -1870,6 +1910,7 @@ export default function App() {
             tagFilter={tagFilter}
             onTagFilterChange={setTagFilter}
             allTags={allTags}
+            railwayStatus={railwayStatus}
           />
         )}
         main={(

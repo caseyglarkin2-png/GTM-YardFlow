@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { applyRateLimitToRequest } from '../../lib/rateLimiter';
 
 /**
  * Railway API Proxy
@@ -30,35 +31,10 @@ if (!RAILWAY_API_URL && process.env.NODE_ENV === 'production') {
 // Request timeout in milliseconds (30 seconds)
 const REQUEST_TIMEOUT_MS = 30000;
 
-// =============================================================================
-// T92.2: Rate Limiting Configuration
-// =============================================================================
-const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 100; // per minute per IP
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
-
-function getRateLimitKey(req: VercelRequest): string {
-  return req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() 
-    || req.socket?.remoteAddress 
+function getRequestIp(req: VercelRequest): string {
+  return req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim()
+    || req.socket?.remoteAddress
     || 'unknown';
-}
-
-function checkRateLimit(req: VercelRequest): { allowed: boolean; remaining: number; resetIn: number } {
-  const key = getRateLimitKey(req);
-  const now = Date.now();
-  const entry = rateLimitStore.get(key);
-
-  if (!entry || now > entry.resetTime) {
-    rateLimitStore.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - 1, resetIn: RATE_LIMIT_WINDOW_MS };
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return { allowed: false, remaining: 0, resetIn: entry.resetTime - now };
-  }
-
-  entry.count++;
-  return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - entry.count, resetIn: entry.resetTime - now };
 }
 
 // =============================================================================
@@ -189,7 +165,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       status,
       duration,
       message,
-      ip: getRateLimitKey(req),
+      ip: getRequestIp(req),
       circuitState: circuitBreaker.state,
     }));
   };
@@ -203,21 +179,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  // =============================================================================
-  // T92.2: Rate Limiting Check
-  // =============================================================================
-  const rateLimit = checkRateLimit(req);
-  res.setHeader('X-RateLimit-Limit', RATE_LIMIT_MAX_REQUESTS);
-  res.setHeader('X-RateLimit-Remaining', rateLimit.remaining);
-  res.setHeader('X-RateLimit-Reset', Math.ceil(rateLimit.resetIn / 1000));
-
-  if (!rateLimit.allowed) {
+  const allowed = await applyRateLimitToRequest(req, res);
+  if (!allowed) {
     logRequest(429, 'Rate limit exceeded');
-    return res.status(429).json({
-      error: 'Too Many Requests',
-      message: 'Rate limit exceeded. Please try again later.',
-      retryAfter: Math.ceil(rateLimit.resetIn / 1000),
-    });
+    return;
   }
 
   // =============================================================================

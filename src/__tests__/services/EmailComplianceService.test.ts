@@ -155,6 +155,37 @@ describe('EmailComplianceService', () => {
     });
   });
 
+  describe('validateComplianceElements', () => {
+    it('detects missing unsubscribe header', () => {
+      const result = service.validateComplianceElements({ html: '<p>Hello</p>', headers: {} });
+      expect(result.valid).toBe(false);
+      expect(result.missing).toContain('List-Unsubscribe header');
+    });
+
+    it('detects missing postal address', () => {
+      const result = service.validateComplianceElements({
+        html: '<p>Hello <a href="https://example.com/unsubscribe">Unsubscribe</a></p>',
+        headers: { 'List-Unsubscribe': '<mailto:test@example.com>' },
+      });
+
+      expect(result.valid).toBe(false);
+      expect(result.missing).toContain('Physical postal address');
+    });
+
+    it('passes when all elements are present', () => {
+      const result = service.validateComplianceElements({
+        html: '<p>Hello</p><div>Unsubscribe</div>123 Main St, San Francisco, CA',
+        headers: {
+          'List-Unsubscribe': '<mailto:test@example.com>',
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
+      });
+
+      expect(result.valid).toBe(true);
+      expect(result.missing).toHaveLength(0);
+    });
+  });
+
   describe('generateUnsubscribeToken / validateUnsubscribeToken', () => {
     it('generates valid token that can be validated', () => {
       const emailId = 'email-abc-123';

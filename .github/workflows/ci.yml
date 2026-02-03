@@ -20,6 +20,19 @@ jobs:
       - run: npm run build
       - run: npm test -- --run
 
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+      - run: npm ci
+      - name: Security audit (high+)
+        run: npm audit --audit-level=high --production
+
   smoke-test:
     needs: build
     runs-on: ubuntu-latest

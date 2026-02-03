@@ -33,6 +33,32 @@ export class EmailComplianceService {
     return { valid: true };
   }
 
+  validateComplianceElements(message: Partial<EmailMessage>): { valid: boolean; missing: string[] } {
+    const missing: string[] = [];
+    const headers = message.headers || {};
+    const html = message.html || '';
+    const text = message.text || '';
+
+    if (!headers['List-Unsubscribe']) {
+      missing.push('List-Unsubscribe header');
+    }
+    if (!headers['List-Unsubscribe-Post']) {
+      missing.push('List-Unsubscribe-Post header');
+    }
+
+    const body = `${html} ${text}`.toLowerCase();
+    if (!body.includes('unsubscribe')) {
+      missing.push('Unsubscribe link in body');
+    }
+
+    const postalAddress = (process.env.COMPLIANCE_POSTAL_ADDRESS || 'YardFlow GTM Hub').toLowerCase();
+    if (postalAddress && !body.includes(postalAddress.toLowerCase())) {
+      missing.push('Physical postal address');
+    }
+
+    return { valid: missing.length === 0, missing };
+  }
+
   injectComplianceElements(message: EmailMessage): EmailMessage {
     const token = this.generateUnsubscribeToken(message.id);
     const baseUrl = process.env.PUBLIC_BASE_URL || process.env.VERCEL_URL || '';

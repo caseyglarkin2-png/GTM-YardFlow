@@ -151,32 +151,9 @@ export function useSequences(options: UseSequencesOptions = {}): UseSequencesRet
   const createSequence = useCallback(async (
     data: CreateSequenceRequest
   ): Promise<RailwaySequence | null> => {
-    // Sprint 22B: Allow local sequence creation when Railway is disabled
     if (!featureFlags.RAILWAY_ENABLED) {
-      console.log('[useSequences] Railway disabled, creating local sequence');
-      const newSequence: RailwaySequence = {
-        id: `local-${Date.now()}`,
-        name: data.name,
-        description: data.description || null,
-        status: 'active',
-        steps: data.steps?.map((s, idx) => ({
-          id: `local-step-${idx}`,
-          order: idx + 1,
-          type: s.type || 'email' as const,
-          delayDays: s.delayDays || 0,
-          templateId: s.templateId || '',
-          subject: s.subject || '',
-          body: s.body || '',
-        })) || [],
-        enrollmentCount: 0,
-        activeEnrollmentCount: 0,
-        completedEnrollmentCount: 0,
-        ownerId: 'local-user',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setSequences(prev => [...prev, newSequence]);
-      return newSequence;
+      console.warn('[useSequences] Railway disabled, skipping createSequence');
+      return null;
     }
 
     try {

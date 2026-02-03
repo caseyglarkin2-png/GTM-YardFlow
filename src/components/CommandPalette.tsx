@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { RegisteredCommand } from '../services/KeyboardNavigationService';
 import { CommandPaletteResult, PaletteResult, PaletteResultType } from './CommandPaletteResult';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 // Re-export the hook for backwards compatibility
 export { useCommandPalette } from '../hooks/useCommandPalette';
@@ -195,6 +196,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     [onClose]
   );
 
+  const dialogRef = useFocusTrap(isOpen, { onEscape: onClose, returnFocus: true });
+
   if (!isOpen) return null;
 
   // Group results by category
@@ -216,7 +219,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       aria-labelledby="command-palette-label"
       data-testid="command-palette-overlay"
     >
-      <div className="w-full max-w-xl bg-white rounded-lg shadow-2xl overflow-hidden" data-testid="command-palette">
+      <div ref={dialogRef} className="w-full max-w-xl bg-white rounded-lg shadow-2xl overflow-hidden" data-testid="command-palette">
         {/* Hidden title for screen readers */}
         <h2 id="command-palette-label" className="sr-only">Command Palette</h2>
         

@@ -217,6 +217,77 @@ export const RATE_LIMIT_CONFIGS = {
   ai: { limit: 30, windowMs: 60000 },            // 30 req/min for AI endpoints
 } as const;
 
+type RateLimitConfig = { limit: number; windowMs: number };
+
+// Pattern-based per-route configuration (fallback to default)
+export const RATE_LIMIT_PATTERNS: Record<string, RateLimitConfig> = {
+  '/api/railway/.*': { limit: 80, windowMs: 60000 },
+  '/api/email/.*': { limit: 20, windowMs: 60000 },
+  '/api/track/.*': { limit: 200, windowMs: 60000 },
+  '/api/webhooks/.*': { limit: 800, windowMs: 60000 },
+  '/api/cron/.*': { limit: 20, windowMs: 60000 },
+  '*': RATE_LIMIT_CONFIGS.default,
+};
+
+function matchPath(pattern: string, path: string): boolean {
+  const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+  return regex.test(path);
+}
+
+export function getRateLimitConfig(path: string): RateLimitConfig {
+  const normalized = path || '';
+  for (const [pattern, cfg] of Object.entries(RATE_LIMIT_PATTERNS)) {
+    if (matchPath(pattern, normalized)) {
+      return cfg;
+    }
+  }
+  return RATE_LIMIT_CONFIGS.default;
+}
+
+export function getIdentifierFromVercelRequest(req: {
+  headers: Record<string, string | string[] | undefined>;
+  socket?: { remoteAddress?: string | undefined };
+}): string {
+  const authHeader = req.headers['authorization'];
+  if (authHeader && typeof authHeader === 'string') {
+    return `auth:${authHeader.slice(0, 24)}`;
+  }
+
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    const ip = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0];
+    return `ip:${ip.trim()}`;
+  }
+
+  if (req.socket?.remoteAddress) {
+    return `ip:${req.socket.remoteAddress}`;
+  }
+
+  return 'ip:unknown';
+}
+
+export async function applyRateLimitToRequest(
+  req: { url?: string | undefined; headers: Record<string, string | string[] | undefined>; socket?: { remoteAddress?: string | undefined } },
+  res: { status: (code: number) => any; setHeader: (name: string, value: string) => any; json: (body: unknown) => any },
+  overrideConfig?: RateLimitConfig
+): Promise<boolean> {
+  const path = req.url || '';
+  const config = overrideConfig || getRateLimitConfig(path);
+  const identifier = getIdentifierFromVercelRequest(req);
+  const result = await checkRateLimit(identifier, config.limit, config.windowMs);
+
+  // Set informative headers even when blocking
+  const headers = getRateLimitHeaders({ ...result, limit: config.limit });
+  Object.entries(headers).forEach(([key, value]) => res.setHeader(key, value));
+
+  if (!result.allowed) {
+    res.status(429).json({ error: 'rate_limited', limit: config.limit, remaining: result.remaining, resetAt: result.resetAt });
+    return false;
+  }
+
+  return true;
+}
+
 /**
  * Clear rate limit for testing
  */

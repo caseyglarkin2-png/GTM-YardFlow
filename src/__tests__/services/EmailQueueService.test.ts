@@ -50,6 +50,7 @@ const mockSendGrid = {
 const mockCompliance = {
   injectComplianceElements: vi.fn((msg: EmailMessage) => msg),
   respectDoNotTrack: vi.fn(() => false),
+  validateComplianceElements: vi.fn(() => ({ valid: true, missing: [] as string[] })),
 };
 
 const mockWarmup = {
@@ -454,6 +455,62 @@ describe('EmailQueueService', () => {
 
       // When warmup denies, the service should handle it appropriately
       expect(mockWarmup.canSend).toBeDefined();
+    });
+  });
+
+  describe('compliance gating', () => {
+    it('fails non-compliant emails without sending', async () => {
+      mockCompliance.validateComplianceElements.mockReturnValue({ valid: false, missing: ['List-Unsubscribe header'] as string[] });
+      mockWarmup.canSend.mockResolvedValue({ allowed: true });
+      const mockRefUpdate = vi.fn();
+
+      const mockDbWithItem = createMockFirestore();
+      // Seed queue item
+      const queueItem = createMockQueueItem();
+      await mockDbWithItem.collection('email_queue').doc(queueItem.id).set(queueItem as unknown as Record<string, unknown>);
+
+      // Override collection to return the queued item on where().orderBy().limit().get()
+      const mockDocSnapshot = {
+        id: queueItem.id,
+        data: () => queueItem,
+      };
+
+      (mockDbWithItem as unknown as { collection: unknown }).collection = vi.fn(() => ({
+        doc: vi.fn(() => ({
+          get: vi.fn(async () => ({ exists: true, data: () => queueItem })),
+          update: mockRefUpdate,
+        })),
+        where: vi.fn(() => ({
+          orderBy: vi.fn(() => ({
+            limit: vi.fn(() => ({
+              get: vi.fn(async () => ({ empty: false, docs: [mockDocSnapshot] })),
+            })),
+          })),
+        })),
+      }));
+
+      mockDbWithItem.runTransaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          get: vi.fn(async () => ({ exists: true, data: () => queueItem })),
+          update: mockRefUpdate,
+        };
+        return fn(tx as unknown as { get: (ref: unknown) => Promise<unknown>; update: (ref: unknown, data: unknown) => Promise<void> });
+      });
+
+      const service = new EmailQueueService(
+        mockDbWithItem as unknown as import('firebase-admin/firestore').Firestore,
+        mockSendGrid as unknown as import('../../services/SendGridClient').SendGridClient,
+        mockCompliance as unknown as import('../../services/EmailComplianceService').EmailComplianceService,
+        mockWarmup as unknown as import('../../services/EmailWarmupService').EmailWarmupService,
+        mockTracking as unknown as import('../../services/EmailTrackingService').EmailTrackingService,
+      );
+
+      const processed = await service.processBatch(1);
+
+      expect(processed[0]?.status).toBe('failed');
+      expect(processed[0]?.lastError).toContain('non_compliant');
+      expect(mockSendGrid.sendEmail).not.toHaveBeenCalled();
+      expect(mockRefUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
     });
   });
 });

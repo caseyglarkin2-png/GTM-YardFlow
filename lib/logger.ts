@@ -11,6 +11,9 @@ export interface LogContext {
   endpoint?: string;
   userId?: string;
   requestId?: string;
+  path?: string;
+  method?: string;
+  durationMs?: number;
   [key: string]: unknown;
 }
 
@@ -20,6 +23,9 @@ export interface LogEntry {
   endpoint?: string;
   userId?: string;
   requestId?: string;
+  path?: string;
+  method?: string;
+  durationMs?: number;
   message: string;
   error?: string;
   stack?: string;
@@ -130,6 +136,10 @@ function createLogEntry(
   if (context?.endpoint) entry.endpoint = context.endpoint;
   if (context?.userId) entry.userId = context.userId;
   if (context?.requestId) entry.requestId = context.requestId;
+    
+  if (context?.path) entry.path = context.path;
+  if (context?.method) entry.method = context.method;
+  if (context?.durationMs !== undefined) entry.durationMs = context.durationMs;
 
   // Add sanitized additional context
   const { endpoint, userId, requestId, ...additionalContext } = context || {};

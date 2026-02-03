@@ -15,6 +15,7 @@ import {
   Loader,
   AlertCircle
 } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 export interface BulkTagModalProps {
   isOpen: boolean;
@@ -55,6 +56,7 @@ export function BulkTagModal({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showNewTagInput, setShowNewTagInput] = useState(false);
   const [newTagValue, setNewTagValue] = useState('');
+  const dialogRef = useFocusTrap(isOpen, { onEscape: onClose, returnFocus: true });
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -124,12 +126,10 @@ export function BulkTagModal({
 
   // Handle keyboard
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      onClose();
-    } else if (e.key === 'Enter' && !showNewTagInput && selectedTags.size > 0 && !isSubmitting) {
+    if (e.key === 'Enter' && !showNewTagInput && selectedTags.size > 0 && !isSubmitting) {
       handleConfirm();
     }
-  }, [onClose, showNewTagInput, selectedTags.size, isSubmitting, handleConfirm]);
+  }, [showNewTagInput, selectedTags.size, isSubmitting, handleConfirm]);
 
   if (!isOpen) return null;
 
@@ -144,6 +144,7 @@ export function BulkTagModal({
       <div 
         className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200">

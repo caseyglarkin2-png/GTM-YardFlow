@@ -20,6 +20,7 @@ import { type ViewMode } from '@/components/ViewModeToggle';
 import { SyncStatus } from '@/components/SyncStatus';
 import { type SyncStatus as SyncStatusType } from '@/services/OfflineQueue';
 import { ViewModeToggle } from '@/components/ViewModeToggle';
+import { useRailwayHealth, type RailwayHealthStatus } from '@/hooks/useRailwayHealth';
 
 // =============================================================================
 // Types
@@ -71,6 +72,9 @@ export interface SidebarContentProps {
 
   // Badge counts for tabs
   badgeCounts?: Record<string, number>;
+
+  // Railway status (optional to allow parent-provided status)
+  railwayStatus?: RailwayHealthStatus;
 }
 
 // =============================================================================
@@ -118,7 +122,10 @@ export function SidebarContent({
   footerContent,
   railwayUrl = 'https://yardflow-hitlist-production-2f41.up.railway.app',
   badgeCounts,
+  railwayStatus,
 }: SidebarContentProps): React.ReactElement {
+  const { status: derivedStatus } = useRailwayHealth();
+  const effectiveRailwayStatus = railwayStatus ?? derivedStatus;
   
   // Handle tab selection
   const handleTabClick = useCallback((tabId: TabId) => {
@@ -158,6 +165,25 @@ export function SidebarContent({
               <LazyIcon name="ExternalLink" className="h-3 w-3" />
               Railway
             </a>
+
+            {/* Railway Connection Status */}
+            <div className="flex items-center gap-2 px-2 py-1 rounded bg-slate-50" aria-label="Railway connection status">
+              <span
+                className={
+                  `inline-block h-2 w-2 rounded-full ${
+                    effectiveRailwayStatus === 'healthy' ? 'bg-green-500' :
+                    effectiveRailwayStatus === 'unhealthy' ? 'bg-red-500' :
+                    'bg-amber-400 animate-pulse'
+                  }`
+                }
+                aria-hidden="true"
+              />
+              <span className="text-[11px] font-medium text-slate-600">
+                {effectiveRailwayStatus === 'healthy' && 'Connected'}
+                {effectiveRailwayStatus === 'unhealthy' && 'Offline mode'}
+                {effectiveRailwayStatus === 'checking' && 'Checking…'}
+              </span>
+            </div>
             
             {/* Sync Status */}
             {syncStatus && (

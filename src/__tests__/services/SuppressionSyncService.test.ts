@@ -9,14 +9,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SuppressionSyncService } from '@/services/SuppressionSyncService';
 import type { SendGridClient } from '@/services/SendGridClient';
 import type { EmailComplianceService } from '@/services/EmailComplianceService';
+import type { Firestore } from 'firebase-admin/firestore';
 
 describe('SuppressionSyncService', () => {
   let mockSendGrid: {
     listSuppressions: ReturnType<typeof vi.fn>;
+    addToSuppression: ReturnType<typeof vi.fn>;
   };
   let mockCompliance: {
     isOnSuppressionList: ReturnType<typeof vi.fn>;
     addToSuppressionList: ReturnType<typeof vi.fn>;
+  };
+  let mockDb: {
+    collection: ReturnType<typeof vi.fn>;
+  };
+  const mockCollectionRef = {
+    get: vi.fn(),
   };
   let service: SuppressionSyncService;
 
@@ -25,16 +33,22 @@ describe('SuppressionSyncService', () => {
     
     mockSendGrid = {
       listSuppressions: vi.fn(),
+      addToSuppression: vi.fn(),
     };
     
     mockCompliance = {
       isOnSuppressionList: vi.fn(),
       addToSuppressionList: vi.fn(),
     };
+
+    mockDb = {
+      collection: vi.fn(() => mockCollectionRef),
+    };
     
     service = new SuppressionSyncService(
       mockSendGrid as unknown as SendGridClient,
       mockCompliance as unknown as EmailComplianceService,
+      mockDb as unknown as Firestore,
     );
   });
 
@@ -170,6 +184,45 @@ describe('SuppressionSyncService', () => {
         'check:c@test.com',
         'add:c@test.com',
       ]);
+    });
+  });
+
+  describe('syncToSendGrid', () => {
+    it('pushes local suppressions to SendGrid', async () => {
+      mockCollectionRef.get.mockResolvedValue({
+        size: 2,
+        docs: [
+          { id: 'one@example.com', data: () => ({ reason: 'bounce' }) },
+          { id: 'two@example.com', data: () => ({}) },
+        ],
+      });
+
+      mockSendGrid.addToSuppression.mockResolvedValue(undefined);
+
+      const result = await service.syncToSendGrid();
+
+      expect(result.synced).toBe(2);
+      expect(result.errors).toBe(0);
+      expect(result.total).toBe(2);
+      expect(mockSendGrid.addToSuppression).toHaveBeenCalledWith('one@example.com', 'bounce');
+      expect(mockSendGrid.addToSuppression).toHaveBeenCalledWith('two@example.com', 'manual');
+    });
+
+    it('counts errors when SendGrid sync fails', async () => {
+      mockCollectionRef.get.mockResolvedValue({
+        size: 1,
+        docs: [
+          { id: 'fail@example.com', data: () => ({ reason: 'manual' }) },
+        ],
+      });
+
+      mockSendGrid.addToSuppression.mockRejectedValue(new Error('fail'));
+
+      const result = await service.syncToSendGrid();
+
+      expect(result.synced).toBe(0);
+      expect(result.errors).toBe(1);
+      expect(result.total).toBe(1);
     });
   });
 });

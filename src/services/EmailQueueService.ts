@@ -180,6 +180,13 @@ export class EmailQueueService {
       return { ...item, status: 'scheduled' };
     }
 
+    const complianceCheck = this.compliance.validateComplianceElements(item.message);
+    if (!complianceCheck.valid) {
+      const lastError = `non_compliant:${complianceCheck.missing.join(',')}`;
+      await ref.update({ status: 'failed', lastError, updatedAt: currentMs() });
+      return { ...item, status: 'failed', lastError };
+    }
+
     try {
       await this.sender.sendEmail(item.message);
       await this.warmup.recordSend(item.tenantId, 1);

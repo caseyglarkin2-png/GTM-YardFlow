@@ -1304,6 +1304,28 @@ curl -X POST https://gtm-yard-flow.vercel.app/api/email/send \
 
 ---
 
+## S5: Privacy & Retention (CRIT-6)
+
+**Goal**: ship user-facing privacy controls plus automated retention so we can safely send email tomorrow while honoring data requests.
+
+### T6.1: Data Export Endpoint (GET /api/privacy/export) [M - 45 min]
+- Purpose: authenticated users can export their data (Firestore + Railway IDs) as JSON.
+- Validation: unit test the handler (auth required, returns aggregated payload, 401/403 on missing token, 404 when user has no data); snapshot response structure. Demo: curl with Firebase ID token shows JSON blob.
+
+### T6.2: Data Deletion Endpoint (POST /api/privacy/delete) [M - 45 min]
+- Purpose: authenticated deletion request that redacts Firestore fields and forwards deletion to Railway when `railwayUserId`/`railwayEnrollmentId` exist.
+- Validation: unit test for auth, idempotency (second call no-op), Railway sync invoked when IDs present, Firestore doc redacted not hard-deleted; demo curl returns `{ status: 'deleted' }`.
+
+### T6.3: Retention Cron (POST /api/cron/retention) [S - 30 min]
+- Purpose: S2S-protected cron to purge email_logs/email_events older than 90 days and trim tracking tables; emits alert on failure and metrics on rows purged.
+- Validation: unit test with mocked Firestore + alerting to ensure cutoff applied and secret required; manual run via curl with `CRON_SECRET` header returns counts.
+
+### T6.4: Wiring & Docs [S - 20 min]
+- Purpose: wire routes into vercel.json (if needed) and add Runbook section describing how to invoke export/delete and retention cron; update README privacy section.
+- Validation: docs updated; manual lint/tsc + targeted tests (`npm test -- privacy` subset) pass.
+
+---
+
 ## Key Files Reference
 
 | Purpose | Location |

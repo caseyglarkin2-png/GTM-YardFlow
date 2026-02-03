@@ -15,6 +15,7 @@ import {
   Calendar
 } from 'lucide-react';
 import type { Prospect } from '../types';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 export type ProspectStatus = Prospect['status'];
 
@@ -61,6 +62,7 @@ export function BulkStatusModal({
   const [selectedStatus, setSelectedStatus] = useState<ProspectStatus | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const dialogRef = useFocusTrap(isOpen, { onEscape: onClose, returnFocus: true });
 
   // Reset state when modal opens
   useEffect(() => {
@@ -89,12 +91,10 @@ export function BulkStatusModal({
 
   // Handle keyboard
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      onClose();
-    } else if (e.key === 'Enter' && selectedStatus && !isSubmitting) {
+    if (e.key === 'Enter' && selectedStatus && !isSubmitting) {
       handleConfirm();
     }
-  }, [onClose, selectedStatus, isSubmitting, handleConfirm]);
+  }, [selectedStatus, isSubmitting, handleConfirm]);
 
   if (!isOpen) return null;
 
@@ -109,6 +109,7 @@ export function BulkStatusModal({
       <div 
         className="bg-white rounded-xl shadow-2xl w-full max-w-sm"
         onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200">

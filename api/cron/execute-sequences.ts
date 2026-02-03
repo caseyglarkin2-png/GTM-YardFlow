@@ -9,6 +9,9 @@ import { EmailTrackingService } from '../../src/services/EmailTrackingService';
 import { SendGridClient } from '../../src/services/SendGridClient';
 import { RailwayMailSender } from '../../src/services/RailwayMailSender';
 import type { IEmailSender } from '../../src/services/IEmailSender';
+import { withSentry } from '../../lib/sentry-server';
+import { getRequestId } from '../../lib/request-id';
+import { sendAlert, AlertSeverity } from '../../lib/alerting';
 
 const log = createLogger('cron-execute-sequences');
 
@@ -24,10 +27,13 @@ const log = createLogger('cron-execute-sequences');
  * 
  * Security: Requires CRON_SECRET in Authorization header.
  */
-export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  const requestId = getRequestId(req);
+  const requestLog = log.withRequestId(requestId);
+
   // Only allow POST (from external) or GET (from Vercel native crons)
   if (req.method !== 'POST' && req.method !== 'GET') {
-    res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed', requestId });
     return;
   }
 
@@ -41,21 +47,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   if (!isVercelCron) {
     // External caller - require bearer token
     if (!cronSecret) {
-      log.warn('CRON_SECRET not configured - rejecting external cron request');
-      res.status(401).json({ error: 'Cron not configured' });
+      requestLog.warn('CRON_SECRET not configured - rejecting external cron request');
+      res.status(401).json({ error: 'Cron not configured', requestId });
       return;
     }
     
     const providedToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
     if (providedToken !== cronSecret) {
-      log.warn('Invalid cron authentication attempt');
-      res.status(401).json({ error: 'Unauthorized' });
+      requestLog.warn('Invalid cron authentication attempt');
+      res.status(401).json({ error: 'Unauthorized', requestId });
       return;
     }
   }
 
   const startTime = Date.now();
-  log.info('Starting sequence execution');
+  requestLog.info('Starting sequence execution');
 
   try {
     const db = getAdminDb();
@@ -81,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     // Get enrollments due for their next step
     const dueEnrollments = await scheduler.getDueEnrollments(25);
     
-    log.info(`Found ${dueEnrollments.length} enrollments due for next step`);
+    requestLog.info(`Found ${dueEnrollments.length} enrollments due for next step`);
 
     const results: SchedulerResult[] = [];
 
@@ -115,10 +121,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
           queueItemId,
         });
 
-        log.info(`Queued step ${nextStep.type} for enrollment ${enrollment.id}`);
+        requestLog.info(`Queued step ${nextStep.type} for enrollment ${enrollment.id}`);
       } catch (err) {
         const error = err as Error;
-        log.error(`Failed to queue step for enrollment ${enrollment.id}`, error);
+        requestLog.error(`Failed to queue step for enrollment ${enrollment.id}`, error);
         
         results.push({
           enrollmentId: enrollment.id,
@@ -132,12 +138,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const failed = results.filter(r => r.status === 'failed').length;
     const duration = Date.now() - startTime;
 
-    log.info('Sequence execution complete', { 
+    requestLog.info('Sequence execution complete', { 
       total: results.length, 
       queued, 
       failed,
-      durationMs: duration 
+      durationMs: duration,
+      requestId,
     });
+
+    try {
+      await recordCronMetrics(db, {
+        cronName: 'execute-sequences',
+        durationMs: duration,
+        processed: results.length,
+        queued,
+        failed,
+        requestId,
+      });
+    } catch (err) {
+      requestLog.warn('Failed to record cron metrics', { error: (err as Error).message });
+    }
 
     res.status(200).json({
       success: true,
@@ -147,15 +167,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       results,
       durationMs: duration,
       timestamp: new Date().toISOString(),
+      requestId,
     });
   } catch (err) {
     const duration = Date.now() - startTime;
-    log.error('Sequence execution failed', err as Error, { durationMs: duration });
+    requestLog.error('Sequence execution failed', err as Error, { durationMs: duration });
+    try {
+      await sendAlert('execute-sequences failed', AlertSeverity.ERROR, {
+        durationMs: duration,
+        error: (err as Error).message,
+        requestId,
+      });
+    } catch (alertErr) {
+      requestLog.warn('Failed to send alert for sequence cron failure', { error: (alertErr as Error).message });
+    }
     
     res.status(500).json({
       success: false,
       error: 'Internal server error',
       durationMs: duration,
+      requestId,
     });
   }
 }
+
+async function recordCronMetrics(
+  db: ReturnType<typeof getAdminDb>,
+  metrics: {
+    cronName: string;
+    durationMs: number;
+    processed: number;
+    queued: number;
+    failed: number;
+    requestId: string;
+  }
+): Promise<void> {
+  const success = metrics.failed === 0;
+  await db.collection('cron_metrics').add({
+    ...metrics,
+    success,
+    createdAt: Date.now(),
+  });
+
+  if (!success && metrics.failed > 0) {
+    await sendAlert('High failure rate in execute-sequences', AlertSeverity.WARNING, {
+      ...metrics,
+    });
+  }
+}
+
+export default withSentry(handler);

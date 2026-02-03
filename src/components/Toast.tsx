@@ -100,6 +100,8 @@ export function ToastContainer({
     <div
       className={`fixed ${positionClasses[position]} z-[100] flex flex-col gap-2 max-w-sm w-full pointer-events-none`}
       aria-label="Notifications"
+      aria-live="polite"
+      aria-atomic="true"
     >
       {toasts.map((toast) => (
         <div key={toast.id} className="pointer-events-auto">
