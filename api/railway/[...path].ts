@@ -21,8 +21,16 @@ import { randomUUID } from 'crypto';
 
 // Trim and sanitize to handle trailing newlines/escape chars from copy/paste in Vercel dashboard
 const RAILWAY_API_URL = process.env.RAILWAY_API_URL?.trim().replace(/\\n/g, '').replace(/\n/g, '');
-// Use RAILWAY_API_SECRET if set, otherwise fall back to CRON_SECRET (same as Railway's cron endpoints)
-const RAILWAY_API_SECRET = (process.env.RAILWAY_API_SECRET || process.env.CRON_SECRET)?.trim().replace(/\\n/g, '').replace(/\n/g, '');
+
+// S2S Authentication: Priority order for Railway API secret
+// 1. SERVICE_TO_SERVICE_SECRET (new standard)
+// 2. RAILWAY_API_SECRET (legacy)
+// 3. CRON_SECRET (fallback for cron endpoints)
+const SERVICE_TO_SERVICE_SECRET = (
+  process.env.SERVICE_TO_SERVICE_SECRET || 
+  process.env.RAILWAY_API_SECRET || 
+  process.env.CRON_SECRET
+)?.trim().replace(/\\n/g, '').replace(/\n/g, '');
 
 // P0 Security Fix: Fail if RAILWAY_API_URL is not configured
 if (!RAILWAY_API_URL && process.env.NODE_ENV === 'production') {
@@ -267,13 +275,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Sprint 102: Service-to-service authentication
     // Add Railway API secret for server-to-server calls (bypasses user auth)
     // Railway should check this header and allow requests from trusted Vercel proxy
+    // Priority: SERVICE_TO_SERVICE_SECRET > RAILWAY_API_SECRET > CRON_SECRET
     // =============================================================================
-    if (RAILWAY_API_SECRET) {
-      headers['X-Railway-Secret'] = RAILWAY_API_SECRET;
+    if (SERVICE_TO_SERVICE_SECRET) {
+      headers['X-Railway-Secret'] = SERVICE_TO_SERVICE_SECRET;
       // Also send as Authorization Bearer for endpoints that accept it
-      headers['Authorization'] = `Bearer ${RAILWAY_API_SECRET}`;
-      // x-service-key header (new S2S auth pattern)
-      headers['x-service-key'] = RAILWAY_API_SECRET;
+      headers['Authorization'] = `Bearer ${SERVICE_TO_SERVICE_SECRET}`;
+      // x-service-key header (new S2S auth pattern - required by Railway)
+      headers['x-service-key'] = SERVICE_TO_SERVICE_SECRET;
     }
     
     // Add source identification for request tracing
