@@ -22,8 +22,11 @@ import { TONE_OPTIONS, DEFAULT_TONE, getTone, type ToneId } from '../config/tone
 import { CALENDLY_CONFIG } from '../config/calendly';
 import { useAIGenerate } from '../hooks/useAIGenerate';
 import { useBulkEmailSend, type BulkRecipient, type RecipientStatus } from '../hooks/useBulkEmailSend';
+import { useTemplates } from '../hooks/useTemplates';
+import { shouldUseRailwayTemplates } from '../config/featureFlags';
 import { isValidEmail } from '../utils/emailValidator';
 import type { Prospect } from '../types';
+import type { TemplateTone, TemplateCategory } from '../types/railway';
 
 /** Result for a single email send attempt */
 export interface EmailSendResult {
@@ -170,6 +173,18 @@ export function BulkEmailModal({
   
   // Bulk email send hook for per-recipient AI generation mode
   const bulkSend = useBulkEmailSend();
+  
+  // Template CRUD hook (Railway or static fallback)
+  const templateCRUD = useTemplates();
+  
+  // Save as Template state
+  const [showSaveTemplateForm, setShowSaveTemplateForm] = useState(false);
+  const [templateSaveName, setTemplateSaveName] = useState('');
+  const [templateSaveCategory, setTemplateSaveCategory] = useState<TemplateCategory>('outreach');
+  const [templateSaveTone, setTemplateSaveTone] = useState<TemplateTone>('professional');
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [templateSaveError, setTemplateSaveError] = useState<string | null>(null);
+  const [templateSaveSuccess, setTemplateSaveSuccess] = useState(false);
   
   // Mode: 'template' = same template for all, 'ai' = AI-generated per recipient
   const [sendMode, setSendMode] = useState<'template' | 'ai'>('template');
@@ -375,6 +390,38 @@ export function BulkEmailModal({
   const charCount = body.length;
   const isOverLimit = currentTone?.charLimit && charCount > currentTone.charLimit;
   const hasCalendlyLink = body.includes(CALENDLY_CONFIG.url) || body.toLowerCase().includes('calendly');
+
+  // Handle Save as Template
+  const handleSaveAsTemplate = useCallback(async () => {
+    if (!templateSaveName.trim() || !subject.trim() || !body.trim()) {
+      setTemplateSaveError('Template name, subject, and body are required');
+      return;
+    }
+    
+    setIsSavingTemplate(true);
+    setTemplateSaveError(null);
+    
+    try {
+      await templateCRUD.create({
+        name: templateSaveName.trim(),
+        subject,
+        body,
+        category: templateSaveCategory,
+        tone: templateSaveTone,
+      });
+      
+      setTemplateSaveSuccess(true);
+      setShowSaveTemplateForm(false);
+      setTemplateSaveName('');
+      
+      // Auto-hide success message after 3s
+      setTimeout(() => setTemplateSaveSuccess(false), 3000);
+    } catch (err) {
+      setTemplateSaveError(err instanceof Error ? err.message : 'Failed to save template');
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  }, [templateSaveName, subject, body, templateSaveCategory, templateSaveTone, templateCRUD]);
 
   const handleSubmit = async () => {
     if (!canSend) return;
@@ -621,6 +668,121 @@ export function BulkEmailModal({
               </button>
             </div>
           </div>
+
+          {/* Save as Template - Feature Flagged */}
+          {shouldUseRailwayTemplates() && modalState === 'composing' && (
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              {/* Toggle button */}
+              <button
+                type="button"
+                onClick={() => setShowSaveTemplateForm(!showSaveTemplateForm)}
+                className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <LazyIcon name="Save" className="h-4 w-4 text-slate-600" />
+                  <span className="text-sm font-medium text-slate-700">Save as Template</span>
+                </div>
+                <LazyIcon 
+                  name={showSaveTemplateForm ? 'ChevronUp' : 'ChevronDown'} 
+                  className="h-4 w-4 text-slate-500" 
+                />
+              </button>
+              
+              {/* Expandable form */}
+              {showSaveTemplateForm && (
+                <div className="p-3 border-t border-slate-200 space-y-3">
+                  {/* Template Name */}
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">
+                      Template Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={templateSaveName}
+                      onChange={(e) => setTemplateSaveName(e.target.value)}
+                      placeholder="e.g., Q1 Outreach - Decision Makers"
+                      disabled={isSavingTemplate}
+                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100"
+                    />
+                  </div>
+                  
+                  {/* Category + Tone row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">
+                        Category
+                      </label>
+                      <select
+                        value={templateSaveCategory}
+                        onChange={(e) => setTemplateSaveCategory(e.target.value as TemplateCategory)}
+                        disabled={isSavingTemplate}
+                        className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="outreach">Outreach</option>
+                        <option value="follow-up">Follow-up</option>
+                        <option value="introduction">Introduction</option>
+                        <option value="closing">Closing</option>
+                        <option value="re-engagement">Re-engagement</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">
+                        Tone
+                      </label>
+                      <select
+                        value={templateSaveTone}
+                        onChange={(e) => setTemplateSaveTone(e.target.value as TemplateTone)}
+                        disabled={isSavingTemplate}
+                        className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="professional">Professional</option>
+                        <option value="casual">Casual</option>
+                        <option value="luis">Luis</option>
+                        <option value="friendly">Friendly</option>
+                        <option value="formal">Formal</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  {/* Error display */}
+                  {templateSaveError && (
+                    <div className="flex items-center gap-2 text-xs text-red-600">
+                      <LazyIcon name="AlertCircle" className="h-3 w-3" />
+                      {templateSaveError}
+                    </div>
+                  )}
+                  
+                  {/* Save button */}
+                  <button
+                    onClick={handleSaveAsTemplate}
+                    disabled={isSavingTemplate || !templateSaveName.trim() || !subject.trim() || !body.trim()}
+                    className="w-full px-3 py-1.5 text-sm font-medium bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isSavingTemplate ? (
+                      <>
+                        <LazyIcon name="Loader2" className="h-3 w-3 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <LazyIcon name="Save" className="h-3 w-3" />
+                        Save Template
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+              
+              {/* Success message */}
+              {templateSaveSuccess && (
+                <div className="px-3 py-2 bg-green-50 border-t border-green-200 flex items-center gap-2 text-xs text-green-700">
+                  <LazyIcon name="CheckCircle2" className="h-3 w-3" />
+                  Template saved successfully!
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Send Mode Toggle */}
           <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">

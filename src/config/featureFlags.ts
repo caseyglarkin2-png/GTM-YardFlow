@@ -26,6 +26,7 @@ export interface FeatureFlags {
   RAILWAY_AUTH_ENABLED: boolean;
   RAILWAY_EMAIL_ENABLED: boolean;
   RAILWAY_DATA_ENABLED: boolean;
+  RAILWAY_TEMPLATES_ENABLED: boolean;
   
   // Traffic Routing
   RAILWAY_TRAFFIC_PERCENT: number;
@@ -78,6 +79,12 @@ export const featureFlags: FeatureFlags = {
   
   RAILWAY_DATA_ENABLED: parseBoolean(
     import.meta.env.VITE_RAILWAY_DATA_ENABLED,
+    false
+  ),
+  
+  // RAILWAY_TEMPLATES_ENABLED: Enable template CRUD via Railway (Sprint 27 S4)
+  RAILWAY_TEMPLATES_ENABLED: parseBoolean(
+    import.meta.env.VITE_RAILWAY_TEMPLATES_ENABLED,
     false
   ),
   
@@ -176,6 +183,14 @@ export function shouldUseRailwayEmail(): boolean {
  */
 export function shouldUseRailwayData(): boolean {
   return featureFlags.RAILWAY_ENABLED && featureFlags.RAILWAY_DATA_ENABLED;
+}
+
+/**
+ * Check if Railway template CRUD should be used.
+ * Defaults to false until Railway R3 ships.
+ */
+export function shouldUseRailwayTemplates(): boolean {
+  return featureFlags.RAILWAY_ENABLED && featureFlags.RAILWAY_TEMPLATES_ENABLED;
 }
 
 /**

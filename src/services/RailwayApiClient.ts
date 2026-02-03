@@ -48,6 +48,9 @@ import type {
   RailwaySession,
   LoginRequest,
   MigrateFromFirebaseRequest,
+  EmailTemplateRecord,
+  CreateTemplateRequest,
+  UpdateTemplateRequest,
   RailwayUser,
 } from '@/types/railway';
 import { featureFlags } from '@/config/featureFlags';
@@ -651,6 +654,48 @@ class RailwayApiClient {
       companyDomain: string;
     }): Promise<RailwayApiResult<{ emails: Array<{ email: string; pattern: string }> }>> => {
       return this.post('/enrichment/smart-guess', data);
+    },
+  };
+
+  // ===========================================================================
+  // Templates API (Sprint 27 S4: Template CRUD)
+  // ===========================================================================
+
+  templates = {
+    /**
+     * List all templates (user + system defaults)
+     * Falls back gracefully if Railway endpoint not yet deployed
+     */
+    list: async (): Promise<RailwayApiResult<EmailTemplateRecord[]>> => {
+      return this.get('/templates');
+    },
+
+    /**
+     * Get a single template by ID
+     */
+    get: async (id: UUID): Promise<RailwayApiResult<EmailTemplateRecord>> => {
+      return this.get(`/templates/${id}`);
+    },
+
+    /**
+     * Create a new custom template
+     */
+    create: async (data: CreateTemplateRequest): Promise<RailwayApiResult<EmailTemplateRecord>> => {
+      return this.post('/templates', data);
+    },
+
+    /**
+     * Update an existing template
+     */
+    update: async (id: UUID, data: UpdateTemplateRequest): Promise<RailwayApiResult<EmailTemplateRecord>> => {
+      return this.patch(`/templates/${id}`, data);
+    },
+
+    /**
+     * Delete a template (only custom templates, not system defaults)
+     */
+    delete: async (id: UUID): Promise<RailwayApiResult<void>> => {
+      return this.delete(`/templates/${id}`);
     },
   };
 

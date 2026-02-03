@@ -522,6 +522,70 @@ export interface SendGridWebhookEvent {
 }
 
 // =============================================================================
+// Email Template Types (S4: Template CRUD)
+// =============================================================================
+
+/** Template category for filtering */
+export type TemplateCategory = 
+  | 'intro'           // Introduction emails
+  | 'outreach'        // Cold outreach
+  | 'followup'        // Follow-up emails
+  | 'follow-up'       // Alias for followup
+  | 'meeting'         // Meeting requests
+  | 'manifest'        // Manifest-related
+  | 'closing'         // Deal closing
+  | 're-engagement'   // Re-engagement campaigns
+  | 'introduction'    // Alias for intro
+  | 'custom';         // User-created
+
+/** Voice/tone for AI generation */
+export type TemplateTone = 
+  | 'luis'           // Luis's casual style
+  | 'professional'   // Business professional
+  | 'casual'         // Casual/friendly
+  | 'friendly'       // Warm and approachable
+  | 'formal'         // Highly formal
+  | 'challenger';    // Challenger sale approach
+
+/**
+ * Email template stored in Railway Postgres
+ * Maps to Railway's `templates` table
+ */
+export interface EmailTemplateRecord {
+  id: UUID;
+  name: string;
+  subject: string;
+  body: string;
+  category: TemplateCategory;
+  tone?: TemplateTone;
+  /** System templates can't be deleted by users */
+  isDefault?: boolean;
+  /** Whether template is active/visible */
+  isActive?: boolean;
+  createdBy?: UUID;
+  createdAt: ISO8601;
+  updatedAt: ISO8601;
+}
+
+/** Request to create a new template */
+export interface CreateTemplateRequest {
+  name: string;
+  subject: string;
+  body: string;
+  category: TemplateCategory;
+  tone?: TemplateTone;
+}
+
+/** Request to update an existing template */
+export interface UpdateTemplateRequest {
+  name?: string;
+  subject?: string;
+  body?: string;
+  category?: TemplateCategory;
+  tone?: TemplateTone;
+}
+
+// =============================================================================
 // API Response Wrappers
 // =============================================================================
 
