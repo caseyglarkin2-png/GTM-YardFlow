@@ -8,18 +8,48 @@
  * - Live preview with personalization
  * - Progress indicator during send
  * - Count of eligible vs skipped prospects
+ * - Expandable list of skipped prospects with reasons
+ * - Inline email editing for prospects missing emails
+ * - Per-prospect send results with retry
+ * 
+ * Sprint UX-1: Enhanced with better feedback and inline editing
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { LazyIcon } from './icons';
 import { EMAIL_TEMPLATES, personalizeTemplate, type EmailTemplate } from '../config/emailTemplates';
+import { isValidEmail } from '../utils/emailValidator';
 import type { Prospect } from '../types';
+
+/** Result for a single email send attempt */
+export interface EmailSendResult {
+  prospectId: string;
+  prospectName: string;
+  email: string;
+  success: boolean;
+  error?: string;
+}
 
 export interface BulkEmailProgress {
   sent: number;
   total: number;
   failed: number;
+  results?: EmailSendResult[];
 }
+
+/** Reason a prospect is skipped */
+type SkipReason = 'no_email' | 'invalid_email' | 'in_sequence';
+
+interface SkippedProspect {
+  id: string;
+  name: string;
+  company: string;
+  reason: SkipReason;
+  email?: string;
+}
+
+/** Modal state machine */
+type ModalState = 'composing' | 'sending' | 'results';
 
 export interface BulkEmailModalProps {
   isOpen: boolean;
@@ -28,6 +58,7 @@ export interface BulkEmailModalProps {
   selectedProspects: Prospect[];
   isSending: boolean;
   progress?: BulkEmailProgress;
+  onUpdateProspect?: (id: string, updates: Partial<Prospect>) => Promise<void>;
 }
 
 export function BulkEmailModal({
@@ -37,11 +68,27 @@ export function BulkEmailModal({
   selectedProspects,
   isSending,
   progress = { sent: 0, total: 0, failed: 0 },
+  onUpdateProspect,
 }: BulkEmailModalProps) {
   const [templateId, setTemplateId] = useState(EMAIL_TEMPLATES[0]?.id || 'intro_yardflow');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [showSkippedList, setShowSkippedList] = useState(false);
+  const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
+  const [emailInput, setEmailInput] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
+  
+  // Track local email updates for immediate UI feedback
+  const [localEmailUpdates, setLocalEmailUpdates] = useState<Record<string, string>>({});
+  
+  // Determine modal state
+  const modalState: ModalState = useMemo(() => {
+    if (progress.results && progress.results.length > 0) return 'results';
+    if (isSending) return 'sending';
+    return 'composing';
+  }, [isSending, progress.results]);
 
   // Get current template
   const currentTemplate = useMemo(
@@ -49,11 +96,45 @@ export function BulkEmailModal({
     [templateId]
   );
 
-  // Split prospects by email availability
-  const { withEmail, withoutEmail } = useMemo(() => ({
-    withEmail: selectedProspects.filter(p => p.email),
-    withoutEmail: selectedProspects.filter(p => !p.email),
-  }), [selectedProspects]);
+  // Apply local email updates to prospects for immediate UI feedback
+  const prospectsWithUpdates = useMemo(() => 
+    selectedProspects.map(p => ({
+      ...p,
+      email: localEmailUpdates[p.id] || p.email,
+    })),
+    [selectedProspects, localEmailUpdates]
+  );
+
+  // Categorize prospects: sendable vs skipped (with reasons)
+  const { withEmail, skippedProspects } = useMemo(() => {
+    const sendable: Prospect[] = [];
+    const skipped: SkippedProspect[] = [];
+    
+    for (const p of prospectsWithUpdates) {
+      if (!p.email) {
+        skipped.push({ id: p.id, name: p.name, company: p.company, reason: 'no_email' });
+      } else if (!isValidEmail(p.email)) {
+        skipped.push({ id: p.id, name: p.name, company: p.company, reason: 'invalid_email', email: p.email });
+      } else {
+        sendable.push(p);
+      }
+    }
+    
+    return { withEmail: sendable, skippedProspects: skipped };
+  }, [prospectsWithUpdates]);
+
+  // For backwards compatibility
+  const withoutEmail = skippedProspects;
+
+  // Validation: subject and body required
+  const validationErrors = useMemo(() => {
+    const errors: string[] = [];
+    if (!subject.trim()) errors.push('Subject is required');
+    if (!body.trim()) errors.push('Message body is required');
+    return errors;
+  }, [subject, body]);
+
+  const canSend = withEmail.length > 0 && validationErrors.length === 0;
 
   // Sample prospect for preview (first one with email)
   const sampleProspect = withEmail[0] || {
@@ -78,8 +159,71 @@ export function BulkEmailModal({
     );
   }, [subject, body, sampleProspect, templateId]);
 
+  // Handle inline email edit
+  const handleStartEmailEdit = useCallback((prospect: SkippedProspect) => {
+    setEditingEmailId(prospect.id);
+    setEmailInput(prospect.email || '');
+    setEmailError(null);
+  }, []);
+
+  const handleSaveEmail = useCallback(async (prospectId: string) => {
+    const trimmedEmail = emailInput.trim();
+    
+    if (!trimmedEmail) {
+      setEmailError('Email is required');
+      return;
+    }
+    
+    if (!isValidEmail(trimmedEmail)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+    
+    setIsSavingEmail(true);
+    setEmailError(null);
+    
+    try {
+      // Update locally for immediate UI feedback
+      setLocalEmailUpdates(prev => ({ ...prev, [prospectId]: trimmedEmail }));
+      
+      // Persist to backend if handler provided
+      if (onUpdateProspect) {
+        await onUpdateProspect(prospectId, { email: trimmedEmail });
+      }
+      
+      setEditingEmailId(null);
+      setEmailInput('');
+    } catch (err) {
+      setEmailError('Failed to save email. Please try again.');
+      // Rollback local update
+      setLocalEmailUpdates(prev => {
+        const updated = { ...prev };
+        delete updated[prospectId];
+        return updated;
+      });
+    } finally {
+      setIsSavingEmail(false);
+    }
+  }, [emailInput, onUpdateProspect]);
+
+  const handleCancelEmailEdit = useCallback(() => {
+    setEditingEmailId(null);
+    setEmailInput('');
+    setEmailError(null);
+  }, []);
+
+  // Get skip reason display text
+  const getSkipReasonText = (reason: SkipReason): string => {
+    switch (reason) {
+      case 'no_email': return 'No email';
+      case 'invalid_email': return 'Invalid email';
+      case 'in_sequence': return 'In active sequence';
+      default: return 'Unknown';
+    }
+  };
+
   const handleSubmit = async () => {
-    if (withEmail.length === 0) return;
+    if (!canSend) return;
     await onConfirm(subject, body, templateId);
   };
 
@@ -118,17 +262,121 @@ export function BulkEmailModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Warning for prospects without email */}
-          {withoutEmail.length > 0 && (
-            <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <LazyIcon name="AlertTriangle" className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          {/* Warning for skipped prospects with expandable list */}
+          {skippedProspects.length > 0 && modalState === 'composing' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowSkippedList(!showSkippedList)}
+                className="w-full flex items-center justify-between p-3 hover:bg-amber-100/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <LazyIcon name="AlertTriangle" className="h-5 w-5 text-amber-600 flex-shrink-0" />
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-amber-800">
+                      {skippedProspects.length} prospect{skippedProspects.length > 1 ? 's' : ''} will be skipped
+                    </p>
+                    <p className="text-xs text-amber-600">
+                      {onUpdateProspect ? 'Click to add missing emails' : 'Missing or invalid email addresses'}
+                    </p>
+                  </div>
+                </div>
+                <LazyIcon 
+                  name={showSkippedList ? 'ChevronUp' : 'ChevronDown'} 
+                  className="h-5 w-5 text-amber-600" 
+                />
+              </button>
+              
+              {showSkippedList && (
+                <div className="border-t border-amber-200 max-h-48 overflow-y-auto">
+                  {skippedProspects.map((prospect) => (
+                    <div 
+                      key={prospect.id}
+                      className="flex items-center justify-between px-3 py-2 border-b border-amber-100 last:border-b-0"
+                    >
+                      {editingEmailId === prospect.id ? (
+                        // Inline email edit mode
+                        <div className="flex-1 flex items-center gap-2">
+                          <input
+                            type="email"
+                            value={emailInput}
+                            onChange={(e) => {
+                              setEmailInput(e.target.value);
+                              if (emailError) setEmailError(null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveEmail(prospect.id);
+                              if (e.key === 'Escape') handleCancelEmailEdit();
+                            }}
+                            placeholder="email@company.com"
+                            className={`flex-1 text-sm px-2 py-1 border rounded focus:ring-2 focus:ring-blue-500 ${
+                              emailError ? 'border-red-400 bg-red-50' : 'border-slate-300'
+                            }`}
+                            autoFocus
+                            disabled={isSavingEmail}
+                          />
+                          <button
+                            onClick={() => handleSaveEmail(prospect.id)}
+                            disabled={isSavingEmail}
+                            className="p-1 text-green-600 hover:bg-green-50 rounded disabled:opacity-50"
+                            title="Save email"
+                          >
+                            {isSavingEmail ? (
+                              <LazyIcon name="Loader2" className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <LazyIcon name="Check" className="h-4 w-4" />
+                            )}
+                          </button>
+                          <button
+                            onClick={handleCancelEmailEdit}
+                            disabled={isSavingEmail}
+                            className="p-1 text-slate-400 hover:bg-slate-50 rounded disabled:opacity-50"
+                            title="Cancel"
+                          >
+                            <LazyIcon name="X" className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        // Display mode
+                        <>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-amber-800 truncate">
+                              {prospect.name}
+                            </p>
+                            <p className="text-xs text-amber-600 truncate">
+                              {prospect.company} • {getSkipReasonText(prospect.reason)}
+                              {prospect.email && <span className="ml-1">({prospect.email})</span>}
+                            </p>
+                          </div>
+                          {onUpdateProspect && prospect.reason !== 'in_sequence' && (
+                            <button
+                              onClick={() => handleStartEmailEdit(prospect)}
+                              className="text-xs text-blue-600 hover:text-blue-700 font-medium hover:bg-blue-50 px-2 py-1 rounded"
+                            >
+                              {prospect.reason === 'invalid_email' ? 'Fix email' : 'Add email'}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                  {emailError && (
+                    <p className="px-3 py-2 text-xs text-red-600 bg-red-50">{emailError}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Validation errors */}
+          {validationErrors.length > 0 && modalState === 'composing' && (
+            <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <LazyIcon name="AlertCircle" className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-amber-800">
-                  {withoutEmail.length} prospect{withoutEmail.length > 1 ? 's' : ''} will be skipped
-                </p>
-                <p className="text-xs text-amber-600 mt-0.5">
-                  These prospects don't have email addresses.
-                </p>
+                <p className="text-sm font-medium text-red-800">Please fix the following:</p>
+                <ul className="text-xs text-red-600 mt-1 list-disc list-inside">
+                  {validationErrors.map((err, i) => <li key={i}>{err}</li>)}
+                </ul>
               </div>
             </div>
           )}
@@ -210,18 +458,18 @@ export function BulkEmailModal({
           </div>
 
           {/* Progress indicator */}
-          {isSending && (
+          {modalState === 'sending' && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="font-medium text-blue-800">Sending emails...</span>
                 <span className="text-blue-600">
-                  {progress.sent} / {progress.total}
+                  {progress.sent + progress.failed} / {progress.total}
                 </span>
               </div>
               <div className="w-full bg-blue-200 rounded-full h-2.5 overflow-hidden">
                 <div 
                   className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                  style={{ width: `${progress.total > 0 ? (progress.sent / progress.total) * 100 : 0}%` }}
+                  style={{ width: `${progress.total > 0 ? ((progress.sent + progress.failed) / progress.total) * 100 : 0}%` }}
                 />
               </div>
               {progress.failed > 0 && (
@@ -231,38 +479,103 @@ export function BulkEmailModal({
               )}
             </div>
           )}
+
+          {/* Results display */}
+          {modalState === 'results' && progress.results && (
+            <div className="space-y-3">
+              {/* Summary */}
+              <div className={`p-4 rounded-lg border ${
+                progress.failed === 0 
+                  ? 'bg-green-50 border-green-200' 
+                  : 'bg-amber-50 border-amber-200'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <LazyIcon 
+                    name={progress.failed === 0 ? 'CheckCircle2' : 'AlertTriangle'} 
+                    className={`h-6 w-6 ${progress.failed === 0 ? 'text-green-600' : 'text-amber-600'}`} 
+                  />
+                  <div>
+                    <p className={`font-medium ${progress.failed === 0 ? 'text-green-800' : 'text-amber-800'}`}>
+                      {progress.failed === 0 
+                        ? `All ${progress.sent} emails sent successfully!`
+                        : `${progress.sent} sent, ${progress.failed} failed`
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Per-prospect results */}
+              <div className="border border-slate-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 sticky top-0">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium text-slate-600">Prospect</th>
+                      <th className="text-left px-3 py-2 font-medium text-slate-600">Email</th>
+                      <th className="text-left px-3 py-2 font-medium text-slate-600">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {progress.results.map((result) => (
+                      <tr key={result.prospectId} className="hover:bg-slate-50">
+                        <td className="px-3 py-2 text-slate-800">{result.prospectName}</td>
+                        <td className="px-3 py-2 text-slate-600 truncate max-w-[150px]">{result.email}</td>
+                        <td className="px-3 py-2">
+                          {result.success ? (
+                            <span className="inline-flex items-center gap-1 text-green-700">
+                              <LazyIcon name="Check" className="h-4 w-4" />
+                              Sent
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-red-600" title={result.error}>
+                              <LazyIcon name="X" className="h-4 w-4" />
+                              {result.error || 'Failed'}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t border-slate-200 bg-slate-50">
           <div className="text-sm text-slate-500">
-            <span className="font-medium text-slate-700">{withEmail.length}</span> emails will be sent
+            {modalState === 'results' ? (
+              <span>
+                <span className="font-medium text-green-700">{progress.sent}</span> sent
+                {progress.failed > 0 && (
+                  <>, <span className="font-medium text-red-600">{progress.failed}</span> failed</>
+                )}
+              </span>
+            ) : (
+              <span>
+                <span className="font-medium text-slate-700">{withEmail.length}</span> emails will be sent
+              </span>
+            )}
           </div>
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              disabled={isSending}
+              disabled={modalState === 'sending'}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
             >
-              Cancel
+              {modalState === 'results' ? 'Close' : 'Cancel'}
             </button>
-            <button
-              onClick={handleSubmit}
-              disabled={isSending || withEmail.length === 0}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {isSending ? (
-                <>
-                  <LazyIcon name="Loader2" className="h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <LazyIcon name="Send" className="h-4 w-4" />
-                  Send to {withEmail.length} prospects
-                </>
-              )}
-            </button>
+            {modalState === 'composing' && (
+              <button
+                onClick={handleSubmit}
+                disabled={!canSend}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <LazyIcon name="Send" className="h-4 w-4" />
+                Send to {withEmail.length} prospect{withEmail.length !== 1 ? 's' : ''}
+              </button>
+            )}
           </div>
         </div>
       </div>

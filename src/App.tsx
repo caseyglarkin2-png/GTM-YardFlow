@@ -876,8 +876,23 @@ export default function App() {
       // Use the hook's sendBatch which handles Railway vs local routing
       const result = await sendBatch(emails, token);
 
-      // Update progress from result
-      setBulkEmailProgress({ sent: result.sent, total: result.total, failed: result.failed });
+      // Build results with prospect names for display
+      const resultsWithNames = result.results.map(res => {
+        const prospect = eligibleProspects.find(p => p.id === res.prospectId);
+        return {
+          ...res,
+          prospectName: prospect?.name || 'Unknown',
+          email: prospect?.email || '',
+        };
+      });
+
+      // Update progress with full results for display in modal
+      setBulkEmailProgress({ 
+        sent: result.sent, 
+        total: result.total, 
+        failed: result.failed,
+        results: resultsWithNames,
+      });
 
       // Update prospect status for successful sends
       for (const res of result.results) {
@@ -887,7 +902,7 @@ export default function App() {
       }
 
       setIsSendingBulkEmail(false);
-      setBulkActionModal(null);
+      // Keep modal open to show results - user will close it
       clearSelection();
       
       if (result.sent > 0) {
@@ -2036,11 +2051,18 @@ export default function App() {
       {/* Sprint 22A: Bulk Email Modal */}
       <BulkEmailModal
         isOpen={bulkActionModal === 'email'}
-        onClose={() => setBulkActionModal(null)}
+        onClose={() => {
+          setBulkActionModal(null);
+          // Reset progress/results when closing
+          setBulkEmailProgress({ sent: 0, total: 0, failed: 0 });
+        }}
         onConfirm={handleBulkSendEmail}
         selectedProspects={selectedProspects}
         isSending={isSendingBulkEmail}
         progress={bulkEmailProgress}
+        onUpdateProspect={async (id, updates) => {
+          await updateProspect(id, updates);
+        }}
       />
 
       <BulkSequenceModal
