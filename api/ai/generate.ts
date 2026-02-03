@@ -106,12 +106,12 @@ export default async function handler(
         },
         body: JSON.stringify({
           type: 'email',
+          tone: body.tone,
+          goal: body.goal || 'Schedule a meeting to discuss yard operations',
           context: {
             prospectName: body.prospectName,
             companyName: body.companyName,
             title: body.title || '',
-            tone: body.tone,
-            goal: body.goal || 'Schedule a meeting to discuss yard operations',
           },
         }),
       }
