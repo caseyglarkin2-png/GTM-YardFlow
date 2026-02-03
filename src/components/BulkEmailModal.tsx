@@ -18,6 +18,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { LazyIcon } from './icons';
 import { EMAIL_TEMPLATES, personalizeTemplate, type EmailTemplate } from '../config/emailTemplates';
+import { TONE_OPTIONS, DEFAULT_TONE, getTone, type ToneId } from '../config/tones';
+import { CALENDLY_CONFIG } from '../config/calendly';
+import { useAIGenerate } from '../hooks/useAIGenerate';
 import { isValidEmail } from '../utils/emailValidator';
 import type { Prospect } from '../types';
 
@@ -73,12 +76,16 @@ export function BulkEmailModal({
   const [templateId, setTemplateId] = useState(EMAIL_TEMPLATES[0]?.id || 'intro_yardflow');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [selectedTone, setSelectedTone] = useState<ToneId>(DEFAULT_TONE);
   const [showPreview, setShowPreview] = useState(false);
   const [showSkippedList, setShowSkippedList] = useState(false);
   const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
   const [isSavingEmail, setIsSavingEmail] = useState(false);
+  
+  // AI generation hook
+  const { generate: generateAI, isGenerating, error: aiError, clearError: clearAIError } = useAIGenerate();
   
   // Track local email updates for immediate UI feedback
   const [localEmailUpdates, setLocalEmailUpdates] = useState<Record<string, string>>({});
@@ -221,6 +228,31 @@ export function BulkEmailModal({
       default: return 'Unknown';
     }
   };
+
+  // AI Content Generation Handler
+  const handleGenerateAI = useCallback(async () => {
+    const prospect = sampleProspect;
+    if (!prospect) return;
+
+    const result = await generateAI({
+      tone: selectedTone,
+      prospectName: prospect.name?.split(' ')[0] || 'there',
+      companyName: prospect.company || 'your company',
+      title: prospect.title,
+      goal: 'Schedule a meeting to discuss yard operations',
+    });
+
+    if (result.success) {
+      if (result.subject) setSubject(result.subject);
+      if (result.content) setBody(result.content);
+    }
+  }, [generateAI, selectedTone, sampleProspect]);
+
+  // Character count helpers for Luis tone warning
+  const currentTone = getTone(selectedTone);
+  const charCount = body.length;
+  const isOverLimit = currentTone?.charLimit && charCount > currentTone.charLimit;
+  const hasCalendlyLink = body.includes(CALENDLY_CONFIG.url) || body.toLowerCase().includes('calendly');
 
   const handleSubmit = async () => {
     if (!canSend) return;
@@ -381,21 +413,79 @@ export function BulkEmailModal({
             </div>
           )}
 
-          {/* Template Selector */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Email Template
-            </label>
-            <select
-              value={templateId}
-              onChange={(e) => setTemplateId(e.target.value)}
-              disabled={isSending}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100"
-            >
-              {EMAIL_TEMPLATES.map(t => (
-                <option key={t.id} value={t.id}>{t.label}</option>
-              ))}
-            </select>
+          {/* AI Error Display */}
+          {aiError && modalState === 'composing' && (
+            <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <LazyIcon name="AlertCircle" className="h-5 w-5 text-red-500 flex-shrink-0" />
+              <p className="text-sm text-red-700 flex-1">{aiError}</p>
+              <button
+                onClick={clearAIError}
+                className="p-1 text-red-400 hover:text-red-600 rounded"
+              >
+                <LazyIcon name="X" className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Template + Tone + Generate Row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Template Selector */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Template
+              </label>
+              <select
+                value={templateId}
+                onChange={(e) => setTemplateId(e.target.value)}
+                disabled={isSending || isGenerating}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100"
+              >
+                {EMAIL_TEMPLATES.map(t => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Tone Selector */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Tone
+              </label>
+              <select
+                value={selectedTone}
+                onChange={(e) => setSelectedTone(e.target.value as ToneId)}
+                disabled={isSending || isGenerating}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100"
+              >
+                {TONE_OPTIONS.map(t => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Generate AI Button */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                AI Generate
+              </label>
+              <button
+                onClick={handleGenerateAI}
+                disabled={isSending || isGenerating || !sampleProspect}
+                className="w-full px-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isGenerating ? (
+                  <>
+                    <LazyIcon name="Loader2" className="h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <LazyIcon name="Sparkles" className="h-4 w-4" />
+                    Generate ✨
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Subject Line */}
@@ -446,15 +536,38 @@ export function BulkEmailModal({
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                disabled={isSending}
+                disabled={isSending || isGenerating}
                 rows={10}
                 placeholder="Email body..."
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100 font-mono text-sm"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100 font-mono text-sm ${
+                  isOverLimit ? 'border-amber-400 bg-amber-50' : 'border-slate-300'
+                }`}
               />
             )}
-            <p className="text-xs text-slate-400 mt-1">
-              Available tokens: {'{first_name}'}, {'{name}'}, {'{company}'}, {'{title}'}
-            </p>
+            
+            {/* Copy Guardrails: Char count + Calendly indicator */}
+            <div className="flex items-center justify-between mt-1.5">
+              <p className="text-xs text-slate-400">
+                Tokens: {'{first_name}'}, {'{name}'}, {'{company}'}, {'{title}'}
+              </p>
+              <div className="flex items-center gap-3">
+                {/* Calendly indicator */}
+                <span className={`text-xs flex items-center gap-1 ${hasCalendlyLink ? 'text-green-600' : 'text-slate-400'}`}>
+                  <LazyIcon name="Calendar" className="h-3 w-3" />
+                  {hasCalendlyLink ? 'Calendly ✓' : 'No Calendly'}
+                </span>
+                
+                {/* Character count */}
+                {currentTone?.charLimit && (
+                  <span className={`text-xs font-mono ${
+                    isOverLimit ? 'text-amber-600 font-medium' : 'text-slate-400'
+                  }`}>
+                    {charCount}/{currentTone.charLimit}
+                    {isOverLimit && ' ⚠️'}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Progress indicator */}
