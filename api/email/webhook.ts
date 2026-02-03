@@ -167,7 +167,8 @@ async function processEvent(event: SendGridWebhookEvent): Promise<void> {
       }
       break;
     case 'bounce': {
-      const bounceType = compliance.classifyBounce(event);
+      const classifiedBounce = compliance.classifyBounce(event);
+      const bounceType = classifiedBounce === 'unknown' ? undefined : classifiedBounce;
       await compliance.addToSuppressionList({
         email: prospectEmail,
         reason: 'bounce',
