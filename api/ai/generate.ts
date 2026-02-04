@@ -57,13 +57,6 @@ export default async function handler(
     return;
   }
 
-  // Check auth (require Firebase token for user identification)
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    res.status(401).json({ success: false, error: 'Authentication required' });
-    return;
-  }
-
   // Check Railway secret is configured
   if (!RAILWAY_API_SECRET) {
     console.error('[AI Generate] RAILWAY_API_SECRET not configured');
