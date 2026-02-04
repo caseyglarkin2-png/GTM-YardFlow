@@ -3,6 +3,8 @@ import { Loader } from 'lucide-react';
 import { LazyIcon } from '../icons';
 import { ConversationManagerSingleton } from '../../services/ConversationManager';
 import { buildSystemPrompt } from '../../services/SystemPromptBuilder';
+import { useBrainActions } from '../../hooks/useBrainActions';
+import { parseActionsFromResponse } from '../../types/brainActions';
 import type { Prospect, ChatMessage } from '../../types';
 
 // Singleton instance
@@ -19,9 +21,32 @@ interface ChatPanelProps {
   selectedProspect: Prospect | null;
   stats: ChatStats;
   geminiApiKey?: string;  // Deprecated - AI routes through Railway
+  /** Prospects list for selection actions */
+  prospects?: Prospect[];
+  /** Callbacks for brain actions */
+  onNavigate?: (tab: string) => void;
+  onFilter?: (filters: Record<string, unknown>) => void;
+  onSelect?: (prospectIds: string[]) => void;
+  onOpenModal?: (modal: string, data?: Record<string, unknown>) => void;
 }
 
-export function ChatPanel({ selectedProspect, stats }: ChatPanelProps) {
+export function ChatPanel({ 
+  selectedProspect, 
+  stats, 
+  prospects = [],
+  onNavigate,
+  onFilter,
+  onSelect,
+  onOpenModal,
+}: ChatPanelProps) {
+  // Brain actions hook
+  const { processResponse } = useBrainActions({
+    prospects: prospects.map(p => ({ id: p.id, tier: p.tier, email: p.email })),
+    onNavigate,
+    onFilter,
+    onSelect,
+    onOpenModal,
+  });
   // Local state
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>(() => {
     const persisted = conversationManager.getHistory();
@@ -114,12 +139,27 @@ export function ChatPanel({ selectedProspect, stats }: ChatPanelProps) {
 
       const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm not sure how to respond to that.";
       
-      setChatHistory(prev => [...prev, { role: 'model', text: reply }]);
+      // Parse for actions and execute them
+      const parsed = parseActionsFromResponse(reply);
+      const displayText = parsed.text || reply;
+      
+      // Execute any actions in the response
+      if (parsed.actions && parsed.actions.length > 0) {
+        console.log('[Brain] Executing actions:', parsed.actions);
+        processResponse(parsed).then(result => {
+          const failedActions = result.results.filter(r => !r.success);
+          if (failedActions.length > 0) {
+            console.warn('[Brain] Some actions failed:', failedActions);
+          }
+        });
+      }
+      
+      setChatHistory(prev => [...prev, { role: 'model', text: displayText }]);
       
       // Persist model response
       conversationManager.addMessage({
         role: 'model',
-        content: reply,
+        content: displayText,
         timestamp: Date.now()
       });
 
