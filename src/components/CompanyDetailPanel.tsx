@@ -5,9 +5,10 @@
  * Used when in company-centric view mode.
  * 
  * Sprint 72: T72.3 - Company Detail Panel
+ * Sprint 30: B3.3 - Added Dossier tab with AI research
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Building2,
   Users,
@@ -26,7 +27,10 @@ import {
   CheckCircle,
   Clock,
   ArrowLeft,
+  FileText,
 } from 'lucide-react';
+import { DossierPanel } from './panels/DossierPanel';
+import type { CompanyResearchResult } from '../services/CompanyResearchService';
 import type { CompanyRow } from '../services/CompanyAggregator';
 import type { Prospect } from '../types';
 import type { CompanyTier } from '../types/marketing';
@@ -38,7 +42,12 @@ interface CompanyDetailPanelProps {
   onQueueOutreach?: (company: CompanyRow, contacts: Prospect[]) => void;
   isResearching?: boolean;
   onBack?: () => void;
+  /** AI research results for the company dossier */
+  research?: CompanyResearchResult | null;
 }
+
+/** Tabs available in company detail */
+type DetailTab = 'overview' | 'dossier';
 
 // Tier badge colors
 const tierColors: Record<CompanyTier, string> = {
@@ -56,9 +65,18 @@ export function CompanyDetailPanel({
   onQueueOutreach,
   isResearching = false,
   onBack,
+  research = null,
 }: CompanyDetailPanelProps) {
   const [showAllContacts, setShowAllContacts] = useState(false);
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+
+  // Reset tab when company changes
+  useEffect(() => {
+    setActiveTab('overview');
+    setSelectedContactIds(new Set());
+    setShowAllContacts(false);
+  }, [company.company]);
 
   // Format ROI as currency
   const formatROI = (roi: number | null): string => {
@@ -170,6 +188,63 @@ export function CompanyDetailPanel({
         </div>
       </div>
 
+      {/* Tab Navigation */}
+      <div className="px-6 border-b border-slate-200 bg-white">
+        <nav className="flex gap-1" aria-label="Company detail tabs" role="tablist">
+          <button
+            role="tab"
+            aria-selected={activeTab === 'overview'}
+            aria-controls="tab-panel-overview"
+            id="tab-overview"
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'overview'
+                ? 'text-blue-600 border-blue-600'
+                : 'text-slate-500 border-transparent hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Overview
+            </span>
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'dossier'}
+            aria-controls="tab-panel-dossier"
+            id="tab-dossier"
+            onClick={() => setActiveTab('dossier')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'dossier'
+                ? 'text-blue-600 border-blue-600'
+                : 'text-slate-500 border-transparent hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              AI Dossier
+              {research?.success && (
+                <span className="flex h-2 w-2 rounded-full bg-green-500" title="Research available" />
+              )}
+            </span>
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'dossier' ? (
+        <div id="tab-panel-dossier" role="tabpanel" aria-labelledby="tab-dossier" className="flex-1 overflow-y-auto">
+          <DossierPanel
+            companyName={company.company}
+            research={research}
+            contacts={company.contacts}
+            isLoading={isResearching}
+            onResearch={() => onResearchClick?.(company)}
+            onContactClick={onContactSelect}
+          />
+        </div>
+      ) : (
+        <div id="tab-panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="flex-1 flex flex-col overflow-hidden">
       {/* Key Metrics Grid */}
       <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -405,6 +480,8 @@ export function CompanyDetailPanel({
           </button>
         )}
       </div>
+      </div>
+      )}
 
       {/* Action Footer */}
       <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">

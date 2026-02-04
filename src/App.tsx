@@ -1931,7 +1931,46 @@ export default function App() {
               )}
               {activeTab === 'assistant' && (
                 <ErrorBoundary name="AI Assistant">
-                  <ChatPanel selectedProspect={selectedProspect} stats={stats} />
+                  <ChatPanel 
+                    selectedProspect={selectedProspect} 
+                    stats={stats}
+                    prospects={filteredProspects}
+                    onNavigate={(tab) => setActiveTab(tab as TabId)}
+                    onFilter={(filters) => {
+                      // Map brain filter format to app filter state
+                      if (filters.tier) {
+                        const tierMap: Record<string, 'All' | 'Tier 1' | 'Tier 2' | 'Tier 3'> = {
+                          'T1': 'Tier 1',
+                          'T2': 'Tier 2', 
+                          'T3': 'Tier 3',
+                          'all': 'All',
+                        };
+                        setTierFilter(tierMap[filters.tier as string] || 'All');
+                      }
+                      if (typeof filters.hasEmail === 'boolean') {
+                        setEmailFilter(filters.hasEmail ? 'has_email' : 'no_email');
+                      }
+                      // Navigate to prospects tab to show filtered results
+                      setActiveTab('prospects');
+                    }}
+                    onSelect={(prospectIds) => {
+                      // Clear current selection and select new ones
+                      clearSelection();
+                      prospectIds.forEach(id => toggleSelection(id));
+                      // Navigate to prospects to show selection
+                      setActiveTab('prospects');
+                    }}
+                    onOpenModal={(modal, data) => {
+                      // Map modal names to app modals
+                      if (modal === 'bulkEmail') {
+                        setBulkActionModal('email');
+                      } else if (modal === 'sequenceBuilder') {
+                        setBulkActionModal('sequence');
+                      }
+                      // Navigate to prospects tab
+                      setActiveTab('prospects');
+                    }}
+                  />
                 </ErrorBoundary>
               )}
               {activeTab === 'roi' && (

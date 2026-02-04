@@ -191,5 +191,26 @@ service cloud.firestore {
       // Only Cloud Functions can write here
       allow write: if false;
     }
+    
+    // ==========================================================================
+    // Company Research Cache (shared across tenants - B3.4)
+    // Sprint V30: Caches AI research results to reduce API costs
+    // ==========================================================================
+    
+    match /company_research_cache/{cacheKey} {
+      // Any authenticated user can read cached research
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can create/update cache entries
+      // Validate required fields and structure
+      allow create, update: if isAuthenticated()
+        && request.resource.data.keys().hasAll(['success', 'companyName', 'researchedAt'])
+        && request.resource.data.companyName is string
+        && request.resource.data.companyName.size() <= 200
+        && request.resource.data.success is bool;
+        
+      // No client-side deletes - use TTL cleanup or admin API
+      allow delete: if false;
+    }
   }
 }

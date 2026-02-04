@@ -5,8 +5,11 @@
  * Researches companies on-demand to populate Primo Lookalike scoring fields.
  * 
  * Sprint 58: On-demand company research with Gemini
+ * Sprint 30: B3.4 - Firestore caching for research results
  */
 
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import type { EnrichedCompany } from '../types/marketing';
 import {
   type IndustryCategory,
@@ -52,6 +55,13 @@ export interface ResearchedCompanyData {
   parentCompany?: string;
   keyProducts?: string[];
   revenueEstimate?: string;
+  // B3.1: Enhanced dossier fields
+  talkingPoints?: string[];
+  competitors?: string[];
+  recentNews?: string[];
+  decisionMakers?: string[];
+  yardPainPoints?: string[];
+  detentionChargeRisk?: 'high' | 'medium' | 'low';
 }
 
 export interface ResearchConfidence {
@@ -98,6 +108,125 @@ const IS_MOCK_MODE = import.meta.env.VITE_AI_MOCK === 'true' ||
 // if (import.meta.env.MODE === 'production' && IS_MOCK_MODE) {
 //   console.error('[CompanyResearchService] Running in mock mode in production');
 // }
+
+// ============================================
+// B3.4: Firestore Caching Configuration
+// ============================================
+
+const CACHE_CONFIG = {
+  /** Collection name for research cache */
+  collection: 'company_research_cache',
+  /** Cache TTL in milliseconds (7 days) */
+  ttlMs: 7 * 24 * 60 * 60 * 1000,
+  /** Skip cache if research older than this */
+  maxAgeMs: 7 * 24 * 60 * 60 * 1000,
+} as const;
+
+/**
+ * Generate a normalized cache key from company name
+ * Uses consistent normalization + short hash to prevent collisions
+ */
+function getCacheKey(companyName: string): string {
+  // Normalize the company name
+  const normalized = companyName
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]/g, '_')
+    .replace(/_+/g, '_')  // Collapse multiple underscores
+    .replace(/^_|_$/g, '') // Trim leading/trailing underscores
+    .substring(0, 80);
+  
+  // Add short hash to prevent collisions (e.g., "ABC Inc." vs "ABC Inc")
+  const hash = companyName
+    .toLowerCase()
+    .trim()
+    .split('')
+    .reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0)
+    .toString(36)
+    .replace('-', '')
+    .slice(-6);
+  
+  return `${normalized}_${hash}`;
+}
+
+/**
+ * Check if cached research is still valid
+ */
+function isCacheValid(cachedAt: Date | { toDate: () => Date } | undefined): boolean {
+  if (!cachedAt) return false;
+  
+  const cachedDate = cachedAt instanceof Date ? cachedAt : cachedAt.toDate();
+  const ageMs = Date.now() - cachedDate.getTime();
+  
+  return ageMs < CACHE_CONFIG.maxAgeMs;
+}
+
+/**
+ * Get cached research for a company
+ */
+async function getCachedResearch(companyName: string): Promise<CompanyResearchResult | null> {
+  // Skip caching if Firestore not available
+  if (!db) {
+    return null;
+  }
+  
+  try {
+    const cacheKey = getCacheKey(companyName);
+    const docRef = doc(db, CACHE_CONFIG.collection, cacheKey);
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) {
+      return null;
+    }
+    
+    const data = docSnap.data();
+    
+    // Check if cache is still valid
+    if (!isCacheValid(data.cachedAt)) {
+      console.log(`[ResearchCache] Cache expired for ${companyName}`);
+      return null;
+    }
+    
+    console.log(`[ResearchCache] Cache hit for ${companyName}`);
+    return {
+      success: data.success,
+      companyName: data.companyName,
+      researchedAt: data.researchedAt?.toDate?.() || new Date(data.researchedAt),
+      data: data.data,
+      sources: data.sources,
+      confidence: data.confidence,
+    } as CompanyResearchResult;
+  } catch (error) {
+    console.warn('[ResearchCache] Cache read error:', error);
+    return null;
+  }
+}
+
+/**
+ * Save research to cache
+ */
+async function cacheResearch(result: CompanyResearchResult): Promise<void> {
+  // Skip caching if Firestore not available
+  if (!db) {
+    return;
+  }
+  
+  try {
+    const cacheKey = getCacheKey(result.companyName);
+    const docRef = doc(db, CACHE_CONFIG.collection, cacheKey);
+    
+    await setDoc(docRef, {
+      ...result,
+      researchedAt: result.researchedAt,
+      cachedAt: serverTimestamp(),
+    });
+    
+    console.log(`[ResearchCache] Cached research for ${result.companyName}`);
+  } catch (error) {
+    // Non-blocking - cache failure shouldn't break research
+    console.warn('[ResearchCache] Cache write error:', error);
+  }
+}
 
 // ============================================
 // Prompt Templates
@@ -354,6 +483,7 @@ export function parseResearchResponse(rawResponse: string): {
 /**
  * Research a single company using the Railway AI proxy
  * Sprint 30: Refactored to call /api/ai/research instead of Gemini directly
+ * Sprint 30 B3.4: Added Firestore caching
  */
 export async function researchCompany(
   request: CompanyResearchRequest
@@ -367,6 +497,14 @@ export async function researchCompany(
       researchedAt: new Date(),
       error: 'Company name is required',
     };
+  }
+
+  // B3.4: Check cache first (skip for mock mode)
+  if (!IS_MOCK_MODE) {
+    const cached = await getCachedResearch(companyName);
+    if (cached) {
+      return cached;
+    }
   }
 
   try {
@@ -426,9 +564,16 @@ export async function researchCompany(
       parentCompany: result.data?.parentCompany,
       keyProducts: result.data?.keyProducts,
       revenueEstimate: result.data?.revenueEstimate,
+      // B3.1: Enhanced dossier fields
+      talkingPoints: result.data?.talkingPoints,
+      competitors: result.data?.competitors,
+      recentNews: result.data?.recentNews,
+      decisionMakers: result.data?.decisionMakers,
+      yardPainPoints: result.data?.yardPainPoints,
+      detentionChargeRisk: result.data?.detentionChargeRisk,
     };
 
-    return {
+    const researchResult: CompanyResearchResult = {
       success: true,
       companyName,
       researchedAt: new Date(result.researchedAt || Date.now()),
@@ -436,6 +581,11 @@ export async function researchCompany(
       sources: result.sources || [],
       confidence: result.confidence || generateMockConfidence(),
     };
+
+    // B3.4: Cache successful research (non-blocking)
+    void cacheResearch(researchResult);
+
+    return researchResult;
   } catch (error) {
     return {
       success: false,

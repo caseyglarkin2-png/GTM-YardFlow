@@ -80,6 +80,21 @@ export interface ScrollAction extends BaseAction {
   prospectId?: string;
 }
 
+/**
+ * Railway AI Action format (Sprint 31)
+ * This is the action format returned by Railway's /api/ai/chat endpoint.
+ * It gets mapped to BrainAction in ChatPanel via mapRailwayAction.
+ */
+export interface RailwayAIAction {
+  type: 'navigate' | 'filter' | 'select' | 'research' | 'email' | 'explain';
+  destination?: string;
+  tier?: string;
+  hasEmail?: boolean;
+  personId?: string;
+  accountId?: string;
+  companyName?: string;
+}
+
 /** Union of all brain actions */
 export type BrainAction = 
   | NavigateAction
