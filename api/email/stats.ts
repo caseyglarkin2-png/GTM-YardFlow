@@ -2,8 +2,15 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAdminAuth, getAdminDb } from '../../lib/firebaseAdmin';
 import { logger } from '../../lib/logger';
 
-const db = getAdminDb();
-const auth = getAdminAuth();
+// Lazy init to avoid cold start issues
+let db: ReturnType<typeof getAdminDb> | null = null;
+let auth: ReturnType<typeof getAdminAuth> | null = null;
+
+function initFirebase() {
+  if (!db) db = getAdminDb();
+  if (!auth) auth = getAdminAuth();
+  return { db, auth };
+}
 
 /**
  * Email Statistics API
@@ -17,6 +24,7 @@ const auth = getAdminAuth();
  * - startDate: ISO date string (default: 30 days ago)
  * - endDate: ISO date string (default: now)
  * - groupBy: 'day' | 'week' | 'month' (default: 'day')
+ * - health: 'true' - Returns basic health status without auth
  */
 
 export interface EmailStats {
@@ -56,6 +64,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
+
+  // Public health check mode - no auth required
+  const isHealthCheck = req.query.health === 'true';
+  if (isHealthCheck) {
+    res.status(200).json({
+      status: 'ok',
+      endpoint: 'email-stats',
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
+
+  // Initialize Firebase only for authenticated requests
+  const { db, auth } = initFirebase();
 
   // Authenticate user or service
   const authHeader = req.headers.authorization;
