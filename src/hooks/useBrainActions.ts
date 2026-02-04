@@ -14,6 +14,7 @@ import type {
   ActionResult, 
   BrainResponse,
 } from '@/types/brainActions';
+import { validateAction } from '@/types/brainActions';
 
 interface UseBrainActionsOptions {
   /** Callback when navigation occurs */
@@ -61,6 +62,16 @@ export function useBrainActions(options: UseBrainActionsOptions = {}): UseBrainA
    * Execute a single brain action
    */
   const executeAction = useCallback(async (action: BrainAction): Promise<ActionResult> => {
+    // Validate action structure before execution
+    if (!validateAction(action)) {
+      console.warn('[Brain] Invalid action structure:', action);
+      return { 
+        success: false, 
+        action, 
+        error: 'Invalid action structure' 
+      };
+    }
+
     try {
       switch (action.type) {
         case 'navigate': {
@@ -132,7 +143,9 @@ export function useBrainActions(options: UseBrainActionsOptions = {}): UseBrainA
               break;
             case 'prospect':
               if (action.prospectId) {
-                const element = document.querySelector(`[data-prospect-id="${action.prospectId}"]`);
+                // Escape the ID to prevent XSS via CSS selector
+                const safeId = CSS.escape(action.prospectId);
+                const element = document.querySelector(`[data-prospect-id="${safeId}"]`);
                 element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
               break;

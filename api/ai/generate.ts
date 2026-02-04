@@ -47,6 +47,18 @@ export interface GenerateResponse {
   };
 }
 
+/**
+ * Sanitize user input to prevent prompt injection
+ * Removes special characters that could break JSON or inject instructions
+ */
+function sanitizeInput(input: string, maxLength = 200): string {
+  return input
+    .replace(/[<>{}[\]\\]/g, '') // Remove brackets and backslashes
+    .replace(/\n+/g, ' ')        // Collapse newlines
+    .substring(0, maxLength)      // Limit length
+    .trim();
+}
+
 export default async function handler(
   req: VercelRequest, 
   res: VercelResponse
@@ -54,6 +66,13 @@ export default async function handler(
   // Only POST allowed
   if (req.method !== 'POST') {
     res.status(405).json({ success: false, error: 'Method not allowed' });
+    return;
+  }
+
+  // Check auth (require Firebase token or similar)
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({ success: false, error: 'Authentication required' });
     return;
   }
 
@@ -94,6 +113,12 @@ export default async function handler(
       company: body.companyName 
     });
 
+    // Sanitize user inputs to prevent prompt injection
+    const safeName = sanitizeInput(body.prospectName);
+    const safeCompany = sanitizeInput(body.companyName);
+    const safeTitle = sanitizeInput(body.title || 'Unknown');
+    const safeGoal = sanitizeInput(body.goal || 'Schedule a meeting to discuss yard operations', 300);
+
     // Build prompt for email generation
     const toneDescriptions: Record<string, string> = {
       luis: 'Conversational, warm, slightly casual. Mention yard chaos and specific pain points.',
@@ -104,11 +129,11 @@ export default async function handler(
     const message = `Generate a cold outreach email for a sales prospect.
 
 PROSPECT INFO:
-- Name: ${body.prospectName}
-- Company: ${body.companyName}
-- Title: ${body.title || 'Unknown'}
+- Name: ${safeName}
+- Company: ${safeCompany}
+- Title: ${safeTitle}
 
-EMAIL GOAL: ${body.goal || 'Schedule a meeting to discuss yard operations'}
+EMAIL GOAL: ${safeGoal}
 
 TONE: ${body.tone} - ${toneDescriptions[body.tone]}
 
