@@ -54,6 +54,10 @@ import type {
   CreateTemplateRequest,
   UpdateTemplateRequest,
   RailwayUser,
+  // Activity types (T4.2)
+  RailwayActivity,
+  ActivityListParams,
+  PaginatedActivityResponse,
 } from '@/types/railway';
 import {
   toRailwayCreateRequest,
@@ -788,6 +792,50 @@ class RailwayApiClient {
      */
     delete: async (id: UUID): Promise<RailwayApiResult<void>> => {
       return this.delete(`/templates/${id}`);
+    },
+  };
+
+  // ===========================================================================
+  // Activity API (T4.2)
+  // ===========================================================================
+
+  activity = {
+    /**
+     * List activities with optional filters
+     * Supports cursor-based pagination for efficient timeline scrolling
+     */
+    list: async (params: ActivityListParams = {}): Promise<RailwayApiResult<PaginatedActivityResponse>> => {
+      const queryParams: Record<string, string | number | boolean | undefined> = {};
+      
+      if (params.prospectId) queryParams.prospectId = params.prospectId;
+      if (params.accountId) queryParams.accountId = params.accountId;
+      if (params.type) queryParams.type = params.type;
+      if (params.limit) queryParams.limit = params.limit;
+      if (params.cursor) queryParams.cursor = params.cursor;
+      
+      return this.get<PaginatedActivityResponse>('/activity', queryParams);
+    },
+
+    /**
+     * Get a single activity by ID
+     */
+    get: async (id: UUID): Promise<RailwayApiResult<RailwayActivity>> => {
+      return this.get(`/activity/${id}`);
+    },
+
+    /**
+     * Get activities for a specific prospect
+     * Convenience wrapper around list()
+     */
+    forProspect: async (
+      prospectId: UUID, 
+      options: { limit?: number; cursor?: string } = {}
+    ): Promise<RailwayApiResult<PaginatedActivityResponse>> => {
+      return this.activity.list({ 
+        prospectId, 
+        limit: options.limit ?? 10,
+        cursor: options.cursor,
+      });
     },
   };
 

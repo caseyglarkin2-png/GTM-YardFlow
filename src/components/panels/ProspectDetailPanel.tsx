@@ -6,6 +6,8 @@ import { copyToClipboard } from '../../services/ClipboardService';
 import { EmailQualityBadge } from '../EmailQualityBadge';
 import { SequenceEnrollmentBadge } from '../SequenceEnrollmentBadge';
 import type { ProspectEnrollmentInfo } from '../../hooks/useSequenceEnrollment';
+import { useProspectActivity, formatActivityType, getActivityIcon } from '../../hooks/useProspectActivity';
+import { featureFlags } from '../../config/featureFlags';
 
 // Email validation regex
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -36,6 +38,17 @@ export function ProspectDetailPanel({
   const [emailInput, setEmailInput] = useState(prospect.email || '');
   const [emailError, setEmailError] = useState<string | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [showActivityTimeline, setShowActivityTimeline] = useState(false);
+
+  // T4.1/T4.6: Activity timeline with pagination
+  const {
+    activities,
+    isLoading: isLoadingActivities,
+    isLoadingMore,
+    hasMore,
+    loadMore,
+    error: activityError,
+  } = useProspectActivity(prospect.id, { pageSize: 5 });
 
   const templates = useMemo(() => 
     getTemplates(prospect, currentUser === 'Me' ? 'The FreightRoll Team' : 'Jake'),
@@ -197,6 +210,68 @@ export function ProspectDetailPanel({
                  <SequenceEnrollmentBadge enrollment={enrollment ?? null} />
             </div>
         </div>
+
+        {/* T4.1/T4.6: Activity Timeline (only when Railway enabled) */}
+        {featureFlags.RAILWAY_ENABLED && (
+          <div className="space-y-2">
+            <button
+              onClick={() => setShowActivityTimeline(!showActivityTimeline)}
+              className="w-full flex items-center justify-between text-xs font-semibold text-slate-500 uppercase hover:text-slate-700"
+            >
+              <span className="flex items-center gap-1.5">
+                <LazyIcon name="Activity" className="h-3.5 w-3.5" />
+                Activity Timeline
+              </span>
+              <LazyIcon 
+                name={showActivityTimeline ? 'ChevronUp' : 'ChevronDown'} 
+                className="h-4 w-4" 
+              />
+            </button>
+
+            {showActivityTimeline && (
+              <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                {isLoadingActivities ? (
+                  <div className="flex items-center justify-center py-4">
+                    <LazyIcon name="Loader" className="h-5 w-5 animate-spin text-slate-400" />
+                  </div>
+                ) : activityError ? (
+                  <p className="text-xs text-slate-400 text-center py-2">{activityError}</p>
+                ) : activities.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-2">No activity yet</p>
+                ) : (
+                  <div className="space-y-2">
+                    {activities.map((activity) => (
+                      <div key={activity.id} className="flex items-start gap-2 text-xs">
+                        <span className="text-base leading-none mt-0.5">{getActivityIcon(activity.type)}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-slate-700">{formatActivityType(activity.type)}</p>
+                          <p className="text-slate-400">
+                            {new Date(activity.createdAt).toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {hasMore && (
+                      <button
+                        onClick={loadMore}
+                        disabled={isLoadingMore}
+                        className="w-full text-xs text-blue-600 hover:text-blue-700 py-1.5 disabled:text-slate-400"
+                      >
+                        {isLoadingMore ? 'Loading...' : 'Load more'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Message Generator */}
         <div className="space-y-2">

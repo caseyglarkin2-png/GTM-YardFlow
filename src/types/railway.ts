@@ -603,6 +603,58 @@ export interface UpdateTemplateRequest {
 }
 
 // =============================================================================
+// Activity Types (T4.2)
+// =============================================================================
+
+/** Activity event types */
+export type ActivityType =
+  | 'email_sent'
+  | 'email_opened'
+  | 'email_clicked'
+  | 'email_bounced'
+  | 'email_replied'
+  | 'meeting_booked'
+  | 'meeting_completed'
+  | 'sequence_enrolled'
+  | 'sequence_completed'
+  | 'sequence_paused'
+  | 'note_added'
+  | 'status_changed';
+
+/** Activity record from Railway */
+export interface RailwayActivity extends Timestamps {
+  id: UUID;
+  type: ActivityType;
+  prospectId: UUID;
+  accountId?: UUID;
+  metadata?: Record<string, unknown>;
+  /** User who triggered the activity (if applicable) */
+  actorId?: UUID;
+  /** Related email ID (if applicable) */
+  emailId?: UUID;
+  /** Related sequence ID (if applicable) */
+  sequenceId?: UUID;
+  /** Related enrollment ID (if applicable) */
+  enrollmentId?: UUID;
+}
+
+/** Params for listing activities */
+export interface ActivityListParams {
+  prospectId?: UUID;
+  accountId?: UUID;
+  type?: ActivityType;
+  limit?: number;
+  cursor?: string;
+}
+
+/** Paginated activity response with cursor */
+export interface PaginatedActivityResponse {
+  items: RailwayActivity[];
+  nextCursor?: string;
+  hasMore: boolean;
+}
+
+// =============================================================================
 // API Response Wrappers
 // =============================================================================
 
