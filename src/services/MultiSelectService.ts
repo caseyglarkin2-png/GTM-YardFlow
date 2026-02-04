@@ -192,6 +192,8 @@ export class MultiSelectService<T = string> {
 
   /**
    * Toggle selection of a single item
+   * With extend: true, toggles the item while keeping other selections
+   * Without extend, replaces the entire selection
    */
   toggle(id: T, options?: { extend?: boolean }): void {
     const event: SelectionEvent<T> = {
@@ -201,17 +203,17 @@ export class MultiSelectService<T = string> {
     };
 
     if (this.state.selectedIds.has(id)) {
+      // Deselecting - check if we can allow empty
       if (!this.config.allowEmpty && this.state.selectedIds.size === 1) {
         return;
       }
       this.state.selectedIds.delete(id);
     } else {
-      if (options?.extend) {
-        this.state.selectedIds.add(id);
-      } else {
+      // Selecting - extend mode adds to selection, otherwise replaces
+      if (!options?.extend) {
         this.state.selectedIds.clear();
-        this.state.selectedIds.add(id);
       }
+      this.state.selectedIds.add(id);
     }
 
     this.state.lastSelectedId = id;
@@ -373,14 +375,19 @@ export class MultiSelectService<T = string> {
 
   /**
    * Handle click selection with modifiers
+   * 
+   * For checkboxes (used in list rows):
+   * - Plain click: Toggle this item while keeping other selections (extend mode)
+   * - Shift+click: Select range from anchor to this item
+   * - Ctrl/Cmd+click: Same as plain click (toggle)
    */
   handleClick(id: T, event: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean }): void {
     if (event.shiftKey && this.state.anchorId !== null) {
       this.selectRange(this.state.anchorId, id);
-    } else if (event.ctrlKey || event.metaKey) {
-      this.toggle(id, { extend: true });
     } else {
-      this.select(id);
+      // Always toggle with extend mode for checkbox behavior
+      // This keeps existing selections when clicking a new checkbox
+      this.toggle(id, { extend: true });
     }
   }
 
