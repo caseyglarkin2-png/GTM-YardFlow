@@ -1,19 +1,21 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { railwayServerClient } from '../../lib/railway-client';
 
 /**
  * AI Chat Proxy Endpoint
  * 
- * Sprint 30: Refactored to proxy through Railway backend
+ * Sprint 30: Routes all AI through Railway backend
  * 
- * All AI calls route through Railway which has the AI keys.
- * This endpoint:
- * 1. Receives chat request from frontend
- * 2. Forwards to Railway's AI content/chat endpoint
- * 3. Returns Railway's response
- * 
- * Auth: Uses S2S auth via RAILWAY_API_SECRET
+ * CRITICAL: DO NOT add AI keys to Vercel
+ * All AI calls route through Railway which handles Gemini/OpenAI
  */
+
+// Inline config - no external imports to avoid initialization errors
+const RAILWAY_API_URL = process.env.RAILWAY_API_URL?.trim() || '';
+const RAILWAY_API_SECRET = (
+  process.env.RAILWAY_API_SECRET || 
+  process.env.SERVICE_TO_SERVICE_SECRET || 
+  process.env.CRON_SECRET
+)?.trim() || '';
 
 interface ChatRequest {
   contents: Array<{
@@ -23,111 +25,108 @@ interface ChatRequest {
   systemInstruction?: {
     parts: Array<{ text: string }>;
   };
-  /** Optional: type of chat (defaults to 'general') */
-  type?: 'general' | 'research' | 'email' | 'analysis';
+  context?: {
+    pageContext?: string;
+    selectedProspects?: number;
+  };
 }
 
-interface RailwayChatRequest {
-  type: 'chat';
-  messages: Array<{
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-  }>;
-  systemPrompt?: string;
-}
-
-interface RailwayChatResponse {
-  success: boolean;
-  content?: string;
-  error?: string;
-  provider?: 'gemini' | 'openai';
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+export default async function handler(
+  req: VercelRequest, 
+  res: VercelResponse
+): Promise<void> {
+  // Method check
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
 
-  try {
-    const { contents, systemInstruction } = req.body as ChatRequest;
+  // Config check
+  if (!RAILWAY_API_URL) {
+    res.status(503).json({ 
+      error: 'Service not configured',
+      message: 'RAILWAY_API_URL not set'
+    });
+    return;
+  }
 
-    if (!contents || !Array.isArray(contents)) {
+  if (!RAILWAY_API_SECRET) {
+    res.status(503).json({ 
+      error: 'Service not configured',
+      message: 'RAILWAY_API_SECRET not set'
+    });
+    return;
+  }
+
+  try {
+    const body = req.body as ChatRequest;
+    
+    if (!body.contents || !Array.isArray(body.contents)) {
       res.status(400).json({ error: 'Missing or invalid contents array' });
       return;
     }
 
-    // Convert Gemini-style format to Railway format
-    const messages = contents.map(c => ({
-      role: c.role === 'model' ? 'assistant' as const : c.role as 'user' | 'assistant',
+    // Convert Gemini format to Railway format
+    const messages = body.contents.map(c => ({
+      role: c.role === 'model' ? 'assistant' : c.role,
       content: c.parts.map(p => p.text).join('\n'),
     }));
 
-    // Add system prompt if provided
-    const systemPrompt = systemInstruction?.parts.map(p => p.text).join('\n');
+    const systemPrompt = body.systemInstruction?.parts.map(p => p.text).join('\n');
 
-    // Build Railway request
-    const railwayRequest: RailwayChatRequest = {
-      type: 'chat',
-      messages,
-      ...(systemPrompt && { systemPrompt }),
-    };
+    // Call Railway AI endpoint
+    const railwayResponse = await fetch(`${RAILWAY_API_URL}/api/ai/content/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${RAILWAY_API_SECRET}`,
+        'x-service-key': RAILWAY_API_SECRET,
+        'x-source': 'gtm-yardflow-vercel',
+      },
+      body: JSON.stringify({
+        type: 'chat',
+        messages,
+        systemPrompt,
+        context: body.context,
+      }),
+    });
 
-    // Forward to Railway AI endpoint
-    const response = await railwayServerClient.post<RailwayChatResponse>(
-      '/api/ai/content/generate',
-      railwayRequest
-    );
+    const data = await railwayResponse.json();
 
-    if (!response.success) {
-      console.error('[AI Chat] Railway error:', response.error);
-      res.status(502).json({
+    if (!railwayResponse.ok) {
+      console.error('[AI Chat] Railway error:', railwayResponse.status, data);
+      res.status(railwayResponse.status).json({
         error: 'AI service error',
-        message: response.error || 'Failed to generate response',
+        message: data.error || data.message || 'Failed to generate response',
       });
       return;
     }
 
-    // Convert back to Gemini-style response format for frontend compatibility
-    const geminiStyleResponse = {
+    // Convert back to Gemini format for frontend compatibility
+    const geminiResponse = {
       candidates: [{
         content: {
-          parts: [{ text: response.content }],
+          parts: [{ text: data.content || data.message || '' }],
           role: 'model',
         },
         finishReason: 'STOP',
       }],
       usageMetadata: {
-        promptTokenCount: 0,
-        candidatesTokenCount: 0,
-        totalTokenCount: 0,
+        promptTokenCount: data.usage?.promptTokens || 0,
+        candidatesTokenCount: data.usage?.completionTokens || 0,
+        totalTokenCount: (data.usage?.promptTokens || 0) + (data.usage?.completionTokens || 0),
       },
-      // Include provider info for debugging
-      _provider: response.provider,
+      _provider: data.provider,
+      _fallbackUsed: data.rateLimit?.fallbackUsed,
     };
 
-    res.status(200).json(geminiStyleResponse);
+    res.status(200).json(geminiResponse);
+
   } catch (error) {
-    console.error('[AI Chat] Request failed:', error);
-    
-    // Return detailed error for debugging
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    // Check if it's a Railway client error
-    if (error instanceof Error && 'status' in error) {
-      const status = (error as { status: number }).status;
-      res.status(status).json({
-        error: 'Railway API error',
-        message: errorMessage,
-        status,
-      });
-      return;
-    }
-    
+    console.error('[AI Chat] Error:', error);
     res.status(500).json({ 
       error: 'Internal server error',
-      message: errorMessage,
-      debug: process.env.NODE_ENV !== 'production' ? String(error) : undefined,
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
