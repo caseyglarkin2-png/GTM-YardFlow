@@ -148,6 +148,7 @@ import { KeyboardShortcutsHelp } from './components/KeyboardShortcutsHelp';
 // --- Toast Notification System ---
 import { ToastContainer, useToast } from './components/Toast';
 import { useRailwayHealth, type RailwayHealthStatus } from './hooks/useRailwayHealth';
+import { useRailwayHealthNotification } from './hooks/useRailwayHealthNotification';
 
 // --- Sprint 47 Tab Components ---
 import { IntegrationsTab, ImportTab } from './components/tabs';
@@ -380,18 +381,14 @@ export default function App() {
 
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
 
-  // Railway health (for status indicator and offline toasts)
+  // Railway health (for status indicator in sidebar)
   const { status: railwayStatus } = useRailwayHealth();
-  const previousRailwayStatus = useRef<RailwayHealthStatus>('checking');
 
-  useEffect(() => {
-    if (previousRailwayStatus.current === 'healthy' && railwayStatus === 'unhealthy') {
-      showWarning('Connection lost', 'Working in offline mode.');
-    } else if (previousRailwayStatus.current === 'unhealthy' && railwayStatus === 'healthy') {
-      showSuccess('Connection restored', 'Railway is reachable again.');
-    }
-    previousRailwayStatus.current = railwayStatus;
-  }, [railwayStatus, showSuccess, showWarning]);
+  // Sprint V34 P1.1: Railway health change notifications
+  useRailwayHealthNotification({
+    showWarning,
+    showInfo,
+  });
 
   // T1002.3: Quick Copy Shortcut
   useEffect(() => {
