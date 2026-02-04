@@ -314,4 +314,30 @@ describe('BulkEmailModal', () => {
       expect(screen.getByTestId('bulk-email-generate-all')).toBeInTheDocument();
     });
   });
+
+  describe('Send Button Feedback (Sprint V34 P1.4)', () => {
+    it('disables send button when bulk processing', () => {
+      mockBulkSend.isProcessing = true;
+      render(<BulkEmailModal {...defaultProps} />);
+      
+      const sendButton = screen.getByTestId('bulk-email-send');
+      expect(sendButton).toBeDisabled();
+    });
+
+    it('shows loading spinner text when bulk processing', () => {
+      mockBulkSend.isProcessing = true;
+      render(<BulkEmailModal {...defaultProps} />);
+      
+      const sendButton = screen.getByTestId('bulk-email-send');
+      expect(sendButton).toHaveTextContent('Sending...');
+    });
+
+    it('shows normal text when not processing', () => {
+      mockBulkSend.isProcessing = false;
+      render(<BulkEmailModal {...defaultProps} />);
+      
+      const sendButton = screen.getByTestId('bulk-email-send');
+      expect(sendButton).toHaveTextContent('Send to 2 prospects');
+    });
+  });
 });

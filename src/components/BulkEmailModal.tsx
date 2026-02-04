@@ -1379,7 +1379,7 @@ export function BulkEmailModal({
             {modalState === 'composing' && (
               <button
                 onClick={handleSubmit}
-                disabled={!canSend || bulkSend.isProcessing}
+                disabled={!canSend || bulkSend.isProcessing || isSending}
                 data-testid="bulk-email-send"
                 className={`px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
                   sendMode === 'ai' 
@@ -1387,11 +1387,20 @@ export function BulkEmailModal({
                     : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
-                <LazyIcon name="Send" className="h-4 w-4" />
-                {sendMode === 'ai' 
-                  ? `Send ${readyToSendCount} personalized`
-                  : `Send to ${withEmail.length} prospect${withEmail.length !== 1 ? 's' : ''}`
-                }
+                {(isSending || bulkSend.isProcessing) ? (
+                  <>
+                    <LazyIcon name="Loader2" className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <LazyIcon name="Send" className="h-4 w-4" />
+                    {sendMode === 'ai' 
+                      ? `Send ${readyToSendCount} personalized`
+                      : `Send to ${withEmail.length} prospect${withEmail.length !== 1 ? 's' : ''}`
+                    }
+                  </>
+                )}
               </button>
             )}
           </div>
