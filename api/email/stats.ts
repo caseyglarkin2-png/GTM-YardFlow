@@ -1,16 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAdminAuth, getAdminDb } from '../../lib/firebaseAdmin';
-import { logger } from '../../lib/logger';
-
-// Lazy init to avoid cold start issues
-let db: ReturnType<typeof getAdminDb> | null = null;
-let auth: ReturnType<typeof getAdminAuth> | null = null;
-
-function initFirebase() {
-  if (!db) db = getAdminDb();
-  if (!auth) auth = getAdminAuth();
-  return { db, auth };
-}
 
 /**
  * Email Statistics API
@@ -65,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  // Public health check mode - no auth required
+  // Public health check mode - no auth required, no Firebase
   const isHealthCheck = req.query.health === 'true';
   if (isHealthCheck) {
     res.status(200).json({
@@ -76,8 +64,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     return;
   }
 
-  // Initialize Firebase only for authenticated requests
-  const { db, auth } = initFirebase();
+  // Dynamic imports - only load Firebase when needed for authenticated requests
+  const { getAdminAuth, getAdminDb } = await import('../../lib/firebaseAdmin');
+  const { logger } = await import('../../lib/logger');
+  
+  const db = getAdminDb();
+  const auth = getAdminAuth();
 
   // Authenticate user or service
   const authHeader = req.headers.authorization;
