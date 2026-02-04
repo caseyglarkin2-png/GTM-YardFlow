@@ -89,17 +89,15 @@ const RESEARCH_CONFIG = {
   rateLimitDelayMs: 1000, // Delay between batch requests
 } as const;
 
-const IS_MOCK_MODE = !import.meta.env.VITE_GEMINI_API_KEY || 
-                     import.meta.env.VITE_GEMINI_MOCK === 'true' ||
+// Sprint 30: Mock mode now based on explicit flag, not API key presence
+// All AI calls now route through Railway via /api/ai/research
+const IS_MOCK_MODE = import.meta.env.VITE_AI_MOCK === 'true' ||
                      import.meta.env.MODE === 'test';
 
-// Production safety check
-if (import.meta.env.MODE === 'production' && IS_MOCK_MODE) {
-  console.error(
-    '[CompanyResearchService] CRITICAL: Running in mock mode in production! ' +
-    'Set VITE_GEMINI_API_KEY to enable real AI research.'
-  );
-}
+// No longer needed - AI keys are on Railway, not Vercel
+// if (import.meta.env.MODE === 'production' && IS_MOCK_MODE) {
+//   console.error('[CompanyResearchService] Running in mock mode in production');
+// }
 
 // ============================================
 // Prompt Templates
@@ -412,13 +410,13 @@ export function parseResearchResponse(rawResponse: string): {
 // ============================================
 
 /**
- * Research a single company using Gemini API
- * This is the main function users call to research a company on-demand
+ * Research a single company using the Railway AI proxy
+ * Sprint 30: Refactored to call /api/ai/research instead of Gemini directly
  */
 export async function researchCompany(
   request: CompanyResearchRequest
 ): Promise<CompanyResearchResult> {
-  const { companyName } = request;
+  const { companyName, existingData, researchDepth = 'standard' } = request;
   
   if (!companyName || companyName.trim().length === 0) {
     return {
@@ -445,21 +443,56 @@ export async function researchCompany(
       };
     }
 
-    // Build prompt and call Gemini
-    const prompt = buildResearchPrompt(request);
-    const rawResponse = await callGeminiForResearch(prompt);
-    
-    // Parse response
-    const { data, sources, confidence } = parseResearchResponse(rawResponse);
-    
+    // Sprint 30: Call Railway AI proxy endpoint instead of Gemini directly
+    const response = await fetch('/api/ai/research', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        companyName,
+        existingData,
+        depth: researchDepth,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      return {
+        success: false,
+        companyName,
+        researchedAt: new Date(),
+        error: result.error || `Research failed: ${response.status}`,
+      };
+    }
+
+    // Map Railway response to our format
+    const data: ResearchedCompanyData = {
+      facilityCount: result.data?.facilityCount,
+      facilityCountSource: result.data?.facilityCountSource,
+      industryCategory: result.data?.industryCategory as IndustryCategory | undefined,
+      industryCategoryReasoning: result.data?.industryCategoryReasoning,
+      distributionFootprint: result.data?.distributionFootprint as DistributionFootprint | undefined,
+      distributionFootprintReasoning: result.data?.distributionFootprintReasoning,
+      isYardIntensive: result.data?.isYardIntensive,
+      isYardIntensiveReasoning: result.data?.isYardIntensiveReasoning,
+      estimatedTruckVolume: result.data?.estimatedTruckVolume,
+      headquarters: result.data?.headquarters,
+      website: result.data?.website,
+      description: result.data?.description || result.data?.summary,
+      parentCompany: result.data?.parentCompany,
+      keyProducts: result.data?.keyProducts,
+      revenueEstimate: result.data?.revenueEstimate,
+    };
+
     return {
       success: true,
       companyName,
-      researchedAt: new Date(),
+      researchedAt: new Date(result.researchedAt || Date.now()),
       data,
-      sources,
-      confidence,
-      rawResponse,
+      sources: result.sources || [],
+      confidence: result.confidence || generateMockConfidence(),
     };
   } catch (error) {
     return {

@@ -1,43 +1,51 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { railwayServerClient } from '../../lib/railway-client';
 
 /**
  * AI Chat Proxy Endpoint
  * 
- * Proxies Gemini API calls through the server to:
- * 1. Keep API key secure (not exposed in browser network tools)
- * 2. Allow rate limiting and monitoring
- * 3. Provide consistent error handling
+ * Sprint 30: Refactored to proxy through Railway backend
  * 
- * Client sends chat contents, server adds API key and forwards to Gemini.
+ * All AI calls route through Railway which has the AI keys.
+ * This endpoint:
+ * 1. Receives chat request from frontend
+ * 2. Forwards to Railway's AI content/chat endpoint
+ * 3. Returns Railway's response
+ * 
+ * Auth: Uses S2S auth via RAILWAY_API_SECRET
  */
-
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 interface ChatRequest {
   contents: Array<{
-    role: 'user' | 'model';
+    role: 'user' | 'model' | 'assistant';
     parts: Array<{ text: string }>;
   }>;
   systemInstruction?: {
     parts: Array<{ text: string }>;
   };
+  /** Optional: type of chat (defaults to 'general') */
+  type?: 'general' | 'research' | 'email' | 'analysis';
+}
+
+interface RailwayChatRequest {
+  type: 'chat';
+  messages: Array<{
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+  }>;
+  systemPrompt?: string;
+}
+
+interface RailwayChatResponse {
+  success: boolean;
+  content?: string;
+  error?: string;
+  provider?: 'gemini' | 'openai';
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
-    return;
-  }
-
-  // Get API key from environment (server-side only)
-  const apiKey = process.env.GEMINI_API_KEY;
-  
-  if (!apiKey) {
-    console.warn('[AI Proxy] GEMINI_API_KEY not configured');
-    res.status(503).json({ 
-      error: 'AI service not configured',
-      message: 'The Gemini API key has not been configured on the server.'
-    });
     return;
   }
 
@@ -49,34 +57,71 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       return;
     }
 
-    // Forward request to Gemini with server-side API key
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        systemInstruction,
-      }),
-    });
+    // Convert Gemini-style format to Railway format
+    const messages = contents.map(c => ({
+      role: c.role === 'model' ? 'assistant' as const : c.role as 'user' | 'assistant',
+      content: c.parts.map(p => p.text).join('\n'),
+    }));
 
-    const data = await response.json();
+    // Add system prompt if provided
+    const systemPrompt = systemInstruction?.parts.map(p => p.text).join('\n');
 
-    if (!response.ok) {
-      console.error('[AI Proxy] Gemini API error', { 
-        status: response.status, 
-        errorMessage: data.error?.message 
-      });
-      res.status(response.status).json({
+    // Build Railway request
+    const railwayRequest: RailwayChatRequest = {
+      type: 'chat',
+      messages,
+      ...(systemPrompt && { systemPrompt }),
+    };
+
+    // Forward to Railway AI endpoint
+    const response = await railwayServerClient.post<RailwayChatResponse>(
+      '/api/ai/content/generate',
+      railwayRequest
+    );
+
+    if (!response.success) {
+      console.error('[AI Chat] Railway error:', response.error);
+      res.status(502).json({
         error: 'AI service error',
-        message: data.error?.message || 'Failed to generate response',
+        message: response.error || 'Failed to generate response',
       });
       return;
     }
 
-    // Return the Gemini response
-    res.status(200).json(data);
+    // Convert back to Gemini-style response format for frontend compatibility
+    const geminiStyleResponse = {
+      candidates: [{
+        content: {
+          parts: [{ text: response.content }],
+          role: 'model',
+        },
+        finishReason: 'STOP',
+      }],
+      usageMetadata: {
+        promptTokenCount: 0,
+        candidatesTokenCount: 0,
+        totalTokenCount: 0,
+      },
+      // Include provider info for debugging
+      _provider: response.provider,
+    };
+
+    res.status(200).json(geminiStyleResponse);
   } catch (error) {
-    console.error('[AI Proxy] Request failed', error);
+    console.error('[AI Chat] Request failed:', error);
+    
+    // Check if it's a Railway client error
+    if (error instanceof Error && 'status' in error) {
+      const status = (error as { status: number }).status;
+      if (status === 503) {
+        res.status(503).json({
+          error: 'AI service unavailable',
+          message: 'Railway backend is not available. Please try again later.',
+        });
+        return;
+      }
+    }
+    
     res.status(500).json({ 
       error: 'Internal server error',
       message: 'Failed to process AI request'

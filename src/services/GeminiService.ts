@@ -34,8 +34,9 @@ const GEMINI_CONFIG = {
 // Mock Mode Detection
 // ============================================
 
-const IS_MOCK_MODE = !import.meta.env.VITE_GEMINI_API_KEY || 
-                     import.meta.env.VITE_GEMINI_MOCK === 'true' ||
+// Sprint 30: Mock mode now based on explicit flag, not API key presence
+// All AI calls now route through Railway via /api/ai/* endpoints
+const IS_MOCK_MODE = import.meta.env.VITE_AI_MOCK === 'true' ||
                      import.meta.env.MODE === 'test';
 
 // ============================================
