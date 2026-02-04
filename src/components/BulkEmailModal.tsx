@@ -17,6 +17,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { LazyIcon } from './icons';
+import { SuccessCelebration } from './SuccessCelebration';
 import { personalizeTemplate } from '../config/emailTemplates';
 import { TONE_OPTIONS, DEFAULT_TONE, getTone, type ToneId } from '../config/tones';
 import { CALENDLY_CONFIG } from '../config/calendly';
@@ -240,12 +241,25 @@ export function BulkEmailModal({
   // Track local email updates for immediate UI feedback
   const [localEmailUpdates, setLocalEmailUpdates] = useState<Record<string, string>>({});
   
+  // Sprint V34 P1.3: Success celebration state
+  const [showCelebration, setShowCelebration] = useState(false);
+  
   // Determine modal state
   const modalState: ModalState = useMemo(() => {
     if (progress.results && progress.results.length > 0) return 'results';
     if (isSending) return 'sending';
     return 'composing';
   }, [isSending, progress.results]);
+
+  // Sprint V34 P1.3: Trigger celebration when all emails succeed
+  useEffect(() => {
+    if (modalState === 'results' && progress.results && progress.failed === 0 && progress.sent > 0) {
+      setShowCelebration(true);
+      // Reset after animation completes
+      const timer = setTimeout(() => setShowCelebration(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [modalState, progress.results, progress.failed, progress.sent]);
 
   // Get current template from Railway (or static fallback)
   const currentTemplate = useMemo(
@@ -1430,6 +1444,9 @@ export function BulkEmailModal({
           </div>
         </div>
       )}
+
+      {/* Sprint V34 P1.3: Success celebration confetti */}
+      <SuccessCelebration show={showCelebration} />
     </div>
   );
 }
