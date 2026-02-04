@@ -18,6 +18,8 @@
     "test:e2e:debug": "playwright test --debug",
     "test:all": "npm run test:run && npm run test:e2e",
     "verify:railway": "npx ts-node scripts/verify-railway-integration.ts",
+    "seed:sequences": "npx tsx scripts/seedSequences.ts",
+    "seed:sequences:dry": "npx tsx scripts/seedSequences.ts --dry-run",
     "scan:secrets": "node scripts/scan-secrets.js",
     "prepare": "husky"
   },
