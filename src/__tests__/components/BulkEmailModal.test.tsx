@@ -9,6 +9,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BulkEmailModal, type BulkEmailModalProps } from '../../components/BulkEmailModal';
 import type { Prospect } from '../../types';
+import type { BulkRecipient, BulkSendProgress } from '../../hooks/useBulkEmailSend';
 
 // Mock the icon component
 vi.mock('../../components/icons', () => ({
@@ -28,7 +29,18 @@ vi.mock('../../hooks/useAIGenerate', () => ({
 }));
 
 // Mock useBulkEmailSend hook
-const mockBulkSend = {
+const mockBulkSend: {
+  recipients: BulkRecipient[];
+  initRecipients: ReturnType<typeof vi.fn>;
+  generateForRecipient: ReturnType<typeof vi.fn>;
+  generateAll: ReturnType<typeof vi.fn>;
+  sendRecipient: ReturnType<typeof vi.fn>;
+  sendAll: ReturnType<typeof vi.fn>;
+  updateRecipientContent: ReturnType<typeof vi.fn>;
+  progress: BulkSendProgress;
+  isProcessing: boolean;
+  reset: ReturnType<typeof vi.fn>;
+} = {
   recipients: [],
   initRecipients: vi.fn(),
   generateForRecipient: vi.fn(),
@@ -54,7 +66,10 @@ const mockProspects: Prospect[] = [
     title: 'VP Operations',
     tier: 'T1',
     status: 'new',
-    createdAt: new Date().toISOString(),
+    score: 85,
+    isOps: true,
+    isExec: true,
+    createdAt: Date.now(),
   },
   {
     id: 'p2',
@@ -64,7 +79,10 @@ const mockProspects: Prospect[] = [
     title: 'Director',
     tier: 'T2',
     status: 'new',
-    createdAt: new Date().toISOString(),
+    score: 70,
+    isOps: false,
+    isExec: false,
+    createdAt: Date.now(),
   },
 ];
 
@@ -243,9 +261,13 @@ describe('BulkEmailModal', () => {
           name: 'No Email User',
           email: '',
           company: 'Test Corp',
+          title: 'Manager',
           tier: 'T3',
           status: 'new',
-          createdAt: new Date().toISOString(),
+          score: 50,
+          isOps: false,
+          isExec: false,
+          createdAt: Date.now(),
         },
       ];
       

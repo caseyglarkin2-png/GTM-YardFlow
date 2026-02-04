@@ -5,7 +5,8 @@ import { copyToClipboard } from '../../services/ClipboardService';
 import { SequenceEnrollmentBadge } from '../SequenceEnrollmentBadge';
 import { EmailQualityBadge } from '../EmailQualityBadge';
 import { Prospect } from '../../types';
-import type { SelectionState } from './HitlistPanel';
+import type { SelectionState, CurrentUser } from './HitlistPanel';
+import type { ProspectEnrollmentInfo } from '../../hooks/useSequenceEnrollment';
 
 interface ProspectListPanelProps {
   filteredProspects: Prospect[];
@@ -14,12 +15,12 @@ interface ProspectListPanelProps {
   selectedProspectId: string | null;
   onSelectProspect: (prospect: Prospect) => void;
   selection: SelectionState;
-  getEnrollmentForProspect: (id: string) => any;
+  getEnrollmentForProspect: (id: string) => ProspectEnrollmentInfo | null;
   onClearFilters: () => void;
   onGoToImport: () => void;
   onAddProspect?: () => void;
   onCompanyClick?: (companyName: string) => void;
-  currentUser: string;
+  currentUser: CurrentUser;
 }
 
 export function ProspectListPanel({

@@ -10,11 +10,14 @@
  * - Debounce on AI generate
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BulkEmailModal } from '@/components/BulkEmailModal';
 import type { Prospect } from '@/types';
+import type { EmailTemplateRecord, TemplateCategory, TemplateTone } from '@/types/railway';
+
+import type { GenerateParams, GenerateResult } from '@/hooks/useAIGenerate';
 
 import { useTemplates } from '@/hooks/useTemplates';
 import { useAIGenerate } from '@/hooks/useAIGenerate';
@@ -38,14 +41,14 @@ vi.mock('@/config/featureFlags', () => ({
   featureFlags: { RAILWAY_TEMPLATES_ENABLED: true },
 }));
 
-const mockTemplates = [
+const mockTemplates: EmailTemplateRecord[] = [
   {
     id: 'template-1',
     name: 'Default Template',
     subject: 'Hello {name}',
     body: 'Hi {first_name}, this is a test for {company}.',
-    category: 'outreach',
-    tone: 'professional',
+    category: 'outreach' as TemplateCategory,
+    tone: 'professional' as TemplateTone,
     isDefault: true,
     createdBy: 'system',
     createdAt: '2026-01-01T00:00:00Z',
@@ -97,15 +100,16 @@ const mockProspectNoEmail: Prospect = {
 };
 
 describe('BulkEmailModal - Compose Flow', () => {
-  let mockGenerate: ReturnType<typeof vi.fn>;
-  let mockClearError: ReturnType<typeof vi.fn>;
+  let mockGenerate: Mock<(params: GenerateParams) => Promise<GenerateResult>>;
+  let mockClearError: Mock<() => void>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     
     mockGenerate = vi.fn().mockResolvedValue({
-      ok: true,
-      data: { subject: 'AI Generated Subject', body: 'AI Generated Body' },
+      success: true,
+      subject: 'AI Generated Subject',
+      content: 'AI Generated Body',
     });
     mockClearError = vi.fn();
 
@@ -129,20 +133,19 @@ describe('BulkEmailModal - Compose Flow', () => {
       isGenerating: false,
       error: null,
       clearError: mockClearError,
-      result: null,
-      rateLimit: null,
-      provider: null,
     });
 
     // Setup useBulkEmailSend mock
     vi.mocked(useBulkEmailSend).mockReturnValue({
       recipients: [],
-      progress: { sent: 0, failed: 0, total: 0 },
+      progress: { sent: 0, failed: 0, total: 0, generated: 0 },
       isProcessing: false,
       initRecipients: vi.fn(),
       generateForRecipient: vi.fn(),
       generateAll: vi.fn(),
+      sendRecipient: vi.fn(),
       sendAll: vi.fn(),
+      updateRecipientContent: vi.fn(),
       reset: vi.fn(),
     });
   });
@@ -207,9 +210,6 @@ describe('BulkEmailModal - Compose Flow', () => {
         isGenerating: true,
         error: null,
         clearError: mockClearError,
-        result: null,
-        rateLimit: null,
-        provider: null,
       });
 
       renderModal();

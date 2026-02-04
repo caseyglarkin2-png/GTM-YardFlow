@@ -37,7 +37,7 @@ function createMockReq(overrides: Partial<VercelRequest> = {}): VercelRequest {
 }
 
 function createMockRes(): VercelResponse & { _json: unknown; _status: number } {
-  const res = {
+  const res: { _json: unknown; _status: number; status: (code: number) => typeof res; json: (data: unknown) => typeof res } = {
     _json: null as unknown,
     _status: 200,
     status(code: number) {
@@ -49,7 +49,7 @@ function createMockRes(): VercelResponse & { _json: unknown; _status: number } {
       return res;
     },
   };
-  return res as VercelResponse & { _json: unknown; _status: number };
+  return res as unknown as VercelResponse & { _json: unknown; _status: number };
 }
 
 describe('/api/ai/generate', () => {

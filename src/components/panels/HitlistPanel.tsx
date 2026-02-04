@@ -4,10 +4,13 @@ import { ViewMode } from '../ViewModeToggle';
 import { CompanyRow } from '../../services/CompanyAggregator';
 import { Prospect } from '../../types';
 import type { CompanyResearchResult } from '../../services/CompanyResearchService';
+import type { ProspectEnrollmentInfo } from '../../hooks/useSequenceEnrollment';
 import { CompanyDetailPanel } from '../CompanyDetailPanel';
 import { CompanyListView } from '../CompanyListView';
 import { ProspectListPanel } from './ProspectListPanel';
 import { ProspectDetailPanel } from './ProspectDetailPanel';
+
+export type CurrentUser = 'Jake' | 'Me';
 
 export interface SelectionState {
   isSelected: (id: string) => boolean;
@@ -27,8 +30,8 @@ interface HitlistPanelProps {
   selectedProspect: Prospect | null;
   onSelectProspect: (p: Prospect | null) => void;
   onSelectCompany: (c: CompanyRow | null) => void;
-  currentUser: any;
-  getEnrollmentForProspect: (id: string) => any;
+  currentUser: CurrentUser;
+  getEnrollmentForProspect: (id: string) => ProspectEnrollmentInfo | null;
   selection: SelectionState;
   onClearFilters: () => void;
   onGoToImport: () => void;
