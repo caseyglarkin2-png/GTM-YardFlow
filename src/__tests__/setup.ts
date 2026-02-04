@@ -5,6 +5,8 @@ import { vi, beforeAll, afterAll } from 'vitest'
 // Mock Firebase
 vi.mock('firebase/app', () => ({
   initializeApp: vi.fn(),
+  getApps: vi.fn(() => []), // Return empty array = no apps initialized
+  getApp: vi.fn(() => ({ name: 'test-app' })),
 }))
 
 vi.mock('firebase/firestore', () => ({

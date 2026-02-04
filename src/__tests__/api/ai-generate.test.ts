@@ -120,11 +120,12 @@ describe('/api/ai/generate', () => {
   });
 
   it('forwards request to Railway with service key', async () => {
+    // Railway returns: { response: "JSON string", provider, fallbackUsed }
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ 
-        content: 'Generated email body',
-        subject: 'Generated subject',
+        response: '{"subject":"Generated subject","content":"Generated email body"}',
+        provider: 'gemini',
       }),
     });
 
@@ -133,8 +134,9 @@ describe('/api/ai/generate', () => {
 
     await handler(req, res);
 
+    // Handler forwards to /api/ai/chat (the working Railway endpoint)
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://railway.test/api/ai/content/generate',
+      'https://railway.test/api/ai/chat',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
@@ -148,7 +150,9 @@ describe('/api/ai/generate', () => {
       success: true,
       content: 'Generated email body',
       subject: 'Generated subject',
+      provider: 'gemini',
       usage: undefined,
+      rateLimit: undefined,
     });
   });
 

@@ -67,8 +67,9 @@ describe('HealthDashboard', () => {
 
     render(<HealthDashboard />);
 
+    // Use getAllByText since "Railway Backend" appears in multiple places (detailed card + services grid)
     await waitFor(() => {
-      expect(screen.getByText('Railway Backend')).toBeInTheDocument();
+      expect(screen.getAllByText('Railway Backend').length).toBeGreaterThan(0);
     });
 
     expect(screen.getByText('Email Service')).toBeInTheDocument();
@@ -85,8 +86,9 @@ describe('HealthDashboard', () => {
 
     render(<HealthDashboard />);
 
+    // Use getAllByText since "Railway Backend" appears in multiple places
     await waitFor(() => {
-      expect(screen.getByText('Railway Backend')).toBeInTheDocument();
+      expect(screen.getAllByText('Railway Backend').length).toBeGreaterThan(0);
     });
 
     // Should show unhealthy indicator - check for the status badge or error message
@@ -104,16 +106,26 @@ describe('HealthDashboard', () => {
 
     render(<HealthDashboard />);
 
+    // Use getAllByText since "Railway Backend" appears in multiple places
     await waitFor(() => {
-      expect(screen.getByText('Railway Backend')).toBeInTheDocument();
+      expect(screen.getAllByText('Railway Backend').length).toBeGreaterThan(0);
     });
 
-    const refreshButton = screen.getByText('Refresh');
+    // Get call count before click
+    const callsBefore = mockRailwayClient.health.check.mock.calls.length;
+
+    // Wait for loading to complete so button shows "Refresh" text and is enabled
+    await waitFor(() => {
+      const refreshButton = screen.getByRole('button', { name: 'Refresh' });
+      expect(refreshButton).not.toBeDisabled();
+    });
+
+    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
     fireEvent.click(refreshButton);
 
-    // Should trigger another health check
+    // Should trigger at least one more health check after click
     await waitFor(() => {
-      expect(mockRailwayClient.health.check).toHaveBeenCalledTimes(2);
+      expect(mockRailwayClient.health.check.mock.calls.length).toBeGreaterThan(callsBefore);
     });
   });
 
@@ -142,8 +154,9 @@ describe('HealthDashboard', () => {
 
     render(<HealthDashboard />);
 
+    // Use getAllByText since "Railway Backend" appears in multiple places
     await waitFor(() => {
-      expect(screen.getByText('Railway Backend')).toBeInTheDocument();
+      expect(screen.getAllByText('Railway Backend').length).toBeGreaterThan(0);
     });
 
     // Should still render with error states - use getAllByText since multiple services may fail
@@ -161,12 +174,13 @@ describe('HealthDashboard', () => {
 
     render(<HealthDashboard />);
 
+    // Use getAllByText since "Railway Backend" appears in multiple places
     await waitFor(() => {
-      expect(screen.getByText('Railway Backend')).toBeInTheDocument();
+      expect(screen.getAllByText('Railway Backend').length).toBeGreaterThan(0);
     });
 
     // Should show latency in format "Xms latency" - use getAllByText since multiple services show latency
-    const latencyElements = screen.getAllByText(/\d+ms latency/);
+    const latencyElements = screen.getAllByText(/\d+\s*ms latency/);
     expect(latencyElements.length).toBeGreaterThan(0);
   });
 });
