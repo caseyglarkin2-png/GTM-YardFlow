@@ -24,6 +24,13 @@ export interface GenerateResult {
   content?: string;
   subject?: string;
   error?: string;
+  /** Which AI provider generated the content (T0.1) */
+  provider?: 'gemini' | 'openai';
+  /** Rate limit info (T0.2) */
+  rateLimit?: {
+    retryAfterSeconds?: number;
+    fallbackUsed?: 'gemini' | 'openai';
+  };
 }
 
 export interface UseAIGenerateReturn {
@@ -36,6 +43,9 @@ export interface UseAIGenerateReturn {
   /** Clear error state */
   clearError: () => void;
 }
+
+/** Timeout for AI requests (T0.5) */
+const AI_TIMEOUT_MS = 15000;
 
 /**
  * Hook for generating AI email content
@@ -62,12 +72,17 @@ export function useAIGenerate(): UseAIGenerateReturn {
     setIsGenerating(true);
     setError(null);
 
+    // Set up timeout with AbortController (T0.5)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+
     try {
       // Get Firebase token for auth
       const auth = getAuth();
       const user = auth.currentUser;
       
       if (!user) {
+        clearTimeout(timeoutId);
         const err = 'Please sign in to use AI generation';
         setError(err);
         return { success: false, error: err };
@@ -83,9 +98,22 @@ export function useAIGenerate(): UseAIGenerateReturn {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(params),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
+
+      // Handle rate limit with structured response (T0.2)
+      if (response.status === 429 && data.rateLimit) {
+        const errMsg = 'Rate limit exceeded';
+        setError(errMsg);
+        return { 
+          success: false, 
+          error: 'rate_limited',
+          rateLimit: data.rateLimit,
+        };
+      }
 
       if (!response.ok || !data.success) {
         const errMsg = data.error || `Generation failed (${response.status})`;
@@ -97,9 +125,20 @@ export function useAIGenerate(): UseAIGenerateReturn {
         success: true,
         content: data.content,
         subject: data.subject,
+        provider: data.provider,
+        rateLimit: data.rateLimit,
       };
 
     } catch (err) {
+      clearTimeout(timeoutId);
+      
+      // Handle timeout error specifically (T0.5)
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        const timeoutErr = 'AI generation timed out. Please try again.';
+        setError(timeoutErr);
+        return { success: false, error: 'timeout' };
+      }
+      
       const errMsg = err instanceof Error ? err.message : 'Failed to generate content';
       setError(errMsg);
       return { success: false, error: errMsg };

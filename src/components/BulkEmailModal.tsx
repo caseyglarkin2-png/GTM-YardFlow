@@ -171,6 +171,17 @@ export function BulkEmailModal({
   // AI generation hook
   const { generate: generateAI, isGenerating, error: aiError, clearError: clearAIError } = useAIGenerate();
   
+  // AI fallback states (T0.1-T0.3)
+  const [aiProvider, setAiProvider] = useState<'gemini' | 'openai' | null>(null);
+  const [aiRateLimitInfo, setAiRateLimitInfo] = useState<{
+    isLimited: boolean;
+    retryAfterSeconds?: number;
+    fallbackUsed?: 'gemini' | 'openai';
+  } | null>(null);
+  const [aiUnavailable, setAiUnavailable] = useState(false);
+  const [lastGenerateTime, setLastGenerateTime] = useState(0);
+  const DEBOUNCE_MS = 3000; // 3 second cooldown between generates
+  
   // Bulk email send hook for per-recipient AI generation mode
   const bulkSend = useBulkEmailSend();
   
@@ -370,6 +381,14 @@ export function BulkEmailModal({
   const handleGenerateAI = useCallback(async () => {
     const prospect = sampleProspect;
     if (!prospect) return;
+    
+    // Debounce: prevent rapid re-clicks (T0.3/T3.6)
+    const now = Date.now();
+    if (now - lastGenerateTime < DEBOUNCE_MS) {
+      // Show toast for rapid clicks - just silently ignore
+      return;
+    }
+    setLastGenerateTime(now);
 
     const result = await generateAI({
       tone: selectedTone,
@@ -382,8 +401,33 @@ export function BulkEmailModal({
     if (result.success) {
       if (result.subject) setSubject(result.subject);
       if (result.content) setBody(result.content);
+      
+      // Track which provider was used (T0.1)
+      if (result.provider) {
+        setAiProvider(result.provider);
+      }
+      
+      // Check if fallback was used due to rate limit (T0.2)
+      if (result.rateLimit?.fallbackUsed) {
+        setAiRateLimitInfo({
+          isLimited: true,
+          fallbackUsed: result.rateLimit.fallbackUsed,
+        });
+      } else {
+        setAiRateLimitInfo(null);
+      }
+    } else {
+      // Handle different error types (T0.2, T0.3)
+      if (result.error === 'rate_limited') {
+        setAiRateLimitInfo({
+          isLimited: true,
+          retryAfterSeconds: result.rateLimit?.retryAfterSeconds,
+        });
+      } else if (result.error === 'timeout' || result.error?.includes('unavailable')) {
+        setAiUnavailable(true);
+      }
     }
-  }, [generateAI, selectedTone, sampleProspect]);
+  }, [generateAI, selectedTone, sampleProspect, lastGenerateTime]);
 
   // Character count helpers for Luis tone warning
   const currentTone = getTone(selectedTone);
@@ -651,13 +695,19 @@ export function BulkEmailModal({
               </label>
               <button
                 onClick={handleGenerateAI}
-                disabled={isSending || isGenerating || !sampleProspect}
+                disabled={isSending || isGenerating || !sampleProspect || aiUnavailable}
+                title={aiUnavailable ? 'AI temporarily unavailable' : undefined}
                 className="w-full px-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isGenerating ? (
                   <>
                     <LazyIcon name="Loader2" className="h-4 w-4 animate-spin" />
                     Generating...
+                  </>
+                ) : aiUnavailable ? (
+                  <>
+                    <LazyIcon name="AlertCircle" className="h-4 w-4" />
+                    AI Unavailable
                   </>
                 ) : (
                   <>
@@ -666,8 +716,49 @@ export function BulkEmailModal({
                   </>
                 )}
               </button>
+              
+              {/* Provider indicator (T0.1) */}
+              {aiProvider && !isGenerating && subject && (
+                <p className="text-xs text-slate-500 mt-1 text-center">
+                  Generated with {aiProvider === 'openai' ? 'OpenAI' : 'Gemini'}
+                  {aiRateLimitInfo?.fallbackUsed && (
+                    <span className="text-amber-600"> (fallback)</span>
+                  )}
+                </p>
+              )}
             </div>
           </div>
+          
+          {/* Rate limit warning banner (T0.2) */}
+          {aiRateLimitInfo?.isLimited && !aiRateLimitInfo.fallbackUsed && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+              <LazyIcon name="AlertTriangle" className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-700">
+                <p className="font-medium">AI generation temporarily limited</p>
+                {aiRateLimitInfo.retryAfterSeconds && (
+                  <p className="text-xs mt-0.5">
+                    Retry available in {Math.ceil(aiRateLimitInfo.retryAfterSeconds / 60)} minute(s)
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* AI unavailable warning (T0.3) */}
+          {aiUnavailable && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-start gap-2">
+              <LazyIcon name="Info" className="h-4 w-4 text-slate-500 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-slate-600">
+                <p>AI generation is temporarily unavailable. Please enter content manually or select a template.</p>
+                <button 
+                  onClick={() => setAiUnavailable(false)}
+                  className="text-blue-600 hover:underline text-xs mt-1"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Save as Template - Feature Flagged */}
           {shouldUseRailwayTemplates() && modalState === 'composing' && (

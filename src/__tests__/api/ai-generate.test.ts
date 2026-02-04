@@ -156,6 +156,7 @@ describe('/api/ai/generate', () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 429,
+      headers: new Headers({ 'Retry-After': '60' }),
       json: () => Promise.resolve({ error: 'Too many requests' }),
     });
 
@@ -165,7 +166,8 @@ describe('/api/ai/generate', () => {
     await handler(req, res);
 
     expect(res._status).toBe(429);
-    expect((res._json as { error: string }).error).toContain('Rate limit');
+    expect((res._json as { error: string }).error).toBe('rate_limited');
+    expect((res._json as { rateLimit: { retryAfterSeconds: number } }).rateLimit.retryAfterSeconds).toBe(60);
   });
 
   it('handles Railway auth failure (401)', async () => {

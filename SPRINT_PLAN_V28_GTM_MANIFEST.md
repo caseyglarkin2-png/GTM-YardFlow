@@ -2175,6 +2175,197 @@ npx tsx scripts/health-check.ts
 
 ---
 
+### T6.3: Add Firebase Auth Mock for E2E Tests [M - 45 min]
+
+**Purpose**: Enable E2E tests with authenticated sessions
+
+**File**: Create `e2e/fixtures/auth.ts`
+
+**Implementation**: ──▶ T0.5
+       │
+       └──▶ S1 (Health Dashboard)
+              └── T1.1 ──▶ T1.2 ──▶ T1.3 ──▶ T1.4
+
+S2 (Template UI) - Can start in parallel with S0/S1
+  └── T2.1 ──▶ T2.2 ──▶ T2.3 ──▶ T2.4 ──▶ T2.5 ──▶ T2.6
+       │
+       └──▶ S3 (Email Compose)
+              └── T3.1 ──▶ T3.2 ──▶ T3.3 ──▶ T3.4 ──▶ T3.5 ──▶ T3.6
+
+S4 (Prospect Management) - Depends on Railway activity API
+  └── T4.1 ──▶ T4.2 ──▶ T4.3 ──▶ T4.4 ──▶ T4.5 ──▶ T4.6
+
+S5 (Meeting Attribution) - Depends on Railway meetings API
+  └── T5.1 ──▶ T5.2 ──▶ T5.3 ──▶ T5.4 ──▶ T5.5
+
+S6 (E2E Testing) - After S0-S5 complete
+  └── T6.1 ──▶ T6.2 ──▶ T6.3 ──▶ T6.4 && TEST_PASSWORD) {
+      // Perform login flow
+      await page.click('[data-testid="sign-in-button"]');
+      await page.fill('input[type="email"]', TEST_EMAIL);
+      await page.fill('input[type="password"]', TEST_PASSWORD);
+      await page.click('button[type="submit"]');
+      
+      // Wait for auth to complete
+      await page.waitForSelector('[data-testid="user-menu"]', { timeout: 10000 });
+    }
+    
+    // Use authenticated page
+    await use(page);
+  },
+});
+
+export { expect } from '@playwright/test';
+```
+
+**Update E2E Tests**:
+```typescript
+// e2e/complete-workflow.spec.ts
+import { test, expect } from './fixtures/auth';
+
+test.describe('Complete Email Workflow', () => {
+  test('generates AI content and sends bulk email', async ({ authenticatedPage: page }) => {
+    // Page is already authenticated
+    await page.click('text=Prospects');
+    // ... rest of test
+  });
+});
+```
+
+**Validation**:
+```bash
+# Run with test credentials
+E2E_TEST_EMAIL=test@yardflow.com E2E_TEST_PASSWORD=secret npm run test:e2e
+```
+
+**Exit Criteria**: E2E tests run with authenticated user sessions.
+
+---
+
+### T6.4: Create Shared Types File [S - 20 min]
+
+**Purpose**: Consolidate V28 interface definitions
+
+**File**: Create `src/types/railway-v28.ts`
+
+**Implementation**:
+```typescript
+// ========================
+// AI Types
+// ========================
+export type AITone = 'luis' | 'professional' | 'challenger';
+
+export interface AIContentPayload {
+  type: 'email' | 'follow_up' | 'linkedin';
+  tone: AITone;
+  goal: string;
+  context: {
+    prospectName?: string;
+    companyName?: string;
+    title?: string;
+    industry?: string;
+  };
+}
+
+export interface AIContentResponse {
+  subject?: string;
+  content: string;
+  provider: 'gemini' | 'openai';
+  model: string;
+}
+
+export interface AIGenerationResult {
+  success: boolean;
+  content?: AIContentResponse;
+  provider?: 'gemini' | 'openai';
+  error?: string;
+  retryAfterSeconds?: number;
+  fallbackUsed?: string;
+}
+
+// ========================
+// Health Types
+// ========================
+export interface HealthCheck {
+  status: 'ok' | 'degraded' | 'error';
+  latencyMs?: number;
+}
+
+export interface RailwayHealth {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  checks: {
+    system: HealthCheck;
+    database: HealthCheck;
+    redis: HealthCheck;
+    ai?: {
+      gemini: HealthCheck & { quotaRemaining?: number };
+      openai: HealthCheck;
+    };
+  };
+  version?: string;
+}
+
+// ========================
+// Activity Types
+// ========================
+export type ActivityType = 
+  | 'email_sent' 
+  | 'email_opened' 
+  | 'email_clicked' 
+  | 'meeting_booked' 
+  | 'reply_received';
+
+export interface Activity {
+  id: string;
+  type: ActivityType;
+  timestamp: string;
+  personId?: string;
+  accountId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ActivityListResponse {
+  items: Activity[];
+  nextCursor: string | null;
+}
+
+// ========================
+// Meeting Types
+// ========================
+export interface Meeting {
+  id: string;
+  prospectId: string;
+  prospectName: string;
+  companyName: string;
+  scheduledAt: string;
+  status: 'scheduled' | 'completed' | 'cancelled';
+  sourceOutreachId?: string;
+  calendlyEventId?: string;
+}
+
+export interface MeetingMetrics {
+  emailsSent: number;
+  meetingsBooked: number;
+  conversionRate: number;
+  recentMeetings: Meeting[];
+}
+
+// ========================
+// Template Types (from existing adapter)
+// ========================
+export { type GTMTemplate, type RailwayTemplate } from '../utils/templateAdapter';
+```
+
+**Validation**:
+```typescript
+// Verify types are exported correctly
+import type { AITone, RailwayHealth, Meeting } from '@/types/railway-v28';
+```
+
+**Exit Criteria**: Types consolidated in single file, imported where needed.
+
+---
+
 ## Dependency Matrix
 
 ```

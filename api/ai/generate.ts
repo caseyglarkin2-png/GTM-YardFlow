@@ -34,10 +34,17 @@ export interface GenerateResponse {
   content?: string;
   subject?: string;
   error?: string;
+  /** Which AI provider generated the content (T0.1) */
+  provider?: 'gemini' | 'openai';
   /** Token usage for monitoring */
   usage?: {
     promptTokens: number;
     completionTokens: number;
+  };
+  /** Rate limit info (T0.2) */
+  rateLimit?: {
+    retryAfterSeconds?: number;
+    fallbackUsed?: 'gemini' | 'openai';
   };
 }
 
@@ -125,7 +132,7 @@ export default async function handler(
       
       // Classify error for client
       if (status === 401 || status === 403) {
-        logger.error('[AI Generate] Railway auth failed', { status });
+        logger.error('[AI Generate] Railway auth failed', undefined, { status });
         res.status(503).json({ 
           success: false, 
           error: 'AI service authentication failed' 
@@ -134,10 +141,14 @@ export default async function handler(
       }
       
       if (status === 429) {
-        logger.warn('[AI Generate] Railway rate limited');
+        const retryAfter = railwayResponse.headers.get('Retry-After');
+        logger.warn('[AI Generate] Railway rate limited', { retryAfter });
         res.status(429).json({ 
           success: false, 
-          error: 'Rate limit exceeded. Please try again in a moment.' 
+          error: 'rate_limited',
+          rateLimit: {
+            retryAfterSeconds: retryAfter ? parseInt(retryAfter, 10) : 60,
+          }
         });
         return;
       }
@@ -151,7 +162,7 @@ export default async function handler(
       }
 
       // Generic server error
-      logger.error('[AI Generate] Railway error', { status, data });
+      logger.error('[AI Generate] Railway error', undefined, { status, data });
       res.status(502).json({ 
         success: false, 
         error: 'AI service temporarily unavailable' 
@@ -163,13 +174,18 @@ export default async function handler(
     logger.info('[AI Generate] Success', { 
       tone: body.tone,
       contentLength: data.content?.length,
+      provider: data.provider,
     });
 
     res.status(200).json({
       success: true,
       content: data.content,
       subject: data.subject,
+      provider: data.provider,
       usage: data.usage,
+      rateLimit: data.fallbackUsed ? {
+        fallbackUsed: data.fallbackUsed,
+      } : undefined,
     });
 
   } catch (error) {

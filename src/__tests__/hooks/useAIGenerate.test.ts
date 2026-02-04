@@ -193,4 +193,146 @@ describe('useAIGenerate', () => {
       })
     );
   });
+
+  // Sprint V28 T0.1: Provider indicator tests
+  describe('provider indicator (T0.1)', () => {
+    it('returns provider info when included in response', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ 
+          success: true, 
+          content: 'Test', 
+          subject: 'Test',
+          provider: 'openai',
+        }),
+      });
+
+      const { result } = renderHook(() => useAIGenerate());
+
+      let generateResult: Awaited<ReturnType<typeof result.current.generate>>;
+      await act(async () => {
+        generateResult = await result.current.generate({
+          tone: 'luis',
+          prospectName: 'John',
+          companyName: 'Acme',
+        });
+      });
+
+      expect(generateResult!.success).toBe(true);
+      expect(generateResult!.provider).toBe('openai');
+    });
+  });
+
+  // Sprint V28 T0.2: Rate limit handling tests
+  describe('rate limit handling (T0.2)', () => {
+    it('returns rate limit info on 429 response', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        json: () => Promise.resolve({ 
+          success: false, 
+          error: 'rate_limited',
+          rateLimit: {
+            retryAfterSeconds: 60,
+          },
+        }),
+      });
+
+      const { result } = renderHook(() => useAIGenerate());
+
+      let generateResult: Awaited<ReturnType<typeof result.current.generate>>;
+      await act(async () => {
+        generateResult = await result.current.generate({
+          tone: 'luis',
+          prospectName: 'John',
+          companyName: 'Acme',
+        });
+      });
+
+      expect(generateResult!.success).toBe(false);
+      expect(generateResult!.error).toBe('rate_limited');
+      expect(generateResult!.rateLimit?.retryAfterSeconds).toBe(60);
+    });
+
+    it('returns fallback info when primary provider rate limited', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ 
+          success: true, 
+          content: 'Test',
+          subject: 'Test',
+          provider: 'openai',
+          rateLimit: {
+            fallbackUsed: 'openai',
+          },
+        }),
+      });
+
+      const { result } = renderHook(() => useAIGenerate());
+
+      let generateResult: Awaited<ReturnType<typeof result.current.generate>>;
+      await act(async () => {
+        generateResult = await result.current.generate({
+          tone: 'luis',
+          prospectName: 'John',
+          companyName: 'Acme',
+        });
+      });
+
+      expect(generateResult!.success).toBe(true);
+      expect(generateResult!.rateLimit?.fallbackUsed).toBe('openai');
+    });
+  });
+
+  // Sprint V28 T0.5: Timeout handling tests
+  describe('timeout handling (T0.5)', () => {
+    it('returns timeout error when request aborted', async () => {
+      // Mock a request that takes too long
+      mockFetch.mockImplementation(() => {
+        return new Promise((_, reject) => {
+          const error = new DOMException('Aborted', 'AbortError');
+          setTimeout(() => reject(error), 50);
+        });
+      });
+
+      const { result } = renderHook(() => useAIGenerate());
+
+      let generateResult: Awaited<ReturnType<typeof result.current.generate>>;
+      await act(async () => {
+        generateResult = await result.current.generate({
+          tone: 'luis',
+          prospectName: 'John',
+          companyName: 'Acme',
+        });
+      });
+
+      expect(generateResult!.success).toBe(false);
+      expect(generateResult!.error).toBe('timeout');
+      expect(result.current.error).toBe('AI generation timed out. Please try again.');
+    });
+
+    it('passes abort signal to fetch', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, content: 'Test', subject: 'Test' }),
+      });
+
+      const { result } = renderHook(() => useAIGenerate());
+
+      await act(async () => {
+        await result.current.generate({
+          tone: 'luis',
+          prospectName: 'John',
+          companyName: 'Acme',
+        });
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/ai/generate',
+        expect.objectContaining({
+          signal: expect.any(AbortSignal),
+        })
+      );
+    });
+  });
 });
