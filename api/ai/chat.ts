@@ -66,16 +66,22 @@ export default async function handler(
       return;
     }
 
-    // Convert Gemini format to Railway format
-    const messages = body.contents.map(c => ({
-      role: c.role === 'model' ? 'assistant' : c.role,
-      content: c.parts.map(p => p.text).join('\n'),
-    }));
+    // Build a single message string from conversation history
+    // Railway's /api/ai/chat expects { message: string, systemPrompt?: string }
+    const lastUserMessage = body.contents
+      .filter(c => c.role === 'user')
+      .pop();
+    
+    if (!lastUserMessage) {
+      res.status(400).json({ error: 'No user message found' });
+      return;
+    }
 
+    const message = lastUserMessage.parts.map(p => p.text).join('\n');
     const systemPrompt = body.systemInstruction?.parts.map(p => p.text).join('\n');
 
-    // Call Railway AI endpoint
-    const railwayResponse = await fetch(`${RAILWAY_API_URL}/api/ai/content/generate`, {
+    // Call Railway AI chat endpoint
+    const railwayResponse = await fetch(`${RAILWAY_API_URL}/api/ai/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -84,10 +90,8 @@ export default async function handler(
         'x-source': 'gtm-yardflow-vercel',
       },
       body: JSON.stringify({
-        type: 'chat',
-        messages,
+        message,
         systemPrompt,
-        context: body.context,
       }),
     });
 
@@ -102,11 +106,25 @@ export default async function handler(
       return;
     }
 
+    // Railway returns { response: string (JSON), provider: string, fallbackUsed: boolean }
+    // Parse the response field if it's JSON
+    let responseText = '';
+    try {
+      if (data.response) {
+        const parsed = JSON.parse(data.response);
+        responseText = parsed.content || parsed.message || data.response;
+      } else {
+        responseText = data.content || data.message || '';
+      }
+    } catch {
+      responseText = data.response || data.content || data.message || '';
+    }
+
     // Convert back to Gemini format for frontend compatibility
     const geminiResponse = {
       candidates: [{
         content: {
-          parts: [{ text: data.content || data.message || '' }],
+          parts: [{ text: responseText }],
           role: 'model',
         },
         finishReason: 'STOP',
@@ -117,7 +135,7 @@ export default async function handler(
         totalTokenCount: (data.usage?.promptTokens || 0) + (data.usage?.completionTokens || 0),
       },
       _provider: data.provider,
-      _fallbackUsed: data.rateLimit?.fallbackUsed,
+      _fallbackUsed: data.fallbackUsed,
     };
 
     res.status(200).json(geminiResponse);
