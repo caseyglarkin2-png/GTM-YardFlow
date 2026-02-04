@@ -12,6 +12,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { featureFlags } from '../config/featureFlags';
 import { railwayClient } from '../services/RailwayApiClient';
+import { RailwayHealthCard } from './RailwayHealthCard';
 
 export interface ServiceHealth {
   name: string;
@@ -237,6 +238,14 @@ export function HealthDashboard() {
       {state.error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
           {state.error}
+        </div>
+      )}
+
+      {/* Railway Backend Detailed Status */}
+      {featureFlags.RAILWAY_ENABLED && (
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-gray-700 mb-3">Railway Backend (Detailed)</h3>
+          <RailwayHealthCard compact={false} />
         </div>
       )}
 

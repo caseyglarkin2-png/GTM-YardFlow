@@ -443,6 +443,18 @@ export interface SequenceAnalytics {
 // Health Check Types
 // =============================================================================
 
+/** Individual health check result */
+export interface HealthCheckResult {
+  status: 'ok' | 'degraded' | 'error';
+  latencyMs?: number;
+  message?: string;
+}
+
+/** AI provider health check with quota info */
+export interface AIProviderHealthCheck extends HealthCheckResult {
+  quotaRemaining?: number;
+}
+
 export interface RailwayHealthResponse {
   status: 'healthy' | 'degraded' | 'unhealthy';
   timestamp: ISO8601;
@@ -462,6 +474,11 @@ export interface RailwayHealthResponse {
       outreach: 'ready' | 'paused' | 'error';
       emails: 'ready' | 'paused' | 'error';
       sequence: 'ready' | 'paused' | 'error';
+    };
+    /** AI provider status (optional - added in Sprint 28) */
+    ai?: {
+      gemini: AIProviderHealthCheck;
+      openai: AIProviderHealthCheck;
     };
   };
   version?: string;
