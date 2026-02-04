@@ -17,7 +17,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { LazyIcon } from './icons';
-import { EMAIL_TEMPLATES, personalizeTemplate, type EmailTemplate } from '../config/emailTemplates';
+import { personalizeTemplate } from '../config/emailTemplates';
 import { TONE_OPTIONS, DEFAULT_TONE, getTone, type ToneId } from '../config/tones';
 import { CALENDLY_CONFIG } from '../config/calendly';
 import { useAIGenerate } from '../hooks/useAIGenerate';
@@ -157,7 +157,8 @@ export function BulkEmailModal({
   progress = { sent: 0, total: 0, failed: 0 },
   onUpdateProspect,
 }: BulkEmailModalProps) {
-  const [templateId, setTemplateId] = useState(EMAIL_TEMPLATES[0]?.id || 'intro_yardflow');
+  // Initial template ID - will be updated when hook loads templates
+  const [templateId, setTemplateId] = useState('intro_yardflow');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [selectedTone, setSelectedTone] = useState<ToneId>(DEFAULT_TONE);
@@ -197,6 +198,13 @@ export function BulkEmailModal({
   const [templateSaveError, setTemplateSaveError] = useState<string | null>(null);
   const [templateSaveSuccess, setTemplateSaveSuccess] = useState(false);
   
+  // Template Edit/Delete state (T2.3, T2.4)
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isUpdatingTemplate, setIsUpdatingTemplate] = useState(false);
+  const [isDeletingTemplate, setIsDeletingTemplate] = useState(false);
+  const [templateActionError, setTemplateActionError] = useState<string | null>(null);
+  
   // Mode: 'template' = same template for all, 'ai' = AI-generated per recipient
   const [sendMode, setSendMode] = useState<'template' | 'ai'>('template');
   
@@ -210,10 +218,16 @@ export function BulkEmailModal({
     return 'composing';
   }, [isSending, progress.results]);
 
-  // Get current template
+  // Get current template from Railway (or static fallback)
   const currentTemplate = useMemo(
-    () => EMAIL_TEMPLATES.find(t => t.id === templateId) || EMAIL_TEMPLATES[0],
-    [templateId]
+    () => {
+      const templates = templateCRUD.templates;
+      const found = templates.find(t => t.id === templateId);
+      if (found) return found;
+      // Fallback to first template or create a default
+      return templates[0] || { id: 'default', name: 'Default', subject: '', body: '', category: 'outreach' as const };
+    },
+    [templateId, templateCRUD.templates]
   );
 
   // Apply local email updates to prospects for immediate UI feedback
@@ -437,8 +451,17 @@ export function BulkEmailModal({
 
   // Handle Save as Template
   const handleSaveAsTemplate = useCallback(async () => {
-    if (!templateSaveName.trim() || !subject.trim() || !body.trim()) {
+    const trimmedName = templateSaveName.trim();
+    
+    if (!trimmedName || !subject.trim() || !body.trim()) {
       setTemplateSaveError('Template name, subject, and body are required');
+      return;
+    }
+    
+    // T2.6: Check for duplicate template name
+    const existingNames = templateCRUD.templates.map(t => t.name.toLowerCase());
+    if (existingNames.includes(trimmedName.toLowerCase())) {
+      setTemplateSaveError('A template with this name already exists');
       return;
     }
     
@@ -447,7 +470,7 @@ export function BulkEmailModal({
     
     try {
       await templateCRUD.create({
-        name: templateSaveName.trim(),
+        name: trimmedName,
         subject,
         body,
         category: templateSaveCategory,
@@ -466,6 +489,86 @@ export function BulkEmailModal({
       setIsSavingTemplate(false);
     }
   }, [templateSaveName, subject, body, templateSaveCategory, templateSaveTone, templateCRUD]);
+
+  // T2.3: Handle Update Template
+  const handleUpdateTemplate = useCallback(async () => {
+    if (!templateId || !subject.trim() || !body.trim()) {
+      setTemplateActionError('Subject and body are required');
+      return;
+    }
+
+    // Can't edit default/system templates
+    if (currentTemplate.isDefault) {
+      setTemplateActionError('Cannot edit default templates. Use "Save as Template" to create a copy.');
+      return;
+    }
+    
+    setIsUpdatingTemplate(true);
+    setTemplateActionError(null);
+    
+    try {
+      const result = await templateCRUD.update(templateId, {
+        subject,
+        body,
+      });
+      
+      if (result.ok) {
+        setIsEditMode(false);
+        await templateCRUD.reload();
+      } else {
+        setTemplateActionError(result.error || 'Failed to update template');
+      }
+    } catch (err) {
+      setTemplateActionError(err instanceof Error ? err.message : 'Failed to update template');
+    } finally {
+      setIsUpdatingTemplate(false);
+    }
+  }, [templateId, subject, body, currentTemplate, templateCRUD]);
+
+  // T2.4: Handle Delete Template
+  const handleDeleteTemplate = useCallback(async () => {
+    if (!templateId) return;
+
+    // Can't delete default/system templates
+    if (currentTemplate.isDefault) {
+      setTemplateActionError('Cannot delete default templates');
+      setShowDeleteConfirm(false);
+      return;
+    }
+    
+    setIsDeletingTemplate(true);
+    setTemplateActionError(null);
+    
+    try {
+      const result = await templateCRUD.deleteTemplate(templateId);
+      
+      if (result.ok) {
+        // Reset to first available template
+        const remaining = templateCRUD.templates.filter(t => t.id !== templateId);
+        if (remaining.length > 0) {
+          setTemplateId(remaining[0].id);
+        }
+        setSubject('');
+        setBody('');
+        setShowDeleteConfirm(false);
+        await templateCRUD.reload();
+      } else if (result.error?.includes('in_use') || result.error?.includes('in use')) {
+        setTemplateActionError('Cannot delete: template is used in active sequences');
+      } else {
+        setTemplateActionError(result.error || 'Failed to delete template');
+      }
+    } catch (err) {
+      setTemplateActionError(err instanceof Error ? err.message : 'Failed to delete template');
+    } finally {
+      setIsDeletingTemplate(false);
+      setShowDeleteConfirm(false);
+    }
+  }, [templateId, currentTemplate, templateCRUD]);
+
+  // Can this template be edited/deleted? (only custom, not default)
+  const canModifyTemplate = useMemo(() => {
+    return templateCRUD.isRailwaySource && !currentTemplate.isDefault;
+  }, [templateCRUD.isRailwaySource, currentTemplate]);
 
   const handleSubmit = async () => {
     if (!canSend) return;
@@ -656,27 +759,96 @@ export function BulkEmailModal({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {/* Template Selector */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Template
+              <label htmlFor="template-selector" className="block text-sm font-medium text-slate-700 mb-1.5">
+                Template {templateCRUD.isRailwaySource && <span className="text-xs text-green-600">(Railway)</span>}
               </label>
-              <select
-                value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
-                disabled={isSending || isGenerating}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100"
-              >
-                {EMAIL_TEMPLATES.map(t => (
-                  <option key={t.id} value={t.id}>{t.label}</option>
-                ))}
-              </select>
+              {templateCRUD.isLoading ? (
+                <select
+                  id="template-selector"
+                  disabled
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-100 animate-pulse"
+                >
+                  <option>Loading templates...</option>
+                </select>
+              ) : (
+                <div className="flex gap-1">
+                  <select
+                    id="template-selector"
+                    value={templateId}
+                    onChange={(e) => { setTemplateId(e.target.value); setIsEditMode(false); }}
+                    disabled={isSending || isGenerating}
+                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100"
+                  >
+                    {templateCRUD.templates.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}{t.isDefault ? ' (default)' : ''}</option>
+                    ))}
+                  </select>
+                  {/* Edit/Delete buttons for custom templates */}
+                  {canModifyTemplate && !isEditMode && (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setIsEditMode(true)}
+                        disabled={isSending || isGenerating}
+                        title="Edit template"
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        <LazyIcon name="Edit2" className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        disabled={isSending || isGenerating}
+                        title="Delete template"
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        <LazyIcon name="Trash2" className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                  {/* Save/Cancel buttons in edit mode */}
+                  {isEditMode && (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={handleUpdateTemplate}
+                        disabled={isUpdatingTemplate || !subject.trim() || !body.trim()}
+                        title="Save changes"
+                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {isUpdatingTemplate ? (
+                          <LazyIcon name="Loader2" className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <LazyIcon name="Check" className="h-4 w-4" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setIsEditMode(false)}
+                        disabled={isUpdatingTemplate}
+                        title="Cancel edit"
+                        className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        <LazyIcon name="X" className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {templateCRUD.error && (
+                <p className="text-xs text-amber-600 mt-1">Using fallback templates</p>
+              )}
+              {templateActionError && (
+                <p className="text-xs text-red-600 mt-1">{templateActionError}</p>
+              )}
+              {isEditMode && (
+                <p className="text-xs text-blue-600 mt-1">Editing: modify subject/body and click ✓ to save</p>
+              )}
             </div>
 
             {/* Tone Selector */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label htmlFor="tone-selector" className="block text-sm font-medium text-slate-700 mb-1.5">
                 Tone
               </label>
               <select
+                id="tone-selector"
                 value={selectedTone}
                 onChange={(e) => setSelectedTone(e.target.value as ToneId)}
                 disabled={isSending || isGenerating}
@@ -958,10 +1130,11 @@ export function BulkEmailModal({
           {sendMode === 'template' && (
           <>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+            <label htmlFor="email-subject" className="block text-sm font-medium text-slate-700 mb-1.5">
               Subject Line
             </label>
             <input
+              id="email-subject"
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
@@ -977,7 +1150,7 @@ export function BulkEmailModal({
           {/* Message Body */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-sm font-medium text-slate-700">
+              <label htmlFor="email-body" className="block text-sm font-medium text-slate-700">
                 Message Body
               </label>
               <button
@@ -1002,6 +1175,7 @@ export function BulkEmailModal({
               </div>
             ) : (
               <textarea
+                id="email-body"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 disabled={isSending || isGenerating}
@@ -1176,6 +1350,53 @@ export function BulkEmailModal({
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog (T2.4) */}
+      {showDeleteConfirm && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-full">
+                <LazyIcon name="AlertTriangle" className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-800">Delete Template?</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  This will permanently delete "{currentTemplate.name}". This action cannot be undone.
+                </p>
+                {currentTemplate.isDefault && (
+                  <p className="text-sm text-amber-600 mt-2">
+                    ⚠️ Default templates cannot be deleted.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeletingTemplate}
+                className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteTemplate}
+                disabled={isDeletingTemplate || currentTemplate.isDefault}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {isDeletingTemplate && <LazyIcon name="Loader2" className="h-4 w-4 animate-spin" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
