@@ -63,7 +63,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const data = await response.json();
 
     if (!response.ok) {
-      logger.error('[AI Proxy] Gemini API error:', data);
+      logger.error('[AI Proxy] Gemini API error', undefined, { 
+        status: response.status, 
+        errorMessage: data.error?.message 
+      });
       res.status(response.status).json({
         error: 'AI service error',
         message: data.error?.message || 'Failed to generate response',
