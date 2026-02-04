@@ -232,67 +232,9 @@ function generateMockConfidence(): ResearchConfidence {
 }
 
 // ============================================
-// API Call Functions
+// API Call Functions (Now routed through Railway)
+// Note: callGeminiForResearch removed - now using /api/ai/research proxy
 // ============================================
-
-/**
- * Call Gemini API for company research
- * 
- * TODO: [SECURITY] For production, route this through a backend API endpoint
- * (e.g., /api/research/company) to keep the API key server-side.
- * Current implementation exposes the key in browser network tools.
- * See: https://ai.google.dev/gemini-api/docs/get-started/web
- */
-async function callGeminiForResearch(prompt: string, attempt = 0): Promise<string> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error('VITE_GEMINI_API_KEY is not set');
-  }
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${RESEARCH_CONFIG.model}:generateContent?key=${apiKey}`;
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }],
-        }],
-        generationConfig: {
-          maxOutputTokens: RESEARCH_CONFIG.maxOutputTokens,
-          temperature: RESEARCH_CONFIG.temperature,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429 && attempt < RESEARCH_CONFIG.retryAttempts) {
-        // Rate limited - retry with delay
-        await new Promise(resolve => setTimeout(resolve, RESEARCH_CONFIG.retryDelayMs * (attempt + 1)));
-        return callGeminiForResearch(prompt, attempt + 1);
-      }
-      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    
-    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-      throw new Error('Invalid response structure from Gemini API');
-    }
-
-    return data.candidates[0].content.parts[0].text;
-  } catch (error) {
-    if (attempt < RESEARCH_CONFIG.retryAttempts) {
-      await new Promise(resolve => setTimeout(resolve, RESEARCH_CONFIG.retryDelayMs));
-      return callGeminiForResearch(prompt, attempt + 1);
-    }
-    throw error;
-  }
-}
 
 // ============================================
 // Response Parsing

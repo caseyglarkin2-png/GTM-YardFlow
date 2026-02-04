@@ -919,8 +919,7 @@ export default function App() {
     }
   }, [selectedProspects, auth, updateProspect, clearSelection, showSuccess, showWarning, showError, announce, sendBatch, isRailwayEnabled]);
   
-  // AI State
-  const [geminiApiKey, setGeminiApiKey] = useState('');
+  // AI State - geminiApiKey deprecated, AI routes through Railway
   const [showSettings, setShowSettings] = useState(false);
   const [chatInput, setChatInput] = useState('');
   
@@ -989,9 +988,7 @@ export default function App() {
     };
     initAuth();
     
-    // Load API Key from local storage if available
-    const storedKey = localStorage.getItem('yardflow_gemini_key');
-    if (storedKey) setGeminiApiKey(storedKey);
+    // Note: geminiApiKey no longer needed - AI routes through Railway backend
 
     if (auth) {
       const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -1061,14 +1058,9 @@ export default function App() {
     return { total, contacted, booked, tier1 };
   }, [prospects]);
 
-  // --- Gemini API Call with Full Context ---
+  // --- Brain AI Chat (routes through Railway) ---
   const handleSendMessage = useCallback(async () => {
     if (!chatInput.trim()) return;
-    if (!geminiApiKey) {
-      setChatHistory(prev => [...prev, { role: 'user', text: chatInput }, { role: 'model', text: "⚠️ Please enter your Gemini API Key in Settings (gear icon) to enable the Brain." }]);
-      setChatInput('');
-      return;
-    }
 
     const userMessage = chatInput;
     const newMsg: ChatMessage = { role: 'user', text: userMessage };
@@ -1105,39 +1097,25 @@ export default function App() {
       // Build conversation history for Gemini
       const contents = conversationManager.buildGeminiContents();
 
-      // Route through server-side proxy for API key security
-      // Falls back to client-side if proxy unavailable and API key is set locally
+      // Route through server-side proxy to Railway (all AI keys on Railway)
       let data: { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>; error?: { message?: string } };
       
-      try {
-        // Try server-side proxy first (secure - API key stays on server)
-        const response = await fetch('/api/ai/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: contents,
-            systemInstruction: { parts: [{ text: systemPrompt }] }
-          })
-        });
-        data = await response.json();
-      } catch (proxyError) {
-        // Fallback to client-side only if local API key is configured
-        // This allows development without server-side setup
-        if (geminiApiKey) {
-          console.warn('[AI] Server proxy unavailable, using client-side API key');
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: contents,
-              systemInstruction: { parts: [{ text: systemPrompt }] }
-            })
-          });
-          data = await response.json();
-        } else {
-          throw proxyError;
-        }
+      // Server-side proxy routes to Railway backend
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: contents,
+          systemInstruction: { parts: [{ text: systemPrompt }] }
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
       }
+      
+      data = await response.json();
       
       // Better error handling for API responses
       if (data.error) {
@@ -1162,7 +1140,7 @@ export default function App() {
     } finally {
       setIsGenerating(false);
     }
-  }, [chatInput, geminiApiKey, selectedProspect, stats]);
+  }, [chatInput, selectedProspect, stats]);
 
   // Clear chat history
   const handleClearHistory = useCallback(() => {
@@ -1190,11 +1168,6 @@ export default function App() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
-
-  const saveApiKey = (key: string) => {
-    setGeminiApiKey(key);
-    localStorage.setItem('yardflow_gemini_key', key);
-  };
 
   // --- Email Update Handler ---
   const handleEmailUpdate = async (newEmail: string) => {
@@ -1789,17 +1762,10 @@ export default function App() {
               Settings
             </h3>
             
-            {/* API Key Section */}
-            <div className="mb-6">
-              <label htmlFor="gemini-api-key" className="block text-xs font-semibold text-slate-500 uppercase mb-2">Gemini API Key</label>
-              <input 
-                id="gemini-api-key" 
-                type="password" 
-                placeholder="Paste AI Studio Key here..."
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                value={geminiApiKey}
-                onChange={(e) => saveApiKey(e.target.value)}
-              />
+            {/* AI Configuration Note */}
+            <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+              <p className="font-medium">AI Configuration</p>
+              <p className="text-xs mt-1">AI features are powered by the Railway backend. No API key configuration needed.</p>
             </div>
             
             {/* Data Management Section */}
@@ -1965,7 +1931,7 @@ export default function App() {
               )}
               {activeTab === 'assistant' && (
                 <ErrorBoundary name="AI Assistant">
-                  <ChatPanel selectedProspect={selectedProspect} stats={stats} geminiApiKey={geminiApiKey} />
+                  <ChatPanel selectedProspect={selectedProspect} stats={stats} />
                 </ErrorBoundary>
               )}
               {activeTab === 'roi' && (

@@ -183,37 +183,26 @@ function classifyError(error: unknown, status?: number): GeminiError {
 }
 
 // ============================================
-// API Call with Retry
+// API Call with Retry (Routes through Railway)
 // ============================================
 
 async function callGeminiAPI(prompt: string, attempt = 0): Promise<string> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error('VITE_GEMINI_API_KEY is not set');
-  }
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CONFIG.model}:generateContent?key=${apiKey}`;
-
-  const response = await fetch(url, {
+  // Route through server-side proxy to Railway (all AI keys on Railway)
+  const response = await fetch('/api/ai/generate', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: prompt,
-        }],
-      }],
-      generationConfig: {
-        maxOutputTokens: GEMINI_CONFIG.maxOutputTokens,
-        temperature: 0.7,
-      },
+      prompt: prompt,
+      temperature: 0.7,
+      maxTokens: GEMINI_CONFIG.maxOutputTokens,
+      type: 'assets'
     }),
   });
 
   if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
     const error = classifyError(null, response.status);
     
     // Retry on rate limit or network errors
@@ -223,16 +212,19 @@ async function callGeminiAPI(prompt: string, attempt = 0): Promise<string> {
       return callGeminiAPI(prompt, attempt + 1);
     }
     
-    throw new Error(error.message);
+    throw new Error(errorData.error || error.message);
   }
 
   const data = await response.json();
   
-  if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-    throw new Error('Invalid response structure from Gemini API');
+  // Handle both Railway format (content) and legacy Gemini format (candidates)
+  const text = data.content || data.candidates?.[0]?.content?.parts?.[0]?.text;
+  
+  if (!text) {
+    throw new Error('No content in response from AI API');
   }
 
-  return data.candidates[0].content.parts[0].text;
+  return text;
 }
 
 // ============================================

@@ -18,10 +18,10 @@ export interface ChatStats {
 interface ChatPanelProps {
   selectedProspect: Prospect | null;
   stats: ChatStats;
-  geminiApiKey: string;
+  geminiApiKey?: string;  // Deprecated - AI routes through Railway
 }
 
-export function ChatPanel({ selectedProspect, stats, geminiApiKey }: ChatPanelProps) {
+export function ChatPanel({ selectedProspect, stats }: ChatPanelProps) {
   // Local state
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>(() => {
     const persisted = conversationManager.getHistory();
@@ -57,18 +57,9 @@ export function ChatPanel({ selectedProspect, stats, geminiApiKey }: ChatPanelPr
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, isGenerating]);
 
-  // Handle message sending
+  // Handle message sending - routes through Railway backend
   const handleSendMessage = useCallback(async () => {
     if (!chatInput.trim()) return;
-    
-    if (!geminiApiKey) {
-      setChatHistory(prev => [...prev, 
-        { role: 'user', text: chatInput }, 
-        { role: 'model', text: "⚠️ Please enter your Gemini API Key in Settings (gear icon) to enable the Brain." }
-      ]);
-      setChatInput('');
-      return;
-    }
 
     const userMessage = chatInput;
     const newMsg: ChatMessage = { role: 'user', text: userMessage };
@@ -105,14 +96,13 @@ export function ChatPanel({ selectedProspect, stats, geminiApiKey }: ChatPanelPr
       // Build conversation history for Gemini
       const contents = conversationManager.buildGeminiContents();
 
-      // Call API
+      // Call API - routes through Railway backend (no local key needed)
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: contents,
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          key: geminiApiKey // Fallback if proxy fails to inject
+          systemInstruction: { parts: [{ text: systemPrompt }] }
         })
       });
 
@@ -139,7 +129,7 @@ export function ChatPanel({ selectedProspect, stats, geminiApiKey }: ChatPanelPr
     } finally {
       setIsGenerating(false);
     }
-  }, [chatInput, geminiApiKey, selectedProspect, stats]);
+  }, [chatInput, selectedProspect, stats]);
 
   const handleClearHistory = useCallback(() => {
     conversationManager.clearHistory();

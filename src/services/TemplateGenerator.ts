@@ -46,11 +46,12 @@ export interface TemplateGenerationRequest {
 }
 
 /**
- * Generate a personalized template using Gemini
+ * Generate a personalized template using Railway AI proxy
+ * Note: apiKey parameter is deprecated, kept for backwards compatibility
  */
 export async function generateTemplate(
   request: TemplateGenerationRequest,
-  apiKey: string
+  _apiKey?: string  // Deprecated - AI routes through Railway
 ): Promise<GeneratedTemplate> {
   const { prospect, style, customPrompt, senderName } = request;
 
@@ -95,28 +96,32 @@ Generate a Manifest App DM message (MUST be under 250 characters). Return ONLY t
 `;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 150,
-          }
-        })
-      }
-    );
+    // Route through server-side proxy for API key security
+    // The server proxy routes to Railway which has the AI keys
+    const response = await fetch('/api/ai/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: prompt,
+        temperature: 0.7,
+        maxTokens: 150,
+        type: 'dm'
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
 
     const data = await response.json();
     
     if (data.error) {
-      throw new Error(data.error.message || 'API error');
+      throw new Error(data.error);
     }
 
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    // Handle both Railway format and legacy Gemini format
+    const generatedText = data.content || data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
     
     // Clean up any quotes or extra formatting
     const cleanedText = generatedText
@@ -139,13 +144,14 @@ Generate a Manifest App DM message (MUST be under 250 characters). Return ONLY t
 }
 
 /**
- * Refine an existing template using AI
+ * Refine an existing template using Railway AI proxy
+ * Note: apiKey parameter is deprecated, kept for backwards compatibility
  */
 export async function refineTemplate(
   currentMessage: string,
   refinementRequest: string,
   prospect: Prospect,
-  apiKey: string
+  _apiKey?: string  // Deprecated - AI routes through Railway
 ): Promise<string> {
   const prompt = `
 You are refining a Manifest 2026 outreach message.
@@ -169,28 +175,31 @@ Return ONLY the refined message text.
 `;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.5,
-            maxOutputTokens: 150,
-          }
-        })
-      }
-    );
+    // Route through server-side proxy for API key security
+    const response = await fetch('/api/ai/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: prompt,
+        temperature: 0.5,
+        maxTokens: 150,
+        type: 'refinement'
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
 
     const data = await response.json();
     
     if (data.error) {
-      throw new Error(data.error.message || 'API error');
+      throw new Error(data.error);
     }
 
-    const refinedText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || currentMessage;
+    // Handle both Railway format and legacy Gemini format
+    const refinedText = data.content || data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || currentMessage;
     
     return refinedText
       .replace(/^["']|["']$/g, '')
