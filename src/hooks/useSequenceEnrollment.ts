@@ -29,6 +29,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { railwayClient } from '@/services/RailwayApiClient';
 import type { RailwayEnrollment } from '@/types/railway';
 import { featureFlags } from '@/config/featureFlags';
+import { MANIFEST_SEQUENCES } from '@/data/sequenceTemplates';
 
 // ============================================
 // Types
@@ -97,6 +98,23 @@ function getDb() {
   } catch {
     return null;
   }
+}
+
+/**
+ * Convert local MANIFEST_SEQUENCES templates to SequenceOption format
+ * Used as fallback when Railway is unavailable or returns empty
+ * 
+ * Sprint 33 T0.1: Added for Railway fallback support
+ */
+function getDefaultSequences(): SequenceOption[] {
+  return MANIFEST_SEQUENCES.map(template => ({
+    id: template.id,
+    name: template.name,
+    description: template.description,
+    stepCount: template.steps.length,
+    activeProspects: 0,
+    status: 'active' as const,
+  }));
 }
 
 // Get Auth instance lazily
@@ -224,41 +242,77 @@ export function useSequenceEnrollment(): UseSequenceEnrollmentReturn {
   }, [enrollments]);
 
   /**
-   * Fetch available sequences from Firestore
+   * Fetch available sequences from Railway API (primary) or fallback to local templates
+   * 
+   * Priority:
+   * 1. Railway API (if enabled and available)
+   * 2. Local MANIFEST_SEQUENCES templates (fallback)
+   * 
+   * Sprint 33 T0.1: Refactored to use Railway as primary source
    */
   const refreshSequences = useCallback(async () => {
     setIsLoadingSequences(true);
     setSequencesError(null);
     
     try {
-      const db = getDb();
-      if (!db) {
-        throw new Error('Firebase not configured');
+      // Priority 1: Try Railway API if enabled
+      if (featureFlags.RAILWAY_ENABLED) {
+        try {
+          const result = await railwayClient.sequences.list();
+          
+          if (result.ok && result.data) {
+            // T0.4: Handle empty Railway response - fall back to templates
+            if (result.data.length === 0) {
+              console.info('[useSequenceEnrollment] Railway returned empty, using default templates');
+              const defaultSequences = getDefaultSequences();
+              setSequences(defaultSequences);
+              return;
+            }
+            
+            // Map Railway sequences to SequenceOption format
+            const railwaySequences: SequenceOption[] = result.data.map(seq => ({
+              id: seq.id,
+              name: seq.name,
+              description: seq.description || undefined,
+              stepCount: seq.steps?.length || 0,
+              activeProspects: 0, // Railway doesn't return this in list
+              status: (seq.status as 'active' | 'paused' | 'draft') || 'active',
+            }));
+            
+            setSequences(railwaySequences);
+            console.info(`[useSequenceEnrollment] Loaded ${railwaySequences.length} sequences from Railway`);
+            return;
+          }
+        } catch (railwayError) {
+          console.warn('[useSequenceEnrollment] Railway fetch failed, falling back to templates:', railwayError);
+          // Fall through to fallback
+        }
       }
-      const sequencesRef = collection(db, 'sequences');
-      const q = query(sequencesRef, where('status', 'in', ['active', 'draft']));
-      const snapshot = await getDocs(q);
       
-      const loadedSequences: SequenceOption[] = snapshot.docs.map(doc => {
-        const data = doc.data() as EmailSequence;
-        return {
-          id: doc.id,
-          name: data.name,
-          description: data.description,
-          stepCount: data.steps?.length || 0,
-          activeProspects: data.enrolledCount || 0,
-          status: data.status as 'active' | 'paused' | 'draft',
-        };
-      });
+      // Fallback: Use local templates when Railway unavailable or disabled
+      console.info('[useSequenceEnrollment] Using default template sequences');
+      const defaultSequences = getDefaultSequences();
+      setSequences(defaultSequences);
       
-      setSequences(loadedSequences);
     } catch (err) {
-      console.error('Failed to load sequences:', err);
+      console.error('[useSequenceEnrollment] Failed to load sequences:', err);
       setSequencesError(err instanceof Error ? err.message : 'Failed to load sequences');
+      
+      // Even on error, provide default templates so UI isn't empty
+      const fallbackSequences = getDefaultSequences();
+      setSequences(fallbackSequences);
     } finally {
       setIsLoadingSequences(false);
     }
   }, []);
+
+  /**
+   * Auto-refresh sequences on mount
+   * Sprint 33 T0.2: Ensures sequences are loaded when hook is first used
+   */
+  useEffect(() => {
+    refreshSequences();
+  }, [refreshSequences]);
 
   /**
    * Calculate next send time (client-side for immediate feedback)

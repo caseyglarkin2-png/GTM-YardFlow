@@ -430,6 +430,8 @@ export default function App() {
   // Sequence Enrollment (Sprint 81)
   const { 
     sequences, 
+    isLoadingSequences,
+    sequencesError,
     refreshSequences, 
     enrollments: _enrollments, // Used in real-time updates, accessed via getEnrollmentForProspect
     getEnrollmentForProspect,
@@ -2065,7 +2067,8 @@ export default function App() {
         onConfirm={handleBulkAssignSequence}
         selectedCount={selectedCount}
         sequences={sequences}
-        isLoading={isEnrolling}
+        isLoading={isLoadingSequences || isEnrolling}
+        error={sequencesError}
         onRetry={refreshSequences}
       />
 
