@@ -2,6 +2,7 @@
 
 **Status**: 🚀 ACTIVE  
 **Created**: February 2026  
+**Updated**: February 2, 2026  
 **Goal**: Activate Brain AI chat, AI Research, and enable smart prospecting with account dossiers  
 **North Star**: "The brain controls the limbs of the app" - AI can navigate, filter, research, and act
 
@@ -10,194 +11,141 @@
 ## Executive Summary
 
 ### Current State
-- ✅ `/api/ai/chat.ts` exists - proxies to Gemini for Brain
-- ✅ `/api/ai/generate.ts` exists - proxies to Railway for content generation
-- ✅ CompanyResearchService exists with mock fallback
-- ✅ BulkEmailModal exists and is wired up
-- ⚠️ Brain shows "Error connecting to AI service" - needs `GEMINI_API_KEY` in Vercel
-- ⚠️ AI Research in mock mode - needs `VITE_GEMINI_API_KEY` for client-side
+- ✅ `/api/ai/chat.ts` - Proxies to Railway `/api/ai/content/generate`
+- ✅ `/api/ai/research.ts` - Proxies to Railway `/api/ai/dossier/generate`
+- ✅ CompanyResearchService - Updated to use `/api/ai/research` proxy
+- ✅ Brain system prompt created with rich context
+- ⚠️ Railway returning "validation_error" - Railway backend has build issue (separate repo)
 
-### Architecture
+### Architecture (UPDATED - Railway Proxy)
+
+**CRITICAL**: NO AI API keys on Vercel. All AI routes through Railway backend.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        GTM-YardFlow (Vercel)                        │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  ┌─────────────┐    ┌──────────────┐    ┌──────────────────────┐   │
-│  │ ChatPanel   │───▶│/api/ai/chat  │───▶│ Gemini 1.5 Flash     │   │
-│  │ (Brain UI)  │    │ (Proxy)      │    │ (GEMINI_API_KEY)     │   │
-│  └─────────────┘    └──────────────┘    └──────────────────────┘   │
-│                                                                     │
-│  ┌─────────────┐    ┌──────────────────────────────────────────┐   │
-│  │ AI Research │───▶│ CompanyResearchService.ts                │   │
-│  │ Button      │    │ (VITE_GEMINI_API_KEY - Client-side)      │   │
-│  └─────────────┘    └──────────────────────────────────────────┘   │
-│                                                                     │
-│  ┌─────────────┐    ┌──────────────┐    ┌──────────────────────┐   │
-│  │ Content Gen │───▶│/api/ai/      │───▶│ Railway Backend      │   │
-│  │ (Bulk Email)│    │generate      │    │ (Gemini→OpenAI)      │   │
-│  └─────────────┘    └──────────────┘    └──────────────────────┘   │
+│  ┌─────────────┐    ┌──────────────┐                               │
+│  │ ChatPanel   │───▶│/api/ai/chat  │───┐                           │
+│  │ (Brain UI)  │    │ (Proxy)      │   │                           │
+│  └─────────────┘    └──────────────┘   │                           │
+│                                        │  S2S Auth                 │
+│  ┌─────────────┐    ┌──────────────┐   │  Bearer RAILWAY_API_SECRET│
+│  │ AI Research │───▶│/api/ai/      │───┼───────────────────────────┤
+│  │ Button      │    │research      │   │                           │
+│  └─────────────┘    └──────────────┘   │                           │
+│                                        ▼                           │
+│  ┌─────────────┐    ┌──────────────┐   ┌──────────────────────────┐│
+│  │ Content Gen │───▶│/api/ai/      │──▶│ Railway Backend          ││
+│  │ (Bulk Email)│    │generate      │   │ (has GEMINI + OPENAI)    ││
+│  └─────────────┘    └──────────────┘   └──────────────────────────┘│
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
+                                         │
+                                         ▼
+                          ┌──────────────────────────────┐
+                          │      Railway Endpoints       │
+                          ├──────────────────────────────┤
+                          │ POST /api/ai/content/generate│
+                          │ POST /api/ai/dossier/generate│
+                          │ POST /api/ai/score-icp       │
+                          │ POST /api/accounts/{id}/research │
+                          └──────────────────────────────┘
 ```
 
 ---
 
 ## Environment Variables Checklist
 
-### Vercel Dashboard Configuration
+### Vercel Dashboard Configuration (NO AI KEYS!)
 
 | Variable | Scope | Purpose | Status |
 |----------|-------|---------|--------|
-| `GEMINI_API_KEY` | All | Server-side Brain chat | ⚠️ Verify |
-| `VITE_GEMINI_API_KEY` | All | Client-side AI Research | ❌ Missing |
-| `OPENAI_API_KEY` | All | Fallback (future) | ⚠️ Verify |
-| `RAILWAY_API_URL` | All | Content generation proxy | ✅ |
-| `RAILWAY_API_SECRET` | All | S2S auth | ✅ |
+| `RAILWAY_API_URL` | All | Railway backend URL | ✅ |
+| `RAILWAY_API_SECRET` | All | S2S auth (must match Railway's CRON_SECRET) | ✅ |
+| `CRON_SECRET` | All | Fallback for S2S auth | ✅ |
+| ~~`GEMINI_API_KEY`~~ | ~~All~~ | ~~REMOVED - AI through Railway~~ | ❌ Remove |
+| ~~`VITE_GEMINI_API_KEY`~~ | ~~All~~ | ~~REMOVED - AI through Railway~~ | ❌ Remove |
 
-**Action**: Add `VITE_GEMINI_API_KEY` with same value as `GEMINI_API_KEY`.
+**Note**: All AI API keys (Gemini, OpenAI) live on Railway only.
 
 ---
 
 ## Sprint Overview
 
-| Sprint | Focus | Est. Time | Demo |
-|--------|-------|-----------|------|
-| **B0** | Environment Fix | 30 min | Brain responds, Research works |
-| **B1** | Brain System Prompt | 1 hour | Brain understands app context |
-| **B2** | Brain Actions | 3 hours | Brain can navigate/filter/act |
-| **B3** | Account Dossiers | 2 hours | Rich company research view |
-| **B4** | Bulk Email Verify | 1 hour | Send 50 emails via UI |
+| Sprint | Focus | Est. Time | Status | Demo |
+|--------|-------|-----------|--------|------|
+| **B0** | Railway AI Proxy | 30 min | ✅ COMPLETE | Endpoints respond |
+| **B1** | Brain System Prompt | 1 hour | ✅ COMPLETE | Rich context created |
+| **B2** | Brain Actions | 3 hours | ⏳ Pending | Brain can navigate/filter/act |
+| **B3** | Account Dossiers | 2 hours | ⏳ Pending | Rich company research view |
+| **B4** | Bulk Email Verify | 1 hour | ⏳ Pending | Send 50 emails via UI |
 
 **Total**: ~7.5 hours
 
 ---
 
-## Sprint B0: Environment Fix (30 min)
+## Sprint B0: Railway AI Proxy (30 min) ✅ COMPLETE
 
-**Goal**: Both Brain and AI Research work with real Gemini  
-**Demo**: Brain responds to "Hello", AI Research enriches a company
+**Goal**: Route all AI through Railway backend  
+**Demo**: `/api/ai/chat` proxies to Railway successfully
 
-### B0.1: Add VITE_GEMINI_API_KEY to Vercel [5 min]
+### B0.1: Refactor /api/ai/chat.ts for Railway [15 min] ✅
 
-**Task**: Add client-side API key to Vercel dashboard.
+**Completed**: Rewrote endpoint to proxy to Railway `/api/ai/content/generate`
+- Uses inline config (no external imports that cause init errors)
+- Converts Gemini format → Railway format
+- Returns Gemini-compatible response for frontend compatibility
 
-**Steps**:
-1. Go to Vercel Dashboard → GTM-YardFlow → Settings → Environment Variables
-2. Add new variable:
-   - Key: `VITE_GEMINI_API_KEY`
-   - Value: (same as GEMINI_API_KEY)
-   - Environments: All (Production, Preview, Development)
-3. Click "Save"
-4. Redeploy: `vercel --prod`
+### B0.2: Create /api/ai/research.ts [10 min] ✅
 
-**Exit Criteria**: Variable appears in Vercel dashboard.
+**Completed**: New endpoint proxies to Railway `/api/ai/dossier/generate`
+- Returns normalized research result
+- Handles errors gracefully
 
----
+### B0.3: Update CompanyResearchService [5 min] ✅
 
-### B0.2: Verify GEMINI_API_KEY Scope [5 min]
+**Completed**: Now calls `/api/ai/research` instead of Gemini directly
+- Mock mode based on `VITE_AI_MOCK=true`, not API key presence
 
-**Task**: Confirm server-side key is available in Production.
+### B0.4: Verify S2S Auth Works ✅
 
-**Steps**:
-1. In Vercel Dashboard → Environment Variables
-2. Find `GEMINI_API_KEY`
-3. Verify "Production" checkbox is enabled
-4. If not, edit and enable Production scope
-
-**Exit Criteria**: GEMINI_API_KEY shows Production scope.
+**Completed**: Tested with curl, endpoints respond (Railway returns validation_error due to their build issue)
 
 ---
 
-### B0.3: Redeploy to Production [5 min]
-
-**Task**: Redeploy after env var changes.
-
-**Command**:
-```bash
-cd /workspaces/GTM-YardFlow
-npx vercel --prod
-```
-
-**Exit Criteria**: Deployment completes successfully.
-
----
-
-### B0.4: Test Brain Chat [5 min]
-
-**Task**: Verify Brain responds.
-
-**Steps**:
-1. Open https://gtm-yard-flow.vercel.app
-2. Click Brain icon (bottom right)
-3. Type "Hello, what can you help me with?"
-4. Verify response (not "Error connecting to AI service")
-
-**Exit Criteria**: Brain responds with helpful message.
-
----
-
-### B0.5: Test AI Research [5 min]
-
-**Task**: Verify AI Research works.
-
-**Steps**:
-1. Switch to Company View (toggle in toolbar)
-2. Find a company with "AI Research" button
-3. Click button
-4. Verify toast shows "Researching..." then "Research Complete"
-
-**Exit Criteria**: Company shows enriched data (facilities, industry).
-
----
-
-### B0.6: Verify Bulk Email Button [5 min]
-
-**Task**: Confirm bulk email UI is accessible.
-
-**Steps**:
-1. Select 2+ prospects with emails
-2. Look for bulk action toolbar
-3. Click "Email" button
-4. Verify modal opens with compose form
-
-**Exit Criteria**: BulkEmailModal opens with selected prospects count.
-
----
-
-## Sprint B1: Brain System Prompt (1 hour)
+## Sprint B1: Brain System Prompt (1 hour) ✅ COMPLETE
 
 **Goal**: Brain understands YardFlow context and can provide relevant help  
 **Demo**: Brain explains tiers, suggests actions, knows the product
 
-### B1.1: Create Rich System Prompt [30 min]
+### B1.1: Create Rich System Prompt [30 min] ✅
 
-**Task**: Define comprehensive system prompt for Brain.
+**Completed**: Created `src/config/brainSystemPrompt.ts` with:
+- `BRAIN_SYSTEM_PROMPT` (~4000 chars) - Full context
+- `BRAIN_SYSTEM_PROMPT_SHORT` - Token-constrained version
+- `getPageContextPrompt()` - Page-specific context additions
+- Tier definitions, persona handling, example interactions
 
-**Files**: `src/config/brainSystemPrompt.ts`
+### B1.2: Wire to SystemPromptBuilder [20 min] ✅
 
-**Implementation**:
-```typescript
-export const BRAIN_SYSTEM_PROMPT = `You are YardFlow Brain, an AI assistant for sales prospecting and outreach.
+**Completed**: Updated `src/services/SystemPromptBuilder.ts`:
+- Imports from brainSystemPrompt.ts
+- Added `pageContext` option for page-aware responses
+- Removed 60 lines of inline legacy prompt
 
-## Context
-YardFlow is a sales automation platform for yard management software. Users:
-- Import prospect lists (companies and contacts)
-- Research companies with AI to score fit
-- Build email sequences for outreach
-- Track opens, clicks, and replies
-- Book meetings (Calendly integration)
+### B1.3: Add Page Context Support [10 min] ✅
 
-## Prospect Tiers
-- **Tier 1**: High priority - large fleets, multiple facilities, yard-intensive operations
-- **Tier 2**: Medium priority - mid-size operations, some yard complexity
-- **Tier 3**: Lower priority - smaller operations, less urgent need
+**Completed**: `getPageContextPrompt()` returns context for:
+- Dashboard page
+- Prospects page
+- Sequences page
+- Import page
+- Integrations page
+- AI Research page
 
-## What You Can Help With
-1. **Navigate**: "Show me Tier 1 prospects" → guide to filter
-2. **Research**: "Tell me about Acme Trucking" → company research
-3. **Analyze**: "Who should I contact first?" → prioritization advice
+---
 4. **Draft**: "Write an email to a VP of Operations" → content help
 5. **Explain**: "How does the Primo score work?" → feature education
 
