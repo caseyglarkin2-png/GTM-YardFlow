@@ -78,7 +78,7 @@ function getStatusDisplay(status: RecipientStatus): { icon: string; color: strin
   }
 }
 
-/** Single recipient row in AI mode table */
+/** Single recipient row in AI mode table with expandable preview */
 function RecipientRow({ 
   recipient, 
   onGenerate, 
@@ -88,52 +88,81 @@ function RecipientRow({
   onGenerate: () => void;
   disabled: boolean;
 }) {
+  const [isExpanded, setIsExpanded] = React.useState(false);
   const statusDisplay = getStatusDisplay(recipient.status);
   const isGenerating = recipient.status === 'generating';
   const canGenerate = recipient.status === 'pending' || recipient.status === 'failed';
+  const hasContent = recipient.status === 'generated' && recipient.subject && recipient.body;
   
   return (
-    <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 last:border-b-0 hover:bg-slate-50">
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        {/* Status icon */}
-        <LazyIcon 
-          name={statusDisplay.icon} 
-          className={`h-4 w-4 flex-shrink-0 ${statusDisplay.color} ${isGenerating ? 'animate-spin' : ''}`} 
-        />
+    <div className="border-b border-slate-100 last:border-b-0">
+      {/* Main row */}
+      <div 
+        className={`flex items-center justify-between px-3 py-2 hover:bg-slate-50 ${hasContent ? 'cursor-pointer' : ''}`}
+        onClick={hasContent ? () => setIsExpanded(!isExpanded) : undefined}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Status icon */}
+          <LazyIcon 
+            name={statusDisplay.icon} 
+            className={`h-4 w-4 flex-shrink-0 ${statusDisplay.color} ${isGenerating ? 'animate-spin' : ''}`} 
+          />
+          
+          {/* Prospect info */}
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-slate-800 truncate">
+              {recipient.prospect.name}
+            </p>
+            <p className="text-xs text-slate-500 truncate">
+              {recipient.prospect.company} • {recipient.prospect.email}
+            </p>
+          </div>
+        </div>
         
-        {/* Prospect info */}
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-slate-800 truncate">
-            {recipient.prospect.name}
-          </p>
-          <p className="text-xs text-slate-500 truncate">
-            {recipient.prospect.company} • {recipient.prospect.email}
-          </p>
+        {/* Status + action */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {hasContent && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+              className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800"
+            >
+              {isExpanded ? 'Hide' : 'Preview'}
+            </button>
+          )}
+          
+          <span className={`text-xs ${statusDisplay.color}`}>
+            {statusDisplay.label}
+          </span>
+          
+          {canGenerate && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onGenerate(); }}
+              disabled={disabled}
+              className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 disabled:opacity-50"
+            >
+              Generate
+            </button>
+          )}
+          
+          {recipient.status === 'failed' && recipient.error && (
+            <span className="text-xs text-red-500 truncate max-w-[100px]" title={recipient.error}>
+              {recipient.error}
+            </span>
+          )}
         </div>
       </div>
       
-      {/* Status + action */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <span className={`text-xs ${statusDisplay.color}`}>
-          {statusDisplay.label}
-        </span>
-        
-        {canGenerate && (
-          <button
-            onClick={onGenerate}
-            disabled={disabled}
-            className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 disabled:opacity-50"
-          >
-            Generate
-          </button>
-        )}
-        
-        {recipient.status === 'failed' && recipient.error && (
-          <span className="text-xs text-red-500 truncate max-w-[100px]" title={recipient.error}>
-            {recipient.error}
-          </span>
-        )}
-      </div>
+      {/* Expandable preview section */}
+      {isExpanded && hasContent && (
+        <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
+          <div className="text-xs text-slate-500 mb-1">Subject:</div>
+          <div className="text-sm font-medium text-slate-800 mb-3">{recipient.subject}</div>
+          <div className="text-xs text-slate-500 mb-1">Body:</div>
+          <div className="text-sm text-slate-700 whitespace-pre-wrap max-h-40 overflow-y-auto">
+            {recipient.body}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
