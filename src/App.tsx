@@ -104,6 +104,7 @@ import { sendEmailViaRailway, isRailwayAvailable } from './services/RailwayEmail
 // --- Sprint 81 Sequence Enrollment ---
 import { useSequenceEnrollment } from './hooks/useSequenceEnrollment';
 import { useSequences } from './hooks/useSequences';
+import type { SequenceTemplate } from '@/types/emailSequence';
 
 // --- Sprint 24: Railway Email ---
 import { useRailwayEmail } from './hooks/useRailwayEmail';
@@ -649,6 +650,35 @@ export default function App() {
       setIsProcessingBulkAction(false);
     }
   }, [selectedProspectIds, prospects, enrollProspects, clearSelection, announce, showSuccess, showWarning, showError]);
+
+  // Sprint V33: Create sequence from template
+  const handleCreateFromTemplate = useCallback(async (template: SequenceTemplate): Promise<string | null> => {
+    try {
+      const newSequence = await createSequence({
+        name: `${template.name} - ${new Date().toLocaleDateString()}`,
+        description: template.description || '',
+        steps: template.steps.map((step, idx) => ({
+          order: idx + 1,
+          type: 'email' as const,
+          subject: step.subjectTemplate,
+          body: step.bodyTemplate,
+          delayDays: step.delayDays,
+        })),
+      });
+      
+      if (newSequence) {
+        showSuccess('Sequence Created', `Created "${newSequence.name}" from template`);
+        await refreshSequences();
+        return newSequence.id;
+      }
+      showError('Creation Failed', 'Could not create sequence from template');
+      return null;
+    } catch (error) {
+      console.error('Failed to create sequence from template', error);
+      showError('Creation Failed', 'Could not create sequence from template');
+      return null;
+    }
+  }, [createSequence, refreshSequences, showSuccess, showError]);
 
   const handleBulkAddTag = useCallback(async (tags: string[]) => {
     const prospectIdsArray = Array.from(selectedProspectIds);
@@ -2116,6 +2146,7 @@ export default function App() {
         isOpen={bulkActionModal === 'sequence'}
         onClose={() => setBulkActionModal(null)}
         onConfirm={handleBulkAssignSequence}
+        onCreateFromTemplate={handleCreateFromTemplate}
         selectedCount={selectedCount}
         sequences={sequences}
         isLoading={isLoadingSequences || isEnrolling}
