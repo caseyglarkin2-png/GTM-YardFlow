@@ -258,6 +258,74 @@ export function SidebarContent({
         {/* Hitlist filters (prospects tab) */}
         {activeTab === 'prospects' && (
           <div className="p-4 space-y-3 border-b border-slate-100">
+            {/* Quick Filter Presets - Sprint V34 */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Quick Filters</span>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => {
+                    onTagFilterChange?.('Manifest 2026');
+                    onTierFilterChange?.('All');
+                    onEmailFilterChange?.('all');
+                    announce?.('Filtered to Manifest 2026 attendees');
+                  }}
+                  className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                    tagFilter === 'Manifest 2026' 
+                      ? 'bg-purple-600 text-white' 
+                      : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                  }`}
+                  data-testid="quick-filter-manifest"
+                >
+                  🎯 Manifest 2026
+                </button>
+                <button
+                  onClick={() => {
+                    onTierFilterChange?.('Tier 1');
+                    onEmailFilterChange?.('has_email');
+                    onTagFilterChange?.(null);
+                    announce?.('Filtered to Tier 1 with email');
+                  }}
+                  className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                    tierFilter === 'Tier 1' && emailFilter === 'has_email'
+                      ? 'bg-amber-600 text-white' 
+                      : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                  }`}
+                  data-testid="quick-filter-tier1-email"
+                >
+                  ⭐ T1 + Email
+                </button>
+                <button
+                  onClick={() => {
+                    onTierFilterChange?.('All');
+                    onEmailFilterChange?.('no_email');
+                    onTagFilterChange?.(null);
+                    announce?.('Filtered to prospects without email');
+                  }}
+                  className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                    emailFilter === 'no_email'
+                      ? 'bg-red-600 text-white' 
+                      : 'bg-red-100 text-red-700 hover:bg-red-200'
+                  }`}
+                  data-testid="quick-filter-no-email"
+                >
+                  📧 Needs Email
+                </button>
+                <button
+                  onClick={() => {
+                    onTierFilterChange?.('All');
+                    onEmailFilterChange?.('all');
+                    onTagFilterChange?.(null);
+                    onFilterChange?.('');
+                    announce?.('Cleared all filters');
+                  }}
+                  className="px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                  data-testid="quick-filter-clear"
+                >
+                  ✕ Clear
+                </button>
+              </div>
+            </div>
+
             {/* Search */}
             <div className="relative">
               <LazyIcon 

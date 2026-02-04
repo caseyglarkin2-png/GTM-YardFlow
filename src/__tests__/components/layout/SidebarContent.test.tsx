@@ -265,4 +265,60 @@ describe('SidebarContent', () => {
       expect(railwayLink).toHaveAttribute('href', 'https://custom.railway.app');
     });
   });
+
+  describe('Quick Filter Presets (Sprint V34)', () => {
+    const filterProps = {
+      ...defaultProps,
+      activeTab: 'prospects' as TabId,
+      onTierFilterChange: vi.fn(),
+      onEmailFilterChange: vi.fn(),
+      onTagFilterChange: vi.fn(),
+      onFilterChange: vi.fn(),
+      announce: vi.fn(),
+    };
+
+    it('renders quick filter buttons on prospects tab', () => {
+      render(<SidebarContent {...filterProps} />);
+      expect(screen.getByTestId('quick-filter-manifest')).toBeInTheDocument();
+      expect(screen.getByTestId('quick-filter-tier1-email')).toBeInTheDocument();
+      expect(screen.getByTestId('quick-filter-no-email')).toBeInTheDocument();
+      expect(screen.getByTestId('quick-filter-clear')).toBeInTheDocument();
+    });
+
+    it('Manifest button sets tag filter', () => {
+      render(<SidebarContent {...filterProps} />);
+      fireEvent.click(screen.getByTestId('quick-filter-manifest'));
+      expect(filterProps.onTagFilterChange).toHaveBeenCalledWith('Manifest 2026');
+      expect(filterProps.announce).toHaveBeenCalledWith('Filtered to Manifest 2026 attendees');
+    });
+
+    it('T1+Email button sets tier and email filters', () => {
+      render(<SidebarContent {...filterProps} />);
+      fireEvent.click(screen.getByTestId('quick-filter-tier1-email'));
+      expect(filterProps.onTierFilterChange).toHaveBeenCalledWith('Tier 1');
+      expect(filterProps.onEmailFilterChange).toHaveBeenCalledWith('has_email');
+      expect(filterProps.onTagFilterChange).toHaveBeenCalledWith(null);
+    });
+
+    it('Needs Email button sets email filter', () => {
+      render(<SidebarContent {...filterProps} />);
+      fireEvent.click(screen.getByTestId('quick-filter-no-email'));
+      expect(filterProps.onEmailFilterChange).toHaveBeenCalledWith('no_email');
+    });
+
+    it('Clear button resets all filters', () => {
+      render(<SidebarContent {...filterProps} />);
+      fireEvent.click(screen.getByTestId('quick-filter-clear'));
+      expect(filterProps.onTierFilterChange).toHaveBeenCalledWith('All');
+      expect(filterProps.onEmailFilterChange).toHaveBeenCalledWith('all');
+      expect(filterProps.onTagFilterChange).toHaveBeenCalledWith(null);
+      expect(filterProps.onFilterChange).toHaveBeenCalledWith('');
+    });
+
+    it('highlights active quick filter', () => {
+      render(<SidebarContent {...filterProps} tagFilter="Manifest 2026" />);
+      const manifestBtn = screen.getByTestId('quick-filter-manifest');
+      expect(manifestBtn).toHaveClass('bg-purple-600');
+    });
+  });
 });
