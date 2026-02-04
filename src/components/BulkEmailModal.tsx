@@ -898,6 +898,7 @@ export function BulkEmailModal({
                 onClick={handleGenerateAI}
                 disabled={isSending || isGenerating || !sampleProspect || aiUnavailable}
                 title={aiUnavailable ? 'AI temporarily unavailable' : undefined}
+                data-testid="bulk-email-generate-ai"
                 className="w-full px-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isGenerating ? (
@@ -1124,6 +1125,7 @@ export function BulkEmailModal({
                   <button
                     onClick={handleGenerateAll}
                     disabled={bulkSend.isProcessing || bulkSend.recipients.length === 0}
+                    data-testid="bulk-email-generate-all"
                     className="px-3 py-1 text-xs font-medium bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 flex items-center gap-1"
                   >
                     {bulkSend.isProcessing ? (
@@ -1355,6 +1357,7 @@ export function BulkEmailModal({
             <button
               onClick={onClose}
               disabled={modalState === 'sending' || bulkSend.isProcessing}
+              data-testid="bulk-email-cancel"
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
             >
               {modalState === 'results' ? 'Close' : 'Cancel'}
@@ -1363,6 +1366,7 @@ export function BulkEmailModal({
               <button
                 onClick={handleSubmit}
                 disabled={!canSend || bulkSend.isProcessing}
+                data-testid="bulk-email-send"
                 className={`px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
                   sendMode === 'ai' 
                     ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700'

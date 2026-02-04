@@ -276,4 +276,42 @@ describe('BulkEmailModal', () => {
       expect(screen.getByText(/1 prospect.*will be skipped/i)).toBeInTheDocument();
     });
   });
+
+  describe('E2E Test IDs (Sprint V34 P1.2)', () => {
+    it('has data-testid on Generate AI button', () => {
+      render(<BulkEmailModal {...defaultProps} />);
+      expect(screen.getByTestId('bulk-email-generate-ai')).toBeInTheDocument();
+    });
+
+    it('has data-testid on Cancel button', () => {
+      render(<BulkEmailModal {...defaultProps} />);
+      expect(screen.getByTestId('bulk-email-cancel')).toBeInTheDocument();
+    });
+
+    it('has data-testid on Send button', () => {
+      render(<BulkEmailModal {...defaultProps} />);
+      expect(screen.getByTestId('bulk-email-send')).toBeInTheDocument();
+    });
+
+    it('has data-testid on Generate All button in AI mode', () => {
+      mockBulkSend.recipients = [
+        { 
+          id: 'p1', 
+          prospect: mockProspects[0], 
+          status: 'pending' as const,
+          subject: 'Test',
+          body: 'Test',
+          idempotencyKey: 'key-1',
+        },
+      ];
+      mockBulkSend.progress = { total: 1, generated: 0, sent: 0, failed: 0 };
+
+      render(<BulkEmailModal {...defaultProps} />);
+      
+      // Switch to AI mode
+      fireEvent.click(screen.getByRole('button', { name: /ai per-recipient/i }));
+      
+      expect(screen.getByTestId('bulk-email-generate-all')).toBeInTheDocument();
+    });
+  });
 });
