@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { logger } from '../../lib/logger';
 
 /**
  * AI Content Generation Proxy
@@ -8,18 +7,18 @@ import { logger } from '../../lib/logger';
  * 
  * This route:
  * 1. Keeps Railway API secret secure (not exposed in browser)
- * 2. Forwards request to Railway /api/ai/content/generate
+ * 2. Forwards request to Railway /api/ai/chat
  * 3. Returns generated subject + body content
- * 
- * Client sends: { tone, prospectName, companyName, title, goal }
- * Server adds: x-service-key header and forwards to Railway
  */
 
-const RAILWAY_API_URL = process.env.RAILWAY_API_URL || 
+// Inline config - no external imports to avoid initialization errors
+const RAILWAY_API_URL = process.env.RAILWAY_API_URL?.trim() || 
   'https://yardflow-hitlist-production-2f41.up.railway.app';
-const RAILWAY_API_SECRET = process.env.RAILWAY_API_SECRET || 
+const RAILWAY_API_SECRET = (
+  process.env.RAILWAY_API_SECRET || 
   process.env.CRON_SECRET || 
-  process.env.SERVICE_TO_SERVICE_SECRET;
+  process.env.SERVICE_TO_SERVICE_SECRET
+)?.trim() || '';
 
 export interface GenerateRequest {
   tone: 'luis' | 'professional' | 'challenger';
@@ -67,7 +66,7 @@ export default async function handler(
 
   // Check Railway secret is configured
   if (!RAILWAY_API_SECRET) {
-    logger.error('[AI Generate] RAILWAY_API_SECRET not configured');
+    console.error('[AI Generate] RAILWAY_API_SECRET not configured');
     res.status(503).json({ 
       success: false, 
       error: 'AI service not configured',
@@ -97,7 +96,7 @@ export default async function handler(
       return;
     }
 
-    logger.info('[AI Generate] Forwarding to Railway /api/ai/chat', { 
+    console.log('[AI Generate] Forwarding to Railway /api/ai/chat', { 
       tone: body.tone, 
       company: body.companyName 
     });
@@ -157,7 +156,7 @@ Respond in this exact JSON format:
       
       // Classify error for client
       if (status === 401 || status === 403) {
-        logger.error('[AI Generate] Railway auth failed', undefined, { status });
+        console.error('[AI Generate] Railway auth failed', { status });
         res.status(503).json({ 
           success: false, 
           error: 'AI service authentication failed' 
@@ -167,7 +166,7 @@ Respond in this exact JSON format:
       
       if (status === 429) {
         const retryAfter = railwayResponse.headers.get('Retry-After');
-        logger.warn('[AI Generate] Railway rate limited', { retryAfter });
+        console.warn('[AI Generate] Railway rate limited', { retryAfter });
         res.status(429).json({ 
           success: false, 
           error: 'rate_limited',
@@ -187,7 +186,7 @@ Respond in this exact JSON format:
       }
 
       // Generic server error
-      logger.error('[AI Generate] Railway error', undefined, { status, data });
+      console.error('[AI Generate] Railway error', { status, data });
       res.status(502).json({ 
         success: false, 
         error: 'AI service temporarily unavailable' 
@@ -210,7 +209,7 @@ Respond in this exact JSON format:
       generatedContent = JSON.parse(cleanedResponse);
     } catch (parseError) {
       // If JSON parsing fails, try to extract from raw text
-      logger.warn('[AI Generate] Failed to parse AI response as JSON, using raw text', {
+      console.warn('[AI Generate] Failed to parse AI response as JSON, using raw text', {
         responsePreview: data.response?.substring(0, 200),
       });
       generatedContent = {
@@ -219,7 +218,7 @@ Respond in this exact JSON format:
       };
     }
 
-    logger.info('[AI Generate] Success', { 
+    console.log('[AI Generate] Success', { 
       tone: body.tone,
       contentLength: generatedContent.content?.length,
       provider: data.provider,
@@ -239,7 +238,7 @@ Respond in this exact JSON format:
   } catch (error) {
     // Network/timeout errors
     if (error instanceof Error && error.name === 'AbortError') {
-      logger.error('[AI Generate] Railway timeout');
+      console.error('[AI Generate] Railway timeout');
       res.status(504).json({ 
         success: false, 
         error: 'AI service timed out. Please try again.' 
@@ -247,7 +246,7 @@ Respond in this exact JSON format:
       return;
     }
 
-    logger.error('[AI Generate] Error:', error instanceof Error ? error : undefined);
+    console.error('[AI Generate] Error:', error);
     res.status(500).json({ 
       success: false,
       error: 'Failed to generate content. Please try again.'
