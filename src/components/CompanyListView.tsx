@@ -25,6 +25,9 @@ import {
   Briefcase,
   Mail,
   ExternalLink,
+  Sparkles,
+  CheckCircle,
+  Loader,
 } from 'lucide-react';
 import type { CompanyRow } from '../services/CompanyAggregator';
 import type { Prospect } from '../types';
@@ -256,24 +259,41 @@ export function CompanyListView({
                         >
                           {company.company || company.id || 'Unknown Company'}
                         </h3>
-                        {company.needsResearch && (
-                          <button
-                            data-testid="research-button-list"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onResearchClick?.(company);
-                            }}
-                            disabled={isResearching === company.company}
-                            className={`flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded border transition-colors ${
-                              isResearching === company.company 
-                                ? 'bg-blue-50 text-blue-500 border-blue-200 cursor-wait'
-                                : 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100'
-                            }`}
-                            title={isResearching === company.company ? 'Researching...' : 'Click to research'}
-                          >
-                            <AlertCircle className={`h-3 w-3 ${isResearching === company.company ? 'animate-pulse' : ''}`} />
-                            {isResearching === company.company ? 'Researching...' : 'Research'}
-                          </button>
+                        {/* AI Research Status - Always visible */}
+                        {onResearchClick && (
+                          company.needsResearch ? (
+                            <button
+                              data-testid="research-button-list"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onResearchClick(company);
+                              }}
+                              disabled={isResearching === company.company}
+                              className={`flex items-center gap-1 px-2 py-1 text-xs rounded-md font-medium transition-colors ${
+                                isResearching === company.company 
+                                  ? 'bg-blue-100 text-blue-600 cursor-wait'
+                                  : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200'
+                              }`}
+                              title={isResearching === company.company ? 'Researching...' : 'AI Research this company'}
+                            >
+                              {isResearching === company.company ? (
+                                <>
+                                  <Loader className="h-3 w-3 animate-spin" />
+                                  <span>Researching</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="h-3 w-3" />
+                                  <span>AI Research</span>
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <span className="flex items-center gap-1 px-2 py-1 text-xs text-green-600 bg-green-50 rounded-md" title="AI research complete">
+                              <CheckCircle className="h-3 w-3" />
+                              Researched
+                            </span>
+                          )
                         )}
                       </div>
                       {company.industryCategory && (

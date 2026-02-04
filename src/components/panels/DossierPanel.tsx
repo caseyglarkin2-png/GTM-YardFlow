@@ -95,7 +95,14 @@ export function DossierPanel({
               <p className="text-slate-600 mt-1">{data.description}</p>
             )}
           </div>
-          <ConfidenceBadge confidence={research.confidence?.overall} />
+          <div className="flex flex-col items-end gap-1">
+            <ConfidenceBadge confidence={research.confidence?.overall} />
+            {research.researchedAt && (
+              <span className="text-xs text-slate-500">
+                Updated {new Date(research.researchedAt).toLocaleDateString()}
+              </span>
+            )}
+          </div>
         </div>
         {data.website && (
           <a 
@@ -107,6 +114,16 @@ export function DossierPanel({
             <LazyIcon name="ExternalLink" className="h-3 w-3" />
             {data.website}
           </a>
+        )}
+        {/* Re-research Button */}
+        {onResearch && (
+          <button
+            onClick={onResearch}
+            className="mt-3 flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+          >
+            <LazyIcon name="RefreshCw" className="h-3 w-3" />
+            Re-research
+          </button>
         )}
       </header>
 

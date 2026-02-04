@@ -160,15 +160,24 @@ export function CompanyDetailPanel({
               Google
             </a>
             
-            {/* AI Research Button */}
-            {company.needsResearch && (
+            {/* AI Research Button - Always visible with dynamic state */}
+            {onResearchClick && (
               <button
                 data-testid="research-button"
-                onClick={() => onResearchClick?.(company)}
+                onClick={() => {
+                  if (research?.success && !isResearching) {
+                    // Switch to dossier tab when research exists
+                    setActiveTab('dossier');
+                  } else {
+                    onResearchClick(company);
+                  }
+                }}
                 disabled={isResearching}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
                   isResearching
                     ? 'bg-slate-100 text-slate-400 cursor-wait'
+                    : research?.success
+                    ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
                     : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
                 }`}
               >
@@ -176,6 +185,11 @@ export function CompanyDetailPanel({
                   <>
                     <Clock className="h-4 w-4 animate-spin" />
                     Researching...
+                  </>
+                ) : research?.success ? (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    View Dossier
                   </>
                 ) : (
                   <>
@@ -225,7 +239,9 @@ export function CompanyDetailPanel({
               <FileText className="h-4 w-4" />
               AI Dossier
               {research?.success && (
-                <span className="flex h-2 w-2 rounded-full bg-green-500" title="Research available" />
+                <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-green-100 text-green-700 rounded">
+                  Ready
+                </span>
               )}
             </span>
           </button>
