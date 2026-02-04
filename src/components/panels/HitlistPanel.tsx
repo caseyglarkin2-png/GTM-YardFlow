@@ -43,6 +43,9 @@ interface HitlistPanelProps {
   onResearchClick?: (company: CompanyRow) => void;
   isResearchingCompany?: string | null;
   researchResults?: Map<string, CompanyResearchResult>;
+  // Sprint V33: Company-level action handlers
+  onEmailCompany?: (company: CompanyRow) => void;
+  onSequenceCompany?: (company: CompanyRow) => void;
 }
 
 export function HitlistPanel({
@@ -68,6 +71,9 @@ export function HitlistPanel({
   onResearchClick,
   isResearchingCompany,
   researchResults,
+  // Sprint V33: Company-level action handlers
+  onEmailCompany,
+  onSequenceCompany,
 }: HitlistPanelProps) {
 
   // Sprint 203: Rapid-fire navigation (J/K)
@@ -122,6 +128,8 @@ export function HitlistPanel({
         onContactSelect={onSelectProspect}
         onResearchClick={onResearchClick}
         isResearching={isResearchingCompany}
+        onEmailCompany={onEmailCompany}
+        onSequenceCompany={onSequenceCompany}
       />
     );
   }

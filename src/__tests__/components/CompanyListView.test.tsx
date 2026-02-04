@@ -31,6 +31,7 @@ function createMockProspect(overrides: Partial<Prospect> = {}): Prospect {
     name: 'John Doe',
     title: 'VP Operations',
     company: 'Acme Corp',
+    email: 'test@example.com', // Sprint V33: Add default email for action button tests
     score: 75,
     qualified: true,
     isExec: false,
@@ -254,7 +255,7 @@ describe('CompanyListView', () => {
     );
 
     // Only Acme has needsResearch: true
-    const researchButtons = screen.getAllByText('Research');
+    const researchButtons = screen.getAllByText('AI Research');
     expect(researchButtons).toHaveLength(1);
   });
 
@@ -268,7 +269,7 @@ describe('CompanyListView', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('Research'));
+    fireEvent.click(screen.getByText('AI Research'));
     expect(mockOnResearchClick).toHaveBeenCalledWith(companies[1]); // Acme
   });
 
@@ -411,5 +412,125 @@ describe('CompanyListView', () => {
     expect(execBadges.length).toBeGreaterThan(0);
     const opsBadges = screen.getAllByText('Ops');
     expect(opsBadges.length).toBeGreaterThan(0);
+  });
+
+  // Sprint V33: Company-level action tests
+  describe('Company Actions (Sprint V33)', () => {
+    it('shows email button when onEmailCompany is provided', () => {
+      const mockOnEmailCompany = vi.fn();
+      
+      render(
+        <CompanyListView
+          companies={companies}
+          onCompanySelect={mockOnCompanySelect}
+          onContactSelect={mockOnContactSelect}
+          onEmailCompany={mockOnEmailCompany}
+        />
+      );
+
+      // Should show Actions header column
+      expect(screen.getByText('Actions')).toBeInTheDocument();
+      
+      // Should have email buttons (one per company with email contacts)
+      const emailButtons = screen.getAllByLabelText(/Email all contacts at/);
+      expect(emailButtons.length).toBeGreaterThan(0);
+    });
+
+    it('calls onEmailCompany when email button clicked', () => {
+      const mockOnEmailCompany = vi.fn();
+      
+      render(
+        <CompanyListView
+          companies={companies}
+          onCompanySelect={mockOnCompanySelect}
+          onContactSelect={mockOnContactSelect}
+          onEmailCompany={mockOnEmailCompany}
+        />
+      );
+
+      // Click the first email button
+      const emailButton = screen.getByLabelText(`Email all contacts at ${companies[0].company}`);
+      fireEvent.click(emailButton);
+
+      expect(mockOnEmailCompany).toHaveBeenCalledWith(companies[0]);
+      // Should not also trigger company select
+      expect(mockOnCompanySelect).not.toHaveBeenCalled();
+    });
+
+    it('shows sequence button when onSequenceCompany is provided', () => {
+      const mockOnSequenceCompany = vi.fn();
+      
+      render(
+        <CompanyListView
+          companies={companies}
+          onCompanySelect={mockOnCompanySelect}
+          onContactSelect={mockOnContactSelect}
+          onSequenceCompany={mockOnSequenceCompany}
+        />
+      );
+
+      // Should have sequence buttons
+      const sequenceButtons = screen.getAllByLabelText(/Add all contacts at/);
+      expect(sequenceButtons.length).toBeGreaterThan(0);
+    });
+
+    it('calls onSequenceCompany when sequence button clicked', () => {
+      const mockOnSequenceCompany = vi.fn();
+      
+      render(
+        <CompanyListView
+          companies={companies}
+          onCompanySelect={mockOnCompanySelect}
+          onContactSelect={mockOnContactSelect}
+          onSequenceCompany={mockOnSequenceCompany}
+        />
+      );
+
+      // Click the first sequence button
+      const sequenceButton = screen.getByLabelText(`Add all contacts at ${companies[0].company} to sequence`);
+      fireEvent.click(sequenceButton);
+
+      expect(mockOnSequenceCompany).toHaveBeenCalledWith(companies[0]);
+      // Should not also trigger company select
+      expect(mockOnCompanySelect).not.toHaveBeenCalled();
+    });
+
+    it('does not show actions column when no action handlers provided', () => {
+      render(
+        <CompanyListView
+          companies={companies}
+          onCompanySelect={mockOnCompanySelect}
+          onContactSelect={mockOnContactSelect}
+        />
+      );
+
+      // Should NOT show Actions header column
+      expect(screen.queryByText('Actions')).not.toBeInTheDocument();
+    });
+
+    it('hides email button for companies with no email contacts', () => {
+      const mockOnEmailCompany = vi.fn();
+      const companiesWithNoEmails = [
+        createMockCompanyRow({
+          id: 'no-emails',
+          company: 'No Email Corp',
+          contacts: [
+            createMockProspect({ name: 'No Email Person', email: undefined }),
+          ],
+        }),
+      ];
+      
+      render(
+        <CompanyListView
+          companies={companiesWithNoEmails}
+          onCompanySelect={mockOnCompanySelect}
+          onContactSelect={mockOnContactSelect}
+          onEmailCompany={mockOnEmailCompany}
+        />
+      );
+
+      // Should not show email button for company with no email contacts
+      expect(screen.queryByLabelText(/Email all contacts at/)).not.toBeInTheDocument();
+    });
   });
 });

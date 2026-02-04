@@ -44,6 +44,9 @@ interface CompanyListViewProps {
   onSearchChange?: (term: string) => void;
   sortBy?: 'score' | 'facilities' | 'contacts' | 'roi';
   onSortChange?: (sortBy: 'score' | 'facilities' | 'contacts' | 'roi') => void;
+  // Sprint V33: Company-level action handlers
+  onEmailCompany?: (company: CompanyRow) => void;
+  onSequenceCompany?: (company: CompanyRow) => void;
 }
 
 // Tier badge colors
@@ -74,6 +77,9 @@ export function CompanyListView({
   onSearchChange,
   sortBy = 'score',
   onSortChange,
+  // Sprint V33: Company-level action handlers
+  onEmailCompany,
+  onSequenceCompany,
 }: CompanyListViewProps) {
   const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set());
 
@@ -184,6 +190,10 @@ export function CompanyListView({
         <span className="w-12 text-center" title="Score">
           <Zap className="h-3 w-3 mx-auto" />
         </span>
+        {/* Sprint V33: Actions column */}
+        {(onEmailCompany || onSequenceCompany) && (
+          <span className="w-20 text-center">Actions</span>
+        )}
       </div>
 
       {/* Company Rows */}
@@ -383,6 +393,38 @@ export function CompanyListView({
                         {Math.round(company.primoLookalikeScore)}
                       </span>
                     </div>
+
+                    {/* Sprint V33: Company Action Buttons */}
+                    {(onEmailCompany || onSequenceCompany) && (
+                      <div className="w-20 flex items-center justify-center gap-1">
+                        {onEmailCompany && company.contacts?.filter(c => c.email).length > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEmailCompany(company);
+                            }}
+                            className="p-1.5 rounded-md text-blue-600 hover:bg-blue-50 transition-colors"
+                            title={`Email ${company.contacts?.filter(c => c.email).length} contacts`}
+                            aria-label={`Email all contacts at ${company.company}`}
+                          >
+                            <Mail className="h-4 w-4" />
+                          </button>
+                        )}
+                        {onSequenceCompany && company.contacts?.filter(c => c.email).length > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSequenceCompany(company);
+                            }}
+                            className="p-1.5 rounded-md text-purple-600 hover:bg-purple-50 transition-colors"
+                            title={`Add ${company.contacts?.filter(c => c.email).length} to sequence`}
+                            aria-label={`Add all contacts at ${company.company} to sequence`}
+                          >
+                            <Zap className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Expanded Contacts */}

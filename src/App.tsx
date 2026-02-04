@@ -1482,6 +1482,55 @@ export default function App() {
     setBulkActionModal('sequence');
   }, [currentUser, toggleSelection, showSuccess, showWarning]);
 
+  // Sprint V33: Handle email all contacts in a company
+  const handleEmailCompany = useCallback((company: CompanyRow) => {
+    // Get all contacts with email for this company
+    const companyContacts = prospects.filter(
+      p => p.company === company.company && p.email
+    );
+    
+    if (companyContacts.length === 0) {
+      showWarning('No Emails', 'No contacts have email addresses for this company.');
+      return;
+    }
+    
+    // Clear existing selection and select all company contacts
+    clearSelection();
+    companyContacts.forEach(c => toggleSelection(c.id));
+    
+    // Open bulk email modal
+    setBulkActionModal('email');
+    
+    showInfo(
+      'Company Email',
+      `Selected ${companyContacts.length} contacts from ${company.company}`
+    );
+  }, [prospects, clearSelection, toggleSelection, showWarning, showInfo]);
+
+  // Sprint V33: Handle sequence all contacts in a company
+  const handleSequenceCompany = useCallback((company: CompanyRow) => {
+    // Get all contacts with email for this company
+    const companyContacts = prospects.filter(
+      p => p.company === company.company && p.email
+    );
+    
+    if (companyContacts.length === 0) {
+      showWarning('No Emails', 'No contacts have email addresses for this company.');
+      return;
+    }
+    
+    // Clear existing selection and select all company contacts
+    clearSelection();
+    companyContacts.forEach(c => toggleSelection(c.id));
+    
+    // Open bulk sequence modal
+    setBulkActionModal('sequence');
+    
+    showInfo(
+      'Company Sequence',
+      `Selected ${companyContacts.length} contacts from ${company.company}`
+    );
+  }, [prospects, clearSelection, toggleSelection, showWarning, showInfo]);
 
 
   // Send email to selected prospect
@@ -2022,6 +2071,8 @@ export default function App() {
                   onResearchClick={handleCompanyResearch}
                   isResearchingCompany={isResearchingCompany}
                   researchResults={researchResults}
+                  onEmailCompany={handleEmailCompany}
+                  onSequenceCompany={handleSequenceCompany}
                 />
                 </ErrorBoundary>
               )}
