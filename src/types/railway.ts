@@ -655,6 +655,49 @@ export interface PaginatedActivityResponse {
 }
 
 // =============================================================================
+// Meeting Types (T5.2)
+// =============================================================================
+
+/** Meeting status */
+export type MeetingStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
+
+/** Meeting record from Railway */
+export interface RailwayMeeting extends Timestamps {
+  id: UUID;
+  prospectId: UUID;
+  prospectName?: string;
+  companyName?: string;
+  email: string;
+  scheduledAt: ISO8601;
+  status: MeetingStatus;
+  /** Calendly event ID for deduplication */
+  calendlyEventId?: string;
+  /** The outreach that led to this meeting (for attribution) */
+  sourceOutreachId?: UUID;
+  metadata?: {
+    eventType?: string;
+    location?: string;
+    duration?: number;
+  };
+}
+
+/** Meeting metrics for dashboard */
+export interface MeetingMetrics {
+  emailsSent: number;
+  meetingsBooked: number;
+  conversionRate: number;
+  recentMeetings: RailwayMeeting[];
+}
+
+/** Params for listing meetings */
+export interface MeetingListParams {
+  status?: MeetingStatus;
+  prospectId?: UUID;
+  limit?: number;
+  offset?: number;
+}
+
+// =============================================================================
 // API Response Wrappers
 // =============================================================================
 

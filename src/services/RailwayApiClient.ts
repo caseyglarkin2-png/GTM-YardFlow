@@ -58,6 +58,10 @@ import type {
   RailwayActivity,
   ActivityListParams,
   PaginatedActivityResponse,
+  // Meeting types (T5.2)
+  RailwayMeeting,
+  MeetingMetrics,
+  MeetingListParams,
 } from '@/types/railway';
 import {
   toRailwayCreateRequest,
@@ -836,6 +840,41 @@ class RailwayApiClient {
         limit: options.limit ?? 10,
         cursor: options.cursor,
       });
+    },
+  };
+
+  // ===========================================================================
+  // Meetings API (T5.2)
+  // ===========================================================================
+
+  meetings = {
+    /**
+     * List meetings with optional filters
+     */
+    list: async (params: MeetingListParams = {}): Promise<RailwayApiResult<RailwayMeeting[]>> => {
+      const queryParams: Record<string, string | number | boolean | undefined> = {};
+      
+      if (params.status) queryParams.status = params.status;
+      if (params.prospectId) queryParams.prospectId = params.prospectId;
+      if (params.limit) queryParams.limit = params.limit;
+      if (params.offset) queryParams.offset = params.offset;
+      
+      return this.get<RailwayMeeting[]>('/meetings', queryParams);
+    },
+
+    /**
+     * Get meeting metrics for dashboard
+     * Includes conversion rate and recent meetings
+     */
+    getMetrics: async (): Promise<RailwayApiResult<MeetingMetrics>> => {
+      return this.get<MeetingMetrics>('/meetings/metrics');
+    },
+
+    /**
+     * Get a single meeting by ID
+     */
+    get: async (id: UUID): Promise<RailwayApiResult<RailwayMeeting>> => {
+      return this.get(`/meetings/${id}`);
     },
   };
 
