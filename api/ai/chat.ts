@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { logger } from '../../lib/logger';
 
 /**
  * AI Chat Proxy Endpoint
@@ -34,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   const apiKey = process.env.GEMINI_API_KEY;
   
   if (!apiKey) {
-    logger.warn('[AI Proxy] GEMINI_API_KEY not configured');
+    console.warn('[AI Proxy] GEMINI_API_KEY not configured');
     res.status(503).json({ 
       error: 'AI service not configured',
       message: 'The Gemini API key has not been configured on the server.'
@@ -63,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const data = await response.json();
 
     if (!response.ok) {
-      logger.error('[AI Proxy] Gemini API error', undefined, { 
+      console.error('[AI Proxy] Gemini API error', { 
         status: response.status, 
         errorMessage: data.error?.message 
       });
@@ -77,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     // Return the Gemini response
     res.status(200).json(data);
   } catch (error) {
-    logger.error('[AI Proxy] Error:', error instanceof Error ? error : undefined);
+    console.error('[AI Proxy] Request failed', error);
     res.status(500).json({ 
       error: 'Internal server error',
       message: 'Failed to process AI request'
