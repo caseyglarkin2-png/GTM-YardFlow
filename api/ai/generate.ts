@@ -97,29 +97,54 @@ export default async function handler(
       return;
     }
 
-    logger.info('[AI Generate] Forwarding to Railway', { 
+    logger.info('[AI Generate] Forwarding to Railway /api/ai/chat', { 
       tone: body.tone, 
       company: body.companyName 
     });
 
-    // Forward to Railway backend
+    // Build prompt for email generation
+    const toneDescriptions: Record<string, string> = {
+      luis: 'Conversational, warm, slightly casual. Mention yard chaos and specific pain points.',
+      professional: 'Polished, formal, value-focused. Emphasize ROI and efficiency gains.',
+      challenger: 'Bold, provocative, pattern-interrupt. Ask a pointed question.',
+    };
+
+    const message = `Generate a cold outreach email for a sales prospect.
+
+PROSPECT INFO:
+- Name: ${body.prospectName}
+- Company: ${body.companyName}
+- Title: ${body.title || 'Unknown'}
+
+EMAIL GOAL: ${body.goal || 'Schedule a meeting to discuss yard operations'}
+
+TONE: ${body.tone} - ${toneDescriptions[body.tone]}
+
+REQUIREMENTS:
+1. Subject line: 6 words or less, compelling, no spam words
+2. Body: 3-4 short paragraphs, personalized, specific to their role
+3. CTA: Clear ask for a 15-minute call
+4. Sign off: "Best, Luis" 
+
+Respond in this exact JSON format:
+{
+  "subject": "Your subject line here",
+  "content": "Full email body here with line breaks"
+}`;
+
+    // Forward to Railway /api/ai/chat endpoint (the working endpoint)
     const railwayResponse = await fetch(
-      `${RAILWAY_API_URL}/api/ai/content/generate`,
+      `${RAILWAY_API_URL}/api/ai/chat`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-service-key': RAILWAY_API_SECRET,
+          'Authorization': `Bearer ${RAILWAY_API_SECRET}`,
         },
         body: JSON.stringify({
-          type: 'email',
-          tone: body.tone,
-          goal: body.goal || 'Schedule a meeting to discuss yard operations',
-          context: {
-            prospectName: body.prospectName,
-            companyName: body.companyName,
-            title: body.title || '',
-          },
+          message,
+          systemPrompt: 'You are an expert sales copywriter specializing in B2B cold outreach for yard management software. Generate compelling, personalized emails that get replies. Always respond with valid JSON.',
         }),
       }
     );
@@ -170,17 +195,40 @@ export default async function handler(
       return;
     }
 
-    // Success - return generated content
+    // Success - parse Railway response
+    // Railway returns: { response: "JSON string", provider, fallbackUsed }
+    let generatedContent: { subject?: string; content?: string } = {};
+    
+    try {
+      const responseText = data.response || '';
+      // Clean up potential markdown code blocks
+      const cleanedResponse = responseText
+        .replace(/```json\s*/g, '')
+        .replace(/```\s*/g, '')
+        .trim();
+      
+      generatedContent = JSON.parse(cleanedResponse);
+    } catch (parseError) {
+      // If JSON parsing fails, try to extract from raw text
+      logger.warn('[AI Generate] Failed to parse AI response as JSON, using raw text', {
+        responsePreview: data.response?.substring(0, 200),
+      });
+      generatedContent = {
+        subject: 'Quick Question',
+        content: data.response || 'Failed to generate content',
+      };
+    }
+
     logger.info('[AI Generate] Success', { 
       tone: body.tone,
-      contentLength: data.content?.length,
+      contentLength: generatedContent.content?.length,
       provider: data.provider,
     });
 
     res.status(200).json({
       success: true,
-      content: data.content,
-      subject: data.subject,
+      content: generatedContent.content,
+      subject: generatedContent.subject,
       provider: data.provider,
       usage: data.usage,
       rateLimit: data.fallbackUsed ? {
