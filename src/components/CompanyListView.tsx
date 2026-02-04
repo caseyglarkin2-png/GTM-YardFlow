@@ -258,6 +258,7 @@ export function CompanyListView({
                         </h3>
                         {company.needsResearch && (
                           <button
+                            data-testid="research-button-list"
                             onClick={(e) => {
                               e.stopPropagation();
                               onResearchClick?.(company);

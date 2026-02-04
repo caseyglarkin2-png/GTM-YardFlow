@@ -362,7 +362,7 @@ export default function App() {
   const [emailErrorMessage, setEmailErrorMessage] = useState<string>('');
   // Sprint 72: Company research state
   const [isResearchingCompany, setIsResearchingCompany] = useState<string | null>(null);
-  const [_researchResults, setResearchResults] = useState<Map<string, CompanyResearchResult>>(new Map());
+  const [researchResults, setResearchResults] = useState<Map<string, CompanyResearchResult>>(new Map());
   const [loading, setLoading] = useState(true);
   const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false);
   
@@ -2031,6 +2031,9 @@ export default function App() {
                   }}
                   onBookMeeting={() => setShowMeetingModal(true)}
                   onSendEmail={sendEmailToProspect}
+                  onResearchClick={handleCompanyResearch}
+                  isResearchingCompany={isResearchingCompany}
+                  researchResults={researchResults}
                 />
                 </ErrorBoundary>
               )}

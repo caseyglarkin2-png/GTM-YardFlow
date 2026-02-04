@@ -163,6 +163,7 @@ export function CompanyDetailPanel({
             {/* AI Research Button */}
             {company.needsResearch && (
               <button
+                data-testid="research-button"
                 onClick={() => onResearchClick?.(company)}
                 disabled={isResearching}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
@@ -502,6 +503,7 @@ export function CompanyDetailPanel({
           )}
           {onResearchClick && !company.needsResearch && (
             <button
+              data-testid="re-research-button"
               onClick={() => onResearchClick(company)}
               disabled={isResearching}
               className="flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 bg-white text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors"

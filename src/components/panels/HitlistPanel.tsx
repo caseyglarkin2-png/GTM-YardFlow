@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import { ViewMode } from '../ViewModeToggle';
 import { CompanyRow } from '../../services/CompanyAggregator';
 import { Prospect } from '../../types';
+import type { CompanyResearchResult } from '../../services/CompanyResearchService';
 import { CompanyDetailPanel } from '../CompanyDetailPanel';
 import { CompanyListView } from '../CompanyListView';
 import { ProspectListPanel } from './ProspectListPanel';
@@ -35,6 +36,10 @@ interface HitlistPanelProps {
   onUpdateProspect: (updates: Partial<Prospect>) => Promise<void>;
   onBookMeeting: () => void;
   onSendEmail: (templateId: string, body: string, subject?: string) => Promise<void>;
+  // Sprint 32: AI Research props
+  onResearchClick?: (company: CompanyRow) => void;
+  isResearchingCompany?: string | null;
+  researchResults?: Map<string, CompanyResearchResult>;
 }
 
 export function HitlistPanel({
@@ -55,7 +60,11 @@ export function HitlistPanel({
   onAddProspect,
   onUpdateProspect,
   onBookMeeting,
-  onSendEmail
+  onSendEmail,
+  // Sprint 32: AI Research props
+  onResearchClick,
+  isResearchingCompany,
+  researchResults,
 }: HitlistPanelProps) {
 
   // Sprint 203: Rapid-fire navigation (J/K)
@@ -97,6 +106,9 @@ export function HitlistPanel({
           company={selectedCompany}
           onContactSelect={onSelectProspect}
           onBack={() => onSelectCompany(null)}
+          onResearchClick={onResearchClick ? () => onResearchClick(selectedCompany) : undefined}
+          isResearching={isResearchingCompany === selectedCompany.company}
+          research={researchResults?.get(selectedCompany.company) ?? null}
         />
       );
     }
@@ -105,6 +117,8 @@ export function HitlistPanel({
         companies={companies}
         onCompanySelect={onSelectCompany}
         onContactSelect={onSelectProspect}
+        onResearchClick={onResearchClick}
+        isResearching={isResearchingCompany}
       />
     );
   }
