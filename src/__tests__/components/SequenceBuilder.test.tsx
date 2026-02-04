@@ -25,34 +25,39 @@ vi.mock('@/components/SequenceTemplateLibrary', () => ({
 }));
 
 describe('SequenceBuilder', () => {
-  const mockSequence: EmailSequence = {
+  // Use Partial to avoid all the default fields
+  const mockSequence = {
     id: 'seq-1',
     name: 'Test Sequence',
     description: 'Test description',
     steps: [
       {
         id: 'step-1',
-        type: 'initial',
+        type: 'initial' as const,
         subject: 'Initial Email Subject',
         body: 'Hello {{firstName}}, this is an initial email.',
         delayDays: 0,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        condition: 'always' as const,
       },
       {
         id: 'step-2',
-        type: 'follow_up_1',
+        type: 'follow_up_1' as const,
         subject: 'Follow-up Subject',
         body: 'Just checking in...',
         delayDays: 3,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        condition: 'no_reply' as const,
       },
     ],
-    isActive: true,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
+    status: 'active' as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    enrolledCount: 0,
+    completedCount: 0,
+    skipWeekends: true,
+    pauseOnReply: true,
+    pauseOnMeeting: true,
+    timezone: 'America/New_York',
+  } satisfies EmailSequence;
 
   it('renders sequence builder', () => {
     render(<SequenceBuilder initialSequence={mockSequence} />);

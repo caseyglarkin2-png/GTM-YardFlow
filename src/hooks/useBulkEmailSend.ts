@@ -37,6 +37,8 @@ export interface BulkSendProgress {
   generated: number;
   sent: number;
   failed: number;
+  /** Sprint V34 P2.2: Currently processing recipient name */
+  currentRecipientName?: string;
 }
 
 export interface UseBulkEmailSendReturn {
@@ -82,6 +84,9 @@ export function useBulkEmailSend(): UseBulkEmailSendReturn {
   
   // Track sent idempotency keys to prevent duplicates
   const sentKeysRef = useRef<Set<string>>(new Set());
+  
+  // Sprint V34 P2.2: Track currently processing recipient
+  const [currentRecipientName, setCurrentRecipientName] = useState<string | undefined>(undefined);
 
   // Calculate progress from recipients
   const progress: BulkSendProgress = {
@@ -91,6 +96,7 @@ export function useBulkEmailSend(): UseBulkEmailSendReturn {
     ).length,
     sent: recipients.filter(r => r.status === 'sent').length,
     failed: recipients.filter(r => r.status === 'failed').length,
+    currentRecipientName,
   };
 
   // Initialize recipients from prospect list
@@ -246,11 +252,14 @@ export function useBulkEmailSend(): UseBulkEmailSendReturn {
     
     // Send sequentially to respect rate limits
     for (const recipient of ready) {
+      // Sprint V34 P2.2: Set current recipient name
+      setCurrentRecipientName(recipient.prospect.name || recipient.prospect.email);
       await sendRecipient(recipient.id);
       // Small delay between sends
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
+    setCurrentRecipientName(undefined);
     setIsProcessing(false);
   }, [recipients, sendRecipient]);
 
@@ -271,6 +280,7 @@ export function useBulkEmailSend(): UseBulkEmailSendReturn {
   const reset = useCallback(() => {
     setRecipients([]);
     setIsProcessing(false);
+    setCurrentRecipientName(undefined);
     sentKeysRef.current.clear();
   }, []);
 

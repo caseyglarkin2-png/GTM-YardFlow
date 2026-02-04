@@ -43,6 +43,8 @@ export interface BulkEmailProgress {
   total: number;
   failed: number;
   results?: EmailSendResult[];
+  /** Sprint V34 P2.2: Currently processing recipient name */
+  currentRecipientName?: string;
 }
 
 /** Reason a prospect is skipped */
@@ -1263,7 +1265,15 @@ export function BulkEmailModal({
           {modalState === 'sending' && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center justify-between text-sm mb-2">
-                <span className="font-medium text-blue-800">Sending emails...</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-blue-800">Sending emails...</span>
+                  {/* Sprint V34 P2.2: Show current recipient */}
+                  {progress.currentRecipientName && (
+                    <span className="text-blue-600 text-xs truncate max-w-[200px]" title={progress.currentRecipientName}>
+                      → {progress.currentRecipientName}
+                    </span>
+                  )}
+                </div>
                 <span className="text-blue-600">
                   {progress.sent + progress.failed} / {progress.total}
                 </span>
