@@ -10,9 +10,10 @@
  * - Context-sensitive filters (Hitlist tab shows prospect filters)
  * - Sync status display
  * - Settings access
+ * - Sprint V34: Quick filter presets + saved filters
  */
 
-import { type ReactNode, useCallback } from 'react';
+import { type ReactNode, useCallback, useState } from 'react';
 import { Zap } from 'lucide-react';
 import { LazyIcon } from '../icons';
 import { NAVIGATION_TABS, type TabId } from '@/config/navigation';
@@ -21,6 +22,7 @@ import { SyncStatus } from '@/components/SyncStatus';
 import { type SyncStatus as SyncStatusType } from '@/services/OfflineQueue';
 import { ViewModeToggle } from '@/components/ViewModeToggle';
 import { useRailwayHealth, type RailwayHealthStatus } from '@/hooks/useRailwayHealth';
+import { useSavedFilters } from '@/hooks/useSavedFilters';
 
 // =============================================================================
 // Types
@@ -91,6 +93,139 @@ const ICON_NAMES: Record<string, string> = {
   Calculator: 'Calculator',
   Inbox: 'Inbox',
 };
+
+// =============================================================================
+// SavedFiltersSection Component - Sprint V34
+// =============================================================================
+
+interface SavedFiltersSectionProps {
+  currentFilters: {
+    tierFilter: string;
+    emailFilter: string;
+    tagFilter: string | null;
+    searchQuery: string;
+  };
+  onLoadFilter: (preset: { name: string; tierFilter: string; emailFilter: string; tagFilter: string | null; searchQuery: string }) => void;
+}
+
+function SavedFiltersSection({ currentFilters, onLoadFilter }: SavedFiltersSectionProps) {
+  const { presets, savePreset, deletePreset } = useSavedFilters();
+  const [isOpen, setIsOpen] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
+  const [showSaveInput, setShowSaveInput] = useState(false);
+
+  const handleSave = useCallback(() => {
+    if (!newPresetName.trim()) return;
+    savePreset(newPresetName.trim(), currentFilters);
+    setNewPresetName('');
+    setShowSaveInput(false);
+  }, [newPresetName, currentFilters, savePreset]);
+
+  const hasActiveFilters = 
+    currentFilters.tierFilter !== 'All' || 
+    currentFilters.emailFilter !== 'all' || 
+    currentFilters.tagFilter !== null ||
+    currentFilters.searchQuery !== '';
+
+  if (presets.length === 0 && !hasActiveFilters) {
+    return null; // Don't show section if no presets and no filters to save
+  }
+
+  return (
+    <div className="space-y-1.5" data-testid="saved-filters-section">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-1 text-[10px] font-medium text-slate-500 uppercase tracking-wider hover:text-slate-700 transition-colors"
+        aria-expanded={isOpen}
+        data-testid="saved-filters-toggle"
+      >
+        <LazyIcon name={isOpen ? 'ChevronDown' : 'ChevronRight'} className="h-3 w-3" />
+        Saved Filters ({presets.length})
+      </button>
+      
+      {isOpen && (
+        <div className="space-y-2 pl-1">
+          {/* Preset list */}
+          {presets.length > 0 && (
+            <div className="space-y-1">
+              {presets.map((preset) => (
+                <div 
+                  key={preset.id} 
+                  className="flex items-center gap-1 group"
+                  data-testid={`saved-filter-${preset.id}`}
+                >
+                  <button
+                    onClick={() => onLoadFilter(preset)}
+                    className="flex-1 text-left px-2 py-1 text-xs rounded bg-slate-50 hover:bg-blue-50 hover:text-blue-700 transition-colors truncate"
+                    title={`Load filter: ${preset.name}`}
+                    data-testid={`load-filter-${preset.id}`}
+                  >
+                    {preset.name}
+                  </button>
+                  <button
+                    onClick={() => deletePreset(preset.id)}
+                    className="p-1 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Delete filter"
+                    aria-label={`Delete filter ${preset.name}`}
+                    data-testid={`delete-filter-${preset.id}`}
+                  >
+                    <LazyIcon name="X" className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Save new preset */}
+          {hasActiveFilters && (
+            <>
+              {showSaveInput ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={newPresetName}
+                    onChange={(e) => setNewPresetName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                    placeholder="Filter name..."
+                    className="flex-1 text-xs border border-slate-200 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    autoFocus
+                    data-testid="save-filter-input"
+                  />
+                  <button
+                    onClick={handleSave}
+                    disabled={!newPresetName.trim()}
+                    className="p-1 text-green-600 hover:text-green-700 disabled:text-slate-300 disabled:cursor-not-allowed"
+                    title="Save filter"
+                    data-testid="save-filter-confirm"
+                  >
+                    <LazyIcon name="Check" className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => { setShowSaveInput(false); setNewPresetName(''); }}
+                    className="p-1 text-slate-400 hover:text-slate-600"
+                    title="Cancel"
+                    data-testid="save-filter-cancel"
+                  >
+                    <LazyIcon name="X" className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowSaveInput(true)}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                  data-testid="save-filter-button"
+                >
+                  <LazyIcon name="Plus" className="h-3 w-3" />
+                  Save current filter
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // =============================================================================
 // Component
@@ -325,6 +460,23 @@ export function SidebarContent({
                 </button>
               </div>
             </div>
+
+            {/* Saved Filters - Sprint V34 */}
+            <SavedFiltersSection
+              currentFilters={{
+                tierFilter,
+                emailFilter,
+                tagFilter,
+                searchQuery: filter,
+              }}
+              onLoadFilter={(preset) => {
+                onTierFilterChange?.(preset.tierFilter);
+                onEmailFilterChange?.(preset.emailFilter);
+                onTagFilterChange?.(preset.tagFilter);
+                onFilterChange?.(preset.searchQuery);
+                announce?.(`Loaded filter: ${preset.name}`);
+              }}
+            />
 
             {/* Search */}
             <div className="relative">

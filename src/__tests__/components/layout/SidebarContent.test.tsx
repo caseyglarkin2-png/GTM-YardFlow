@@ -321,4 +321,109 @@ describe('SidebarContent', () => {
       expect(manifestBtn).toHaveClass('bg-purple-600');
     });
   });
+
+  describe('Saved Filters (Sprint V34)', () => {
+    const filterProps = {
+      ...defaultProps,
+      activeTab: 'prospects' as TabId,
+      onTierFilterChange: vi.fn(),
+      onEmailFilterChange: vi.fn(),
+      onTagFilterChange: vi.fn(),
+      onFilterChange: vi.fn(),
+      announce: vi.fn(),
+      tierFilter: 'Tier 1', // Active filter to show Save button
+      emailFilter: 'has_email',
+    };
+
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    it('shows saved filters toggle when filters are active', () => {
+      render(<SidebarContent {...filterProps} />);
+      expect(screen.getByTestId('saved-filters-toggle')).toBeInTheDocument();
+    });
+
+    it('opens saved filters section on toggle click', () => {
+      render(<SidebarContent {...filterProps} />);
+      fireEvent.click(screen.getByTestId('saved-filters-toggle'));
+      expect(screen.getByTestId('save-filter-button')).toBeInTheDocument();
+    });
+
+    it('shows save input when clicking save button', () => {
+      render(<SidebarContent {...filterProps} />);
+      fireEvent.click(screen.getByTestId('saved-filters-toggle'));
+      fireEvent.click(screen.getByTestId('save-filter-button'));
+      expect(screen.getByTestId('save-filter-input')).toBeInTheDocument();
+    });
+
+    it('saves a filter preset', () => {
+      render(<SidebarContent {...filterProps} />);
+      fireEvent.click(screen.getByTestId('saved-filters-toggle'));
+      fireEvent.click(screen.getByTestId('save-filter-button'));
+      
+      const input = screen.getByTestId('save-filter-input');
+      fireEvent.change(input, { target: { value: 'My Custom Filter' } });
+      fireEvent.click(screen.getByTestId('save-filter-confirm'));
+
+      // Verify it's in localStorage
+      const stored = JSON.parse(localStorage.getItem('yardflow_filter_presets') || '[]');
+      expect(stored).toHaveLength(1);
+      expect(stored[0].name).toBe('My Custom Filter');
+    });
+
+    it('loads a saved filter preset', () => {
+      // Pre-populate a preset
+      const preset = [{
+        id: 'preset-test',
+        name: 'Test Preset',
+        tierFilter: 'Tier 2',
+        emailFilter: 'no_email',
+        tagFilter: 'VIP',
+        searchQuery: 'search-term',
+        createdAt: Date.now(),
+      }];
+      localStorage.setItem('yardflow_filter_presets', JSON.stringify(preset));
+
+      render(<SidebarContent {...filterProps} />);
+      fireEvent.click(screen.getByTestId('saved-filters-toggle'));
+      fireEvent.click(screen.getByTestId('load-filter-preset-test'));
+
+      expect(filterProps.onTierFilterChange).toHaveBeenCalledWith('Tier 2');
+      expect(filterProps.onEmailFilterChange).toHaveBeenCalledWith('no_email');
+      expect(filterProps.onTagFilterChange).toHaveBeenCalledWith('VIP');
+      expect(filterProps.onFilterChange).toHaveBeenCalledWith('search-term');
+      expect(filterProps.announce).toHaveBeenCalledWith('Loaded filter: Test Preset');
+    });
+
+    it('deletes a saved filter preset', () => {
+      const preset = [{
+        id: 'preset-delete',
+        name: 'Delete Me',
+        tierFilter: 'All',
+        emailFilter: 'all',
+        tagFilter: null,
+        searchQuery: '',
+        createdAt: Date.now(),
+      }];
+      localStorage.setItem('yardflow_filter_presets', JSON.stringify(preset));
+
+      render(<SidebarContent {...filterProps} />);
+      fireEvent.click(screen.getByTestId('saved-filters-toggle'));
+      fireEvent.click(screen.getByTestId('delete-filter-preset-delete'));
+
+      const stored = JSON.parse(localStorage.getItem('yardflow_filter_presets') || '[]');
+      expect(stored).toHaveLength(0);
+    });
+
+    it('cancels save input on cancel button', () => {
+      render(<SidebarContent {...filterProps} />);
+      fireEvent.click(screen.getByTestId('saved-filters-toggle'));
+      fireEvent.click(screen.getByTestId('save-filter-button'));
+      fireEvent.click(screen.getByTestId('save-filter-cancel'));
+
+      expect(screen.queryByTestId('save-filter-input')).not.toBeInTheDocument();
+      expect(screen.getByTestId('save-filter-button')).toBeInTheDocument();
+    });
+  });
 });
