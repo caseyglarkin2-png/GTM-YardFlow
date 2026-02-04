@@ -110,21 +110,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   } catch (error) {
     console.error('[AI Chat] Request failed:', error);
     
+    // Return detailed error for debugging
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
     // Check if it's a Railway client error
     if (error instanceof Error && 'status' in error) {
       const status = (error as { status: number }).status;
-      if (status === 503) {
-        res.status(503).json({
-          error: 'AI service unavailable',
-          message: 'Railway backend is not available. Please try again later.',
-        });
-        return;
-      }
+      res.status(status).json({
+        error: 'Railway API error',
+        message: errorMessage,
+        status,
+      });
+      return;
     }
     
     res.status(500).json({ 
       error: 'Internal server error',
-      message: 'Failed to process AI request'
+      message: errorMessage,
+      debug: process.env.NODE_ENV !== 'production' ? String(error) : undefined,
     });
   }
 }
