@@ -5,14 +5,7 @@ import { copyToClipboard } from '../../services/ClipboardService';
 import { SequenceEnrollmentBadge } from '../SequenceEnrollmentBadge';
 import { EmailQualityBadge } from '../EmailQualityBadge';
 import { Prospect } from '../../types';
-
-interface SelectionProps {
-  isSelected: (id: string) => boolean;
-  handleSelectionClick: (id: string, event: React.MouseEvent) => void;
-  toggleSelection: (id: string, options?: { extend: boolean }) => void;
-  toggleAll: () => void;
-  isAllSelected: boolean;
-}
+import type { SelectionState } from './HitlistPanel';
 
 interface ProspectListPanelProps {
   filteredProspects: Prospect[];
@@ -20,7 +13,7 @@ interface ProspectListPanelProps {
   prospectsCount: number; // Total prospects (unfiltered) count to determine empty state message
   selectedProspectId: string | null;
   onSelectProspect: (prospect: Prospect) => void;
-  selection: SelectionProps;
+  selection: SelectionState;
   getEnrollmentForProspect: (id: string) => any;
   onClearFilters: () => void;
   onGoToImport: () => void;

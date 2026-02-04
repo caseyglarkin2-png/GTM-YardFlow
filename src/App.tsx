@@ -453,9 +453,9 @@ export default function App() {
       if (type === 'success') showSuccess(title, message);
       else showInfo(title, message);
     },
-    onNewReply: (reply) => {
+    onNewReply: (_reply) => {
       // Could add additional handling here, like highlighting the prospect
-      console.log('New reply received:', reply);
+      // Reply handling is done by the notification service
     },
     enabled: !!user, // Only listen when authenticated
   });
@@ -527,9 +527,6 @@ export default function App() {
   const [isSendingBulkEmail, setIsSendingBulkEmail] = useState(false);
   const [bulkEmailProgress, setBulkEmailProgress] = useState<BulkEmailProgress>({ sent: 0, total: 0, failed: 0 });
   const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
-  
-  // Sprint 1003: Virtualization ref for prospect list
-  const prospectListRef = useRef<HTMLDivElement>(null);
 
   // Check if some (but not all) are selected (for indeterminate state)
   const isSomeSelected = useMemo(() => 
@@ -828,10 +825,6 @@ export default function App() {
     setBulkEmailProgress({ sent: 0, total: eligibleProspects.length, failed: 0 });
 
     try {
-      // Debug: log auth state
-      console.log('[YardFlow] handleBulkSendEmail - auth object exists:', !!auth);
-      console.log('[YardFlow] handleBulkSendEmail - currentUser:', auth?.currentUser?.uid || 'null');
-      
       const firebaseUser = auth?.currentUser;
       if (!firebaseUser) {
         // Provide more specific error message
@@ -870,8 +863,6 @@ export default function App() {
           metadata: { prospectName: prospect.name, templateId },
         };
       });
-
-      console.log(`[BulkEmail] Sending ${emails.length} emails via ${isRailwayEnabled ? 'Railway' : 'local'}`);
 
       // Use the hook's sendBatch which handles Railway vs local routing
       const result = await sendBatch(emails, token);
@@ -1511,9 +1502,7 @@ export default function App() {
       const useRailway = await isRailwayAvailable();
       
       if (useRailway) {
-        // Railway path - requires NextAuth session (future: auth bridge)
-        console.log(`[Email] Railway enabled, sending via Railway → ${selectedProspect.email}`);
-        
+        // Railway path
         const railwayResult = await sendEmailViaRailway({
           to: selectedProspect.email,
           toName: selectedProspect.name,
@@ -1528,7 +1517,6 @@ export default function App() {
         });
 
         if (railwayResult.success) {
-          console.log('[Email] Railway send successful:', railwayResult.messageId);
           setEmailSendStatus('success');
           handleStatusUpdate('contacted');
           setTimeout(() => setEmailSendStatus('idle'), 3000);
@@ -1540,8 +1528,6 @@ export default function App() {
       }
       
       // Vercel path - Firebase auth required
-      console.log(`[Email] Using Vercel SendGrid path → ${selectedProspect.email}`);
-      
       const authModule = await import('firebase/auth');
       const authInstance = authModule.getAuth();
       const user = authInstance?.currentUser;

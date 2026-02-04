@@ -133,7 +133,6 @@ export function HitlistPanel({
           prospectsCount={allProspects.length}
           selectedProspectId={selectedProspect?.id || null}
           onSelectProspect={onSelectProspect}
-          // @ts-ignore - Local definition matches but TS might still complain about named types
           selection={selection}
           getEnrollmentForProspect={getEnrollmentForProspect}
           onClearFilters={onClearFilters}
