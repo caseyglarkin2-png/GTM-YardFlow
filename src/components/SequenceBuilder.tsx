@@ -173,15 +173,21 @@ function StepEditor({
           </div>
         )}
         
-        <div className="flex items-center gap-2 flex-1">
-          <div className={`flex items-center justify-center w-8 h-8 rounded-full bg-white ${typeConfig.color} font-semibold text-sm border`}>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className={`flex items-center justify-center w-8 h-8 rounded-full bg-white ${typeConfig.color} font-semibold text-sm border flex-shrink-0`}>
             {index + 1}
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className={`font-medium ${typeConfig.color}`}>{typeConfig.label}</div>
             {index > 0 && (
               <div className="text-xs text-gray-500">
                 {step.delayDays} day{step.delayDays !== 1 ? 's' : ''} after previous
+              </div>
+            )}
+            {/* Sprint V34 P2.1: Show subject preview when collapsed */}
+            {!isExpanded && step.subject && (
+              <div className="text-xs text-gray-600 truncate mt-0.5" title={step.subject}>
+                📧 {step.subject}
               </div>
             )}
           </div>
