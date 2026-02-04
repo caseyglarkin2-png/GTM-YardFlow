@@ -201,6 +201,19 @@ if (enrollment.railwayEnrollmentId) {
 | \`/api/cron/execute-sequences\` | GET/POST | Execute due sequence steps (5-min) |
 | \`/api/dashboard/briefing\` | GET | Daily briefing metrics |
 
+### Railway AI Endpoints (via proxy)
+
+| Railway Path | Method | Purpose |
+|--------------|--------|---------|
+| \`/api/ai/content/generate\` | POST | Generate email content |
+| \`/api/ai/dossier/generate\` | POST | Generate company dossier |
+| \`/api/ai/dossier/refresh\` | POST | Force refresh stale dossiers |
+| \`/api/ai/research/batch\` | POST | Batch research up to 10 companies |
+| \`/api/ai/status\` | GET | AI provider health (requires auth) |
+| \`/api/ai/conversations\` | GET/POST/DELETE | Conversation CRUD for multi-turn |
+
+**Conversation Continuity**: Pass \`conversationId\` in chat requests for multi-turn memory.
+
 ## Enrollment State Machine
 
 \`\`\`

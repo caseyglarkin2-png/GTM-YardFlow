@@ -52,6 +52,10 @@
                           ├──────────────────────────────┤
                           │ POST /api/ai/content/generate│
                           │ POST /api/ai/dossier/generate│
+                          │ POST /api/ai/dossier/refresh │
+                          │ POST /api/ai/research/batch  │
+                          │ GET  /api/ai/status          │
+                          │ GET/POST/DELETE /api/ai/conversations │
                           │ POST /api/ai/score-icp       │
                           │ POST /api/accounts/{id}/research │
                           └──────────────────────────────┘
