@@ -69,18 +69,18 @@ Transform the HitList into a powerful, user-friendly filtering experience:
 
 ## Sprint Breakdown
 
-| Sprint | Focus | Est. Time | Demo |
-|--------|-------|-----------|------|
-| **S36A** | Column Clarity | 3 hours | Headers have labels + tooltips |
-| **S36B** | Sortable Columns | 2.5 hours | Click header to sort |
-| **S36C** | Enhanced Quick Filters | 2 hours | 8+ quick filter presets |
-| **S36D** | Multi-Select Tier Filter | 2 hours | Check multiple tiers at once |
-| **S36E** | Column Customization | 2 hours | Show/hide columns menu |
-| **S36F** | Data Quality Indicators | 1.5 hours | Visual cues for missing data |
-| **S36G** | AI Templates for 1-Off Emails | 2.5 hours | AI Generate in detail panel |
-| **S36H** | Per-Recipient Preview | 2 hours | Approve before send |
+| Sprint | Focus | Est. Time | Status | Demo |
+|--------|-------|-----------|--------|------|
+| **S36A** | Column Clarity | 3 hours | 🔲 Not Started | Headers have labels + tooltips |
+| **S36B** | Sortable Columns | 2.5 hours | 🔲 Not Started | Click header to sort |
+| **S36C** | Enhanced Quick Filters | 2 hours | 🔲 Not Started | 8+ quick filter presets |
+| **S36D** | Multi-Select Tier Filter | 2 hours | 🔲 Not Started | Check multiple tiers at once |
+| **S36E** | Column Customization | 2 hours | 🔲 Not Started | Show/hide columns menu |
+| **S36F** | Data Quality Indicators | 1.5 hours | 🔲 Not Started | Visual cues for missing data |
+| **S36G** | AI Templates for 1-Off Emails | 2.5 hours | ✅ Complete | AI Generate in detail panel |
+| **S36H** | Per-Recipient Preview | 2 hours | ✅ Complete | Approve before send |
 
-**Total**: ~17.5 hours
+**Total**: ~17.5 hours (~5 hours complete)
 
 ---
 
@@ -247,7 +247,7 @@ it('shows tooltip on hover after delay', async () => {
 
 ---
 
-### T36A.3: Add Rich Tooltips to Column Headers [S - 30 min]
+### T36A.3: Add Rich Tooltips to Column Headers [S - 45 min]
 
 **Files**: [src/components/CompanyListView.tsx](src/components/CompanyListView.tsx)
 
@@ -294,6 +294,9 @@ import { Tooltip } from './Tooltip';
 **Implementation**: Collapsible info panel above the table
 
 ```tsx
+import { HelpCircle } from 'lucide-react';
+
+// Inside component
 const [showHelp, setShowHelp] = useState(false);
 
 // In header area, after search
@@ -760,7 +763,9 @@ export const QUICK_FILTER_PRESETS: QuickFilterPreset[] = [
     label: 'Needs Research',
     emoji: '🔬',
     description: 'Not yet AI researched',
-    filters: { /* handled separately */ },
+    // Filter companies where aiResearchDate is null/undefined
+    // This requires checking CompanyRow.aiResearchDate field
+    filters: { hasAIResearch: false },
     color: { bg: 'bg-blue-100', bgActive: 'bg-blue-600', text: 'text-blue-700' },
   },
   {
@@ -859,9 +864,11 @@ it('activates quick filter on click', async () => {
 
 ---
 
-### T36C.3: Wire Quick Filters to App.tsx [M - 45 min]
+### T36C.3: Wire Quick Filters to App.tsx [M - 60 min]
 
 **Files**: [src/App.tsx](src/App.tsx), [src/services/CompanyAggregator.ts](src/services/CompanyAggregator.ts)
+
+**Note**: Multi-tier filtering (`setMultiTierFilter`) is added in S36D. This task only supports single-tier quick filters until then.
 
 **Implementation** (App.tsx):
 ```tsx
@@ -883,11 +890,13 @@ const handleQuickFilterChange = useCallback((preset: QuickFilterPreset | null) =
 
   setActiveQuickFilter(preset.id);
   
-  // Apply filters based on preset
+  // Apply tier filter (single-tier only until S36D adds multi-select)
   if (preset.filters.tiers?.length === 1) {
     setTierFilter(preset.filters.tiers[0]);
   } else if (preset.filters.tiers?.length > 1) {
-    setMultiTierFilter(preset.filters.tiers);
+    // TODO: S36D will add setMultiTierFilter for multi-tier quick filters
+    // For now, just use the first tier
+    setTierFilter(preset.filters.tiers[0]);
   }
   
   if (preset.filters.emailStatus) {
@@ -1110,8 +1119,8 @@ it('allows selecting multiple options', async () => {
     <MultiSelectDropdown
       label="Tier"
       options={[
-        { value: 'T1', label: 'Tier 1' },
-        { value: 'T2', label: 'Tier 2' },
+        { value: 'Tier 1', label: '⭐ Tier 1' },
+        { value: 'Tier 2', label: 'Tier 2' },
       ]}
       selected={[]}
       onChange={onChange}
@@ -1119,9 +1128,10 @@ it('allows selecting multiple options', async () => {
   );
 
   await userEvent.click(screen.getByRole('button'));
-  await userEvent.click(screen.getByText('Tier 1'));
+  await userEvent.click(screen.getByText(/Tier 1/));
   
-  expect(onChange).toHaveBeenCalledWith(['T1']);
+  // Uses Railway format 'Tier 1' not Firestore 'T1'
+  expect(onChange).toHaveBeenCalledWith(['Tier 1']);
 });
 ```
 
@@ -1364,7 +1374,7 @@ export function ColumnSettingsMenu({
 
 ---
 
-### T36E.3: Integrate into CompanyListView [M - 45 min]
+### T36E.3: Integrate into CompanyListView [M - 60 min]
 
 **Files**: [src/components/CompanyListView.tsx](src/components/CompanyListView.tsx)
 
@@ -2341,6 +2351,35 @@ No database migrations or backend changes - all frontend-only.
 | Time to find high-value prospects | <30 seconds | Manual testing with stopwatch |
 | Filter preset usage | 80%+ use quick filters | Analytics tracking (future) |
 | Help panel open rate | <10% (intuitive UI) | Analytics tracking (future) |
+
+---
+
+## Verification for Completed Sprints
+
+### S36G + S36H Verification (Complete)
+
+Run these commands to verify the completed sprints still work:
+
+```bash
+# TypeScript check
+npx tsc --noEmit
+
+# Run related tests
+npm test -- --run ProspectDetailPanel BulkEmailModal useBulkEmailSend useAIGenerate
+
+# Expected: All tests pass
+```
+
+**Commit**: `ebf267c` - feat(S36G/S36H): add AI generation to detail panel, preview mode, approval flow
+
+### Features Verified
+- ✅ AI Generate button with tone selector in ProspectDetailPanel
+- ✅ Preview/Edit toggle for AI-generated content
+- ✅ FreightRoll branding (not YardFlow)
+- ✅ "The FreightRoll Team" sign-off
+- ✅ Approval workflow: must approve before sending
+- ✅ Approve All button in bulk email footer
+- ✅ Railway enrollment fix: sends `flowId` instead of `sequenceId`
 | Column customization usage | Track which columns hidden | localStorage sampling |
 | AI generation usage | 50%+ use AI over fallback | Count AI vs template sends |
 | Approval rate | 90%+ approve after preview | Track approve vs reject |
