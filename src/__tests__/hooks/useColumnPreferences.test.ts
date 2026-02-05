@@ -185,4 +185,33 @@ describe('useColumnPreferences', () => {
     // Other defaults should not be visible since they weren't in the saved list
     expect(result.current.isVisible('contacts')).toBe(false);
   });
+
+  // Sprint S36F: Data Quality column tests
+  describe('S36F: Data Quality Column', () => {
+    it('includes dataQuality in default columns', () => {
+      const { result } = renderHook(() => useColumnPreferences());
+      
+      const dataQualityCol = result.current.columns.find(c => c.id === 'dataQuality');
+      expect(dataQualityCol).toBeDefined();
+      expect(dataQualityCol?.label).toBe('Data Quality');
+    });
+
+    it('dataQuality column is hidden by default', () => {
+      const { result } = renderHook(() => useColumnPreferences());
+      
+      expect(result.current.isVisible('dataQuality')).toBe(false);
+    });
+
+    it('can toggle dataQuality column visibility', () => {
+      const { result } = renderHook(() => useColumnPreferences());
+      
+      expect(result.current.isVisible('dataQuality')).toBe(false);
+      
+      act(() => {
+        result.current.toggleColumn('dataQuality');
+      });
+      
+      expect(result.current.isVisible('dataQuality')).toBe(true);
+    });
+  });
 });

@@ -533,4 +533,115 @@ describe('CompanyListView', () => {
       expect(screen.queryByLabelText(/Email all contacts at/)).not.toBeInTheDocument();
     });
   });
+
+  // ===========================================================================
+  // Sprint S36F: Data Quality Indicators Tests
+  // ===========================================================================
+  describe('S36F: Data Quality Indicators', () => {
+    it('shows data quality indicator for companies with minimal data', () => {
+      const minimalDataCompany = createMockCompanyRow({
+        id: 'minimal',
+        company: 'Minimal Data Corp',
+        facilityCount: null,
+        roiPotential: null,
+        industryCategory: null,
+        hasGateBottleneck: null,
+      });
+      
+      render(
+        <CompanyListView
+          companies={[minimalDataCompany]}
+          onCompanySelect={mockOnCompanySelect}
+          onContactSelect={mockOnContactSelect}
+        />
+      );
+
+      // Should show warning indicator
+      expect(screen.getByText('⚠️')).toBeInTheDocument();
+    });
+
+    it('shows partial data indicator for companies with some missing data', () => {
+      const partialDataCompany = createMockCompanyRow({
+        id: 'partial',
+        company: 'Partial Data Corp',
+        facilityCount: 50,          // has
+        roiPotential: 5_000_000,    // has
+        industryCategory: null,      // missing
+        hasGateBottleneck: null,     // missing
+      });
+      
+      render(
+        <CompanyListView
+          companies={[partialDataCompany]}
+          onCompanySelect={mockOnCompanySelect}
+          onContactSelect={mockOnContactSelect}
+        />
+      );
+
+      // Should show info indicator for partial data
+      expect(screen.getByText('ℹ️')).toBeInTheDocument();
+    });
+
+    it('does not show data quality indicator for complete data', () => {
+      const completeDataCompany = createMockCompanyRow({
+        id: 'complete',
+        company: 'Complete Data Corp',
+        facilityCount: 50,
+        roiPotential: 5_000_000,
+        industryCategory: 'beverage',
+        hasGateBottleneck: true,
+      });
+      
+      render(
+        <CompanyListView
+          companies={[completeDataCompany]}
+          onCompanySelect={mockOnCompanySelect}
+          onContactSelect={mockOnContactSelect}
+        />
+      );
+
+      // Should NOT show any quality indicators
+      expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
+      expect(screen.queryByText('ℹ️')).not.toBeInTheDocument();
+    });
+
+    it('shows styled placeholder for null facility count', () => {
+      const noFacilitiesCompany = createMockCompanyRow({
+        id: 'no-facilities',
+        company: 'Unknown Facilities Corp',
+        facilityCount: null,
+      });
+      
+      render(
+        <CompanyListView
+          companies={[noFacilitiesCompany]}
+          onCompanySelect={mockOnCompanySelect}
+          onContactSelect={mockOnContactSelect}
+        />
+      );
+
+      // Should show "?" placeholder for unknown facilities
+      const questionMarks = screen.getAllByText('?');
+      expect(questionMarks.length).toBeGreaterThan(0);
+    });
+
+    it('shows styled placeholder for null ROI', () => {
+      const noROICompany = createMockCompanyRow({
+        id: 'no-roi',
+        company: 'Unknown ROI Corp',
+        roiPotential: null,
+      });
+      
+      render(
+        <CompanyListView
+          companies={[noROICompany]}
+          onCompanySelect={mockOnCompanySelect}
+          onContactSelect={mockOnContactSelect}
+        />
+      );
+
+      // Should show "—" placeholder for unknown ROI
+      expect(screen.getByText('—')).toBeInTheDocument();
+    });
+  });
 });

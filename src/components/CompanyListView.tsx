@@ -70,6 +70,40 @@ const gateConfidenceColors: Record<string, string> = {
   unknown: 'text-slate-300',
 };
 
+// Sprint S36F: Data quality assessment
+type DataQuality = 'complete' | 'partial' | 'minimal';
+
+/**
+ * Assess data completeness for a company row
+ * @returns 'complete' if all key fields have values, 'partial' if 2+, 'minimal' if <2
+ */
+const getDataQuality = (company: CompanyRow): DataQuality => {
+  const hasFields = [
+    company.facilityCount !== null,
+    company.roiPotential !== null,
+    company.industryCategory !== null,
+    company.hasGateBottleneck !== null,
+  ];
+  const filledCount = hasFields.filter(Boolean).length;
+  
+  if (filledCount === 4) return 'complete';
+  if (filledCount >= 2) return 'partial';
+  return 'minimal';
+};
+
+// Data quality badge styles
+const dataQualityStyles: Record<DataQuality, string> = {
+  complete: 'bg-green-100 text-green-700',
+  partial: 'bg-amber-100 text-amber-700',
+  minimal: 'bg-red-100 text-red-700',
+};
+
+const dataQualityLabels: Record<DataQuality, string> = {
+  complete: '✓ Complete',
+  partial: '◐ Partial',
+  minimal: '○ Minimal',
+};
+
 export function CompanyListView({
   companies,
   onCompanySelect,
@@ -124,18 +158,30 @@ export function CompanyListView({
     onSortChange?.(field as typeof sortBy);
   };
 
-  // Format ROI as currency
-  const formatROI = (roi: number | null): string => {
-    if (roi === null) return '—';
+  // Format ROI as currency - Sprint S36F: styled placeholder for null
+  const formatROI = (roi: number | null): React.ReactNode => {
+    if (roi === null) {
+      return (
+        <Tooltip content="ROI not calculated — click AI Research to estimate">
+          <span className="text-slate-300 italic cursor-help">—</span>
+        </Tooltip>
+      );
+    }
     if (roi >= 1_000_000_000) return `$${(roi / 1_000_000_000).toFixed(1)}B`;
     if (roi >= 1_000_000) return `$${(roi / 1_000_000).toFixed(0)}M`;
     if (roi >= 1_000) return `$${(roi / 1_000).toFixed(0)}K`;
     return `$${roi}`;
   };
 
-  // Format facility count
-  const formatFacilities = (count: number | null): string => {
-    if (count === null) return '?';
+  // Format facility count - Sprint S36F: styled placeholder for null
+  const formatFacilities = (count: number | null): React.ReactNode => {
+    if (count === null) {
+      return (
+        <Tooltip content="Facility count unknown — click AI Research to discover">
+          <span className="text-slate-300 cursor-help">?</span>
+        </Tooltip>
+      );
+    }
     return count.toString();
   };
 
@@ -424,6 +470,35 @@ export function CompanyListView({
                         >
                           {company.company || company.id || 'Unknown Company'}
                         </h3>
+                        
+                        {/* Sprint S36F: Data quality indicator for incomplete records */}
+                        {(() => {
+                          const quality = getDataQuality(company);
+                          if (quality !== 'complete') {
+                            return (
+                              <Tooltip
+                                content={
+                                  <div className="space-y-1">
+                                    <div className="font-semibold">
+                                      {quality === 'minimal' ? '⚠️ Limited Data' : 'ℹ️ Partial Data'}
+                                    </div>
+                                    <div className="text-slate-300 text-xs">
+                                      Click "AI Research" to enrich this company's data
+                                    </div>
+                                  </div>
+                                }
+                              >
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium cursor-help ${
+                                  quality === 'minimal' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {quality === 'minimal' ? '⚠️' : 'ℹ️'}
+                                </span>
+                              </Tooltip>
+                            );
+                          }
+                          return null;
+                        })()}
+                        
                         {/* AI Research Status - Always visible */}
                         {onResearchClick && (
                           company.needsResearch ? (
@@ -507,7 +582,7 @@ export function CompanyListView({
                       )}
                     </div>
 
-                    {/* Gate Bottleneck Indicator */}
+                    {/* Gate Bottleneck Indicator - Sprint S36F: styled unknown with tooltip */}
                     <div className="w-12 text-center">
                       <span
                         className={`text-xs font-medium ${gateConfidenceColors[company.gateConfidence]}`}
@@ -516,7 +591,9 @@ export function CompanyListView({
                         {company.hasGateBottleneck ? (
                           <Truck className="h-4 w-4 mx-auto text-green-500" />
                         ) : company.gateConfidence === 'unknown' ? (
-                          <span className="text-slate-300">?</span>
+                          <Tooltip content="Gate status unknown — needs industry research">
+                            <span className="text-slate-300 cursor-help">?</span>
+                          </Tooltip>
                         ) : (
                           <span className="text-slate-400">—</span>
                         )}

@@ -20,6 +20,7 @@ export interface ColumnConfig {
 
 /**
  * Default column configuration for the Company HitList
+ * Sprint S36F: Added dataQuality column (hidden by default)
  */
 export const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: 'company', label: 'Company', defaultVisible: true, required: true },
@@ -29,6 +30,7 @@ export const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: 'gate', label: 'Gate Issue', defaultVisible: true },
   { id: 'roi', label: 'ROI Potential', defaultVisible: true },
   { id: 'score', label: 'Score', defaultVisible: true },
+  { id: 'dataQuality', label: 'Data Quality', defaultVisible: false },
 ];
 
 const STORAGE_KEY = 'company-list-columns';
