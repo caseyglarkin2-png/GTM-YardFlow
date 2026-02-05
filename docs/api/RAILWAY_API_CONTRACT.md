@@ -275,3 +275,119 @@ When circuit is open, callers should:
 - Show "Service temporarily unavailable" message
 - Queue operations for retry
 - Use cached data if available
+---
+
+## Troubleshooting Guide
+
+### Common Issues
+
+#### 1. "Service temporarily unavailable" (503)
+
+**Symptoms:**
+- Email sends fail with 503
+- Railway health check returns 503
+- Circuit breaker is open
+
+**Diagnosis:**
+```bash
+# Check Railway backend health directly
+curl -H "x-service-key: $RAILWAY_API_SECRET" \
+  https://yardflow-hitlist-production-2f41.up.railway.app/api/health
+
+# Check Vercel proxy logs
+vercel logs --since 5m | grep -E "(circuit|503|railway)"
+```
+
+**Solutions:**
+1. **Railway is down** - Check Railway dashboard for deployment issues
+2. **Network issues** - Check Railway region connectivity
+3. **Auth mismatch** - Verify `RAILWAY_API_SECRET` matches Railway's `CRON_SECRET`
+
+#### 2. "Invalid token" (401) from Railway
+
+**Symptoms:**
+- All Railway API calls fail with 401
+- Works locally but not in production
+
+**Diagnosis:**
+```bash
+# Verify the secret is set correctly (check length, not value)
+vercel env ls | grep -E "(RAILWAY_API_SECRET|SERVICE_TO_SERVICE_SECRET)"
+```
+
+**Solutions:**
+1. **Secrets not synced** - Ensure both Vercel and Railway have matching secrets
+2. **Secret has whitespace** - Re-paste secret, check for trailing newlines
+3. **Wrong priority** - `SERVICE_TO_SERVICE_SECRET` takes precedence over `RAILWAY_API_SECRET`
+
+#### 3. "Rate limit exceeded" (429)
+
+**Symptoms:**
+- Bulk sends fail partway through
+- Individual sends work but batch fails
+
+**Diagnosis:**
+```javascript
+// Check response headers
+const remaining = response.headers.get('X-RateLimit-Remaining');
+const resetAt = response.headers.get('X-RateLimit-Reset');
+console.log(`Remaining: ${remaining}, Resets: ${new Date(resetAt * 1000)}`);
+```
+
+**Solutions:**
+1. **Warmup limit** - New accounts have 20 emails/day limit. Set `BYPASS_EMAIL_WARMUP=true` to override.
+2. **Per-minute limit** - Wait 60 seconds between batches
+3. **Add delays** - Use sequential sends with 100ms delays
+
+#### 4. "Email blocked" / "suppressed" (422)
+
+**Symptoms:**
+- Specific emails fail with 422
+- Error reason is "suppressed"
+
+**Diagnosis:**
+```javascript
+// Check suppression list
+const suppression = await EmailComplianceService.checkSuppression(email);
+console.log(suppression); // { suppressed: true, reason: 'bounced' }
+```
+
+**Solutions:**
+1. **Previous hard bounce** - Email is permanently on suppression list
+2. **Previous spam report** - Email has complained, don't send again
+3. **Unsubscribed** - Recipient opted out via CAN-SPAM link
+
+#### 5. Empty or undefined `requestId` in errors
+
+**Symptoms:**
+- Error responses have `requestId: undefined`
+- Can't trace requests in logs
+
+**Solutions:**
+1. Ensure `getRequestId()` is imported from `lib/request-id`
+2. Check that the function is called before any early returns
+3. Verify the request ID middleware is running
+
+### Debug Checklist
+
+Before escalating, verify:
+
+- [ ] **Environment variables set** - All `RAILWAY_*` vars in Vercel
+- [ ] **Secrets match** - Same value in Vercel and Railway
+- [ ] **Feature flag enabled** - `VITE_RAILWAY_ENABLED=true`
+- [ ] **Firebase token valid** - User is authenticated
+- [ ] **Email not suppressed** - Check suppression list
+- [ ] **Within rate limits** - Not hitting 100/min or 20/day warmup
+- [ ] **Circuit breaker closed** - No 503 errors indicating open circuit
+
+### Getting Help
+
+1. **Grab the requestId** from the error response
+2. **Check Vercel logs**: `vercel logs | grep {requestId}`
+3. **Check Railway logs**: `railway logs | grep {requestId}`
+4. **Include in support request**:
+   - Request ID
+   - Timestamp
+   - HTTP status code
+   - Error message and reason
+   - Browser/client version
