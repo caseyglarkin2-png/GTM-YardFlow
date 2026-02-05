@@ -157,4 +157,65 @@ export class EmailComplianceService {
     }
     return 'soft';
   }
+
+  /**
+   * Sprint 39F: Validate content for CAN-SPAM and deliverability issues
+   * Returns warnings that should be shown to user before sending
+   */
+  validateContentForSend(subject: string, body: string): { valid: boolean; warnings: string[] } {
+    const warnings: string[] = [];
+    const subjectLower = subject.toLowerCase();
+    const bodyLower = body.toLowerCase();
+
+    // Check for common spam trigger words
+    const spamTriggers = [
+      'free', 'winner', 'congratulations', 'urgent', 'act now',
+      'limited time', 'exclusive deal', 'click here', 'buy now',
+    ];
+    
+    for (const trigger of spamTriggers) {
+      if (subjectLower.includes(trigger)) {
+        warnings.push(`Subject contains spam trigger word: "${trigger}"`);
+      }
+    }
+
+    // Check for excessive caps in subject
+    const capsCount = (subject.match(/[A-Z]/g) || []).length;
+    const totalLetters = (subject.match(/[a-zA-Z]/g) || []).length;
+    if (totalLetters > 0 && capsCount / totalLetters > 0.5) {
+      warnings.push('Subject has excessive capitalization (over 50%)');
+    }
+
+    // Check for excessive punctuation
+    if (subject.includes('!!!') || subject.includes('???')) {
+      warnings.push('Subject has excessive punctuation');
+    }
+
+    // Check for misleading subject patterns
+    if (subjectLower.startsWith('re:') || subjectLower.startsWith('fw:')) {
+      warnings.push('Subject starts with Re:/Fw: which may appear misleading');
+    }
+
+    // Check body length
+    if (body.length < 50) {
+      warnings.push('Body is very short - may be flagged as spam');
+    }
+
+    // Check for link-heavy content
+    const linkCount = (body.match(/https?:\/\//gi) || []).length;
+    const wordCount = body.split(/\s+/).length;
+    if (linkCount > 0 && linkCount / wordCount > 0.1) {
+      warnings.push('High ratio of links to text - may hurt deliverability');
+    }
+
+    // Check for missing personalization
+    if (!bodyLower.includes('{{') && !body.includes('{name}') && !body.includes('{first_name}')) {
+      // Only warn if it looks like a template
+      if (body.length > 200) {
+        warnings.push('No personalization detected - consider adding recipient name');
+      }
+    }
+
+    return { valid: warnings.length === 0, warnings };
+  }
 }
