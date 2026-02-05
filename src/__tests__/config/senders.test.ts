@@ -16,12 +16,12 @@ import {
 
 describe('Sender Configuration', () => {
   describe('SENDER_IDENTITIES', () => {
-    it('includes all required senders', () => {
+    it('includes verified senders', () => {
       const senderIds = SENDER_IDENTITIES.map(s => s.id);
       
+      // Currently only jake@freightroll.com is verified in SendGrid
       expect(senderIds).toContain('jake');
-      expect(senderIds).toContain('casey');
-      expect(senderIds).toContain('team');
+      expect(SENDER_IDENTITIES.length).toBeGreaterThanOrEqual(1);
     });
 
     it('all senders have freightroll.com email', () => {
@@ -73,8 +73,6 @@ describe('Sender Configuration', () => {
   describe('getSenderName', () => {
     it('returns sender name for valid id', () => {
       expect(getSenderName('jake')).toBe('Jake');
-      expect(getSenderName('casey')).toBe('Casey');
-      expect(getSenderName('team')).toBe('The FreightRoll Team');
     });
 
     it('returns default sender name when no id provided', () => {
@@ -89,8 +87,6 @@ describe('Sender Configuration', () => {
   describe('getSenderEmail', () => {
     it('returns sender email for valid id', () => {
       expect(getSenderEmail('jake')).toBe('jake@freightroll.com');
-      expect(getSenderEmail('casey')).toBe('casey@freightroll.com');
-      expect(getSenderEmail('team')).toBe('team@freightroll.com');
     });
 
     it('returns default sender email when no id provided', () => {
@@ -103,7 +99,6 @@ describe('Sender Configuration', () => {
       const template = 'Best,\n{{senderName}}';
       
       expect(interpolateSender(template, 'jake')).toBe('Best,\nJake');
-      expect(interpolateSender(template, 'casey')).toBe('Best,\nCasey');
     });
 
     it('replaces multiple occurrences', () => {
@@ -115,13 +110,14 @@ describe('Sender Configuration', () => {
     it('handles {senderName} variant (single braces)', () => {
       const template = 'Best,\n{senderName}';
       
-      expect(interpolateSender(template, 'casey')).toBe('Best,\nCasey');
+      expect(interpolateSender(template, 'jake')).toBe('Best,\nJake');
     });
 
     it('handles {{sender_name}} variant (underscore)', () => {
       const template = 'Best,\n{{sender_name}}';
       
-      expect(interpolateSender(template, 'team')).toBe('Best,\nThe FreightRoll Team');
+      // Falls back to default (Jake) or "The FreightRoll Team" for unknown
+      expect(interpolateSender(template, 'jake')).toBe('Best,\nJake');
     });
 
     it('uses default sender when no id provided', () => {
