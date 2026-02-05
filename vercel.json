@@ -10,6 +10,10 @@
     {
       "path": "/api/cron/execute-sequences",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/aggregate-reputation",
+      "schedule": "0 2 * * *"
     }
   ],
   "functions": {
@@ -23,6 +27,9 @@
       "maxDuration": 60
     },
     "api/cron/execute-sequences.ts": {
+      "maxDuration": 60
+    },
+    "api/cron/aggregate-reputation.ts": {
       "maxDuration": 60
     }
   },
