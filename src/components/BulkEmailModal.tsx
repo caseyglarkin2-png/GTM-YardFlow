@@ -20,6 +20,7 @@ import { LazyIcon } from './icons';
 import { SuccessCelebration } from './SuccessCelebration';
 import { personalizeTemplate } from '../config/emailTemplates';
 import { TONE_OPTIONS, DEFAULT_TONE, getTone, type ToneId } from '../config/tones';
+import { SENDER_IDENTITIES, getDefaultSender, interpolateSender, type SenderId } from '../config/senders';
 import { CALENDLY_CONFIG } from '../config/calendly';
 import { useAIGenerate } from '../hooks/useAIGenerate';
 import { useBulkEmailSend, type BulkRecipient, type RecipientStatus } from '../hooks/useBulkEmailSend';
@@ -297,6 +298,7 @@ export function BulkEmailModal({
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [selectedTone, setSelectedTone] = useState<ToneId>(DEFAULT_TONE);
+  const [selectedSender, setSelectedSender] = useState<SenderId>(getDefaultSender().id as SenderId);
   const [showPreview, setShowPreview] = useState(false);
   const [showSkippedList, setShowSkippedList] = useState(false);
   const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
@@ -1009,6 +1011,24 @@ export function BulkEmailModal({
               >
                 {TONE_OPTIONS.map(t => (
                   <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sender Selector - Sprint 38B */}
+            <div>
+              <label htmlFor="sender-selector" className="block text-sm font-medium text-slate-700 mb-1.5">
+                Send As
+              </label>
+              <select
+                id="sender-selector"
+                value={selectedSender}
+                onChange={(e) => setSelectedSender(e.target.value as SenderId)}
+                disabled={isSending || isGenerating}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100"
+              >
+                {SENDER_IDENTITIES.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
                 ))}
               </select>
             </div>
