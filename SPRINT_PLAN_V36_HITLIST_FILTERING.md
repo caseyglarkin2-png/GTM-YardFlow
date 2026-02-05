@@ -71,11 +71,11 @@ Transform the HitList into a powerful, user-friendly filtering experience:
 
 | Sprint | Focus | Est. Time | Status | Demo |
 |--------|-------|-----------|--------|------|
-| **S36A** | Column Clarity | 3 hours | 🔲 Not Started | Headers have labels + tooltips |
-| **S36B** | Sortable Columns | 2.5 hours | 🔲 Not Started | Click header to sort |
-| **S36C** | Enhanced Quick Filters | 2 hours | 🔲 Not Started | 8+ quick filter presets |
-| **S36D** | Multi-Select Tier Filter | 2 hours | 🔲 Not Started | Check multiple tiers at once |
-| **S36E** | Column Customization | 2 hours | 🔲 Not Started | Show/hide columns menu |
+| **S36A** | Column Clarity | 3 hours | ✅ Complete | Headers have labels + tooltips |
+| **S36B** | Sortable Columns | 2.5 hours | ✅ Complete | Click header to sort |
+| **S36C** | Enhanced Quick Filters | 2 hours | ✅ Complete | 8+ quick filter presets |
+| **S36D** | Multi-Select Tier Filter | 2 hours | ✅ Complete | Check multiple tiers at once |
+| **S36E** | Column Customization | 2 hours | ✅ Complete | Show/hide columns menu |
 | **S36F** | Data Quality Indicators | 1.5 hours | 🔲 Not Started | Visual cues for missing data |
 | **S36G** | AI Templates for 1-Off Emails | 2.5 hours | ✅ Complete | AI Generate in detail panel |
 | **S36H** | Per-Recipient Preview | 2 hours | ✅ Complete | Approve before send |

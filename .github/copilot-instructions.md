@@ -86,9 +86,9 @@ await sendRecipient(recipientId);
 
 **Key types**: `BulkRecipient`, `RecipientStatus` ('pending'|'generating'|'generated'|'approved'|'sending'|'sent'|'failed')
 ### Railway API Calls
-- **Browser → Railway**: Always through \`railwayClient\` which proxies via \`api/railway/[...path].ts\`
-- **Server → Railway**: Use \`lib/railway-client.ts\` with S2S auth via \`PLATFORM_TO_PLATFORM_SECRET\`
-\`\`\`typescript
+- **Browser → Railway**: Always through `railwayClient` which proxies via `api/railway/[...path].ts`
+- **Server → Railway**: Use `lib/railway-client.ts` with S2S auth via `SERVICE_TO_SERVICE_SECRET`
+```typescript
 // Browser: use typed client
 import { railwayClient } from '@/services/RailwayApiClient';
 const result = await railwayClient.prospects.list({ status: 'new' });
@@ -96,7 +96,79 @@ const result = await railwayClient.prospects.list({ status: 'new' });
 // Vercel API route: use server client
 import { railwayServerClient } from '@/lib/railway-client';
 const data = await railwayServerClient.get('/api/prospects');
-\`\`\`
+```
+
+## Railway API Contract (CRITICAL for Email)
+
+> **Full contract docs**: [docs/api/RAILWAY_API_CONTRACT.md](../docs/api/RAILWAY_API_CONTRACT.md)
+
+### Email Send Flow (Production Path)
+```
+Browser → /api/email/send (Vercel) → EmailQueueService → SendGrid
+                   ↓
+         Firebase Auth verification
+                   ↓
+         EmailComplianceService.validateEmail()
+                   ↓
+         EmailWarmupService.canSend() (20/day limit for new accounts)
+                   ↓
+         queue.enqueue() → Firestore email_queue collection
+```
+
+### Railway Proxy Headers (S2S Auth)
+```typescript
+// Headers automatically added by api/railway/[...path].ts
+{
+  'x-service-key': SERVICE_TO_SERVICE_SECRET,     // Required for Railway auth
+  'Authorization': `Bearer ${SERVICE_TO_SERVICE_SECRET}`,
+  'x-user-id': userId || 'service:gtm-frontend',  // User context for scoping
+  'x-request-id': crypto.randomUUID().slice(0, 8), // Request tracing
+  'x-source': 'gtm-yardflow-vercel',              // Source identification
+}
+```
+
+### Key Railway Endpoints
+| Endpoint | Method | Request | Response | Notes |
+|----------|--------|---------|----------|-------|
+| `/api/health` | GET | — | `{ status, database, redis, queue }` | Cached 5s |
+| `/api/prospects` | GET | `?status=new&tier=Tier%201` | `PaginatedResponse<RailwayProspect>` | |
+| `/api/prospects` | POST | `CreateProspectRequest` | `RailwayProspect` | |
+| `/api/sequences` | GET/POST | `CreateSequenceRequest` | `RailwaySequence` | |
+| `/api/enrollments` | POST | `CreateEnrollmentRequest` | `RailwayEnrollment` | |
+| `/api/enrollments/:id` | PATCH | `{ status, completionReason? }` | `RailwayEnrollment` | Webhook sync |
+| `/api/ai/content/generate` | POST | `{ prospectId, tone, context }` | `{ subject, body }` | |
+| `/api/templates` | GET/POST | `CreateTemplateRequest` | `EmailTemplateRecord` | |
+
+### Error Response Format
+```typescript
+// Railway returns consistent error structure
+interface RailwayError {
+  error: string;        // Human-readable message
+  code?: string;        // Machine-readable code (e.g., 'RATE_LIMITED')
+  detail?: string;      // Additional context
+  requestId?: string;   // For support debugging
+}
+
+// HTTP Status Codes
+// 400 - Validation error (missing fields, invalid email format)
+// 401 - Missing/invalid auth token
+// 403 - Origin validation failed (CSRF)
+// 404 - Resource not found
+// 422 - Email suppressed (bounced/unsubscribed)
+// 429 - Rate limited (100/min or warmup limit)
+// 500 - Internal server error
+// 503 - Service unavailable (Railway down)
+```
+
+### Circuit Breaker (Railway Proxy)
+```typescript
+// api/railway/[...path].ts implements circuit breaker
+const CIRCUIT_BREAKER_THRESHOLD = 5;    // failures before opening
+const CIRCUIT_BREAKER_TIMEOUT_MS = 30000; // 30s before half-open retry
+
+// States: closed → open (after 5 failures) → half-open (after 30s) → closed (on success)
+// When open, requests fail immediately with 503
+```
 
 ### Logging Pattern
 \`\`\`typescript
@@ -402,7 +474,50 @@ assertRailwaySyncedEnrollment('enrollment-123', {
 // Test error resilience
 simulateRailwayFailure('patch');
 // Firestore should still update even if Railway fails
-\`\`\`
+```
+
+## Error Handling Patterns
+
+### API Error Response Pattern
+```typescript
+// Standard error response from /api/email/send
+res.status(400).json({ error: 'Invalid payload', detail: validationMessage, requestId });
+res.status(401).json({ error: 'Invalid token' });
+res.status(422).json({ error: 'Email blocked', reason: 'suppressed', requestId });
+res.status(429).json({ 
+  error: 'Daily email limit reached', 
+  reason: 'warmup_limit',
+  remaining: 0,
+  message: 'New accounts start with 20 emails/day.'
+});
+```
+
+### Handling Errors in Hooks
+```typescript
+// useBulkEmailSend handles per-recipient errors
+const { recipients, sendRecipient } = useBulkEmailSend();
+
+// Each recipient tracks its own error state
+recipients.forEach(r => {
+  if (r.status === 'failed') {
+    console.log(`${r.prospect.email}: ${r.error}`);
+  }
+});
+```
+
+### Graceful Degradation
+```typescript
+// Railway unavailable → Fall back to Firestore queue
+try {
+  await railwayClient.email.send(payload);
+} catch (err) {
+  if (err.status === 503) {
+    // Circuit breaker open or Railway down
+    await localQueue.enqueue(payload);
+    showToast('Email queued - will send when service recovers');
+  }
+}
+```
 
 ## Common Gotchas
 
