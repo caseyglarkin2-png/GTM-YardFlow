@@ -18,6 +18,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { LazyIcon } from './icons';
 import { SuccessCelebration } from './SuccessCelebration';
+import { WarmupLimitBadge } from './WarmupLimitBadge';
 import { personalizeTemplate } from '../config/emailTemplates';
 import { TONE_OPTIONS, DEFAULT_TONE, getTone, type ToneId } from '../config/tones';
 import { SENDER_IDENTITIES, getDefaultSender, interpolateSender, type SenderId } from '../config/senders';
@@ -765,6 +766,8 @@ export function BulkEmailModal({
                 {withEmail.length} prospects will receive this email
               </p>
             </div>
+            {/* Sprint 38F: Warmup limit indicator */}
+            <WarmupLimitBadge pendingSendCount={withEmail.length} compact />
           </div>
           <button 
             onClick={onClose} 

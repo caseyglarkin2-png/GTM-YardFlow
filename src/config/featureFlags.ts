@@ -35,6 +35,9 @@ export interface FeatureFlags {
   DUAL_WRITE_ENABLED: boolean;
   FIREBASE_AUTH_FALLBACK: boolean;
   
+  // Email Warmup (Sprint 38F)
+  BYPASS_EMAIL_WARMUP: boolean;
+  
   // Debug Flags
   DEBUG_RAILWAY_REQUESTS: boolean;
   DEBUG_FEATURE_FLAGS: boolean;
@@ -106,6 +109,13 @@ export const featureFlags: FeatureFlags = {
   FIREBASE_AUTH_FALLBACK: parseBoolean(
     import.meta.env.VITE_FIREBASE_AUTH_FALLBACK,
     true // Default true for safety
+  ),
+  
+  // BYPASS_EMAIL_WARMUP: Skip warmup limits for verified domains (Sprint 38F)
+  // Set to true once domain auth is complete and reputation established
+  BYPASS_EMAIL_WARMUP: parseBoolean(
+    import.meta.env.VITE_BYPASS_EMAIL_WARMUP,
+    false // Default false for safety
   ),
   
   // Debug Flags

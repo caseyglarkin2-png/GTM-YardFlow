@@ -1,12 +1,11 @@
 /**
  * T96.3: Email Stats Card Component
- * Displays email performance metrics from Railway
+ * Displays email performance metrics from Railway or local Firestore fallback
  */
 
 import React from 'react';
 import { Mail, Send, Eye, MousePointer, AlertTriangle, TrendingUp, RefreshCw } from 'lucide-react';
 import { useWeeklyEmailStats, useTodayEmailStats } from '../hooks/useEmailAnalytics';
-import { featureFlags } from '../config/featureFlags';
 
 interface StatItemProps {
   label: string;
@@ -53,17 +52,6 @@ function RateDisplay({ label, rate, color }: RateDisplayProps) {
 export function EmailStatsCard() {
   const { analytics, isLoading, error, refresh, lastUpdated } = useWeeklyEmailStats();
   const { analytics: todayStats } = useTodayEmailStats();
-
-  if (!featureFlags.RAILWAY_ENABLED) {
-    return (
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-800">
-        <div className="flex items-center gap-2 text-gray-500">
-          <Mail className="w-5 h-5" />
-          <span>Email analytics require Railway integration</span>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (
