@@ -19,9 +19,10 @@ describe('Sender Configuration', () => {
     it('includes verified senders', () => {
       const senderIds = SENDER_IDENTITIES.map(s => s.id);
       
-      // Currently only jake@freightroll.com is verified in SendGrid
+      // Both jake@ and casey@ are verified in SendGrid
       expect(senderIds).toContain('jake');
-      expect(SENDER_IDENTITIES.length).toBeGreaterThanOrEqual(1);
+      expect(senderIds).toContain('casey');
+      expect(SENDER_IDENTITIES.length).toBe(2);
     });
 
     it('all senders have freightroll.com email', () => {
@@ -73,6 +74,7 @@ describe('Sender Configuration', () => {
   describe('getSenderName', () => {
     it('returns sender name for valid id', () => {
       expect(getSenderName('jake')).toBe('Jake');
+      expect(getSenderName('casey')).toBe('Casey');
     });
 
     it('returns default sender name when no id provided', () => {
@@ -87,6 +89,7 @@ describe('Sender Configuration', () => {
   describe('getSenderEmail', () => {
     it('returns sender email for valid id', () => {
       expect(getSenderEmail('jake')).toBe('jake@freightroll.com');
+      expect(getSenderEmail('casey')).toBe('casey@freightroll.com');
     });
 
     it('returns default sender email when no id provided', () => {

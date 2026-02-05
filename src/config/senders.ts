@@ -24,8 +24,7 @@ export interface SenderIdentity {
  * Available sender identities
  * Note: All emails must be verified in SendGrid before use
  * 
- * Currently verified: jake@freightroll.com
- * TODO: Add casey@freightroll.com when verified
+ * Verified senders: jake@freightroll.com, casey@freightroll.com
  */
 export const SENDER_IDENTITIES: SenderIdentity[] = [
   {
@@ -39,17 +38,16 @@ CEO, FreightRoll
 jake@freightroll.com`,
     isDefault: true,
   },
-  // Uncomment when casey@freightroll.com is verified in SendGrid
-  // {
-  //   id: 'casey',
-  //   name: 'Casey',
-  //   email: 'casey@freightroll.com',
-  //   title: 'Head of Sales',
-  //   signOff: 'Best,\nCasey',
-  //   signature: `Casey
-  // Head of Sales, FreightRoll
-  // casey@freightroll.com`,
-  // },
+  {
+    id: 'casey',
+    name: 'Casey',
+    email: 'casey@freightroll.com',
+    title: 'Head of Sales',
+    signOff: 'Best,\nCasey',
+    signature: `Casey
+Head of Sales, FreightRoll
+casey@freightroll.com`,
+  },
 ];
 
 /**
