@@ -17,6 +17,7 @@ import { type ReactNode, useCallback, useState } from 'react';
 import { Zap } from 'lucide-react';
 import { LazyIcon } from '../icons';
 import { NAVIGATION_TABS, type TabId } from '@/config/navigation';
+import { QUICK_FILTER_PRESETS, type QuickFilterPreset } from '@/config/quickFilters';
 import { type ViewMode } from '@/components/ViewModeToggle';
 import { SyncStatus } from '@/components/SyncStatus';
 import { type SyncStatus as SyncStatusType } from '@/services/OfflineQueue';
@@ -54,6 +55,14 @@ export interface SidebarContentProps {
   allTags?: string[];
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
+  
+  // Sprint 36C - Quick Filter Support
+  activeQuickFilter?: string | null;
+  onQuickFilterChange?: (preset: QuickFilterPreset | null) => void;
+  minFacilitiesFilter?: number;
+  onMinFacilitiesChange?: (min: number | undefined) => void;
+  minScoreFilter?: number;
+  onMinScoreChange?: (min: number | undefined) => void;
   
   // Dashboard date period (only used when activeTab === 'dashboard')
   datePeriod?: string;
@@ -249,6 +258,13 @@ export function SidebarContent({
   allTags = [],
   viewMode = 'people',
   onViewModeChange,
+  // Sprint 36C - Quick Filter props
+  activeQuickFilter = null,
+  onQuickFilterChange,
+  minFacilitiesFilter,
+  onMinFacilitiesChange,
+  minScoreFilter,
+  onMinScoreChange,
   datePeriod,
   onDatePeriodChange,
   syncStatus,
@@ -393,64 +409,92 @@ export function SidebarContent({
         {/* Hitlist filters (prospects tab) */}
         {activeTab === 'prospects' && (
           <div className="p-4 space-y-3 border-b border-slate-100">
-            {/* Quick Filter Presets - Sprint V34 */}
+            {/* Quick Filter Presets - Sprint V36C: 8 workflow-oriented filters */}
             <div className="space-y-1.5">
               <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Quick Filters</span>
               <div className="flex flex-wrap gap-1.5">
+                {QUICK_FILTER_PRESETS.map((preset) => {
+                  const isActive = activeQuickFilter === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => {
+                        if (isActive) {
+                          // Clear this quick filter
+                          onQuickFilterChange?.(null);
+                          // Also clear underlying filters
+                          onTierFilterChange?.('All');
+                          onEmailFilterChange?.('all');
+                          onTagFilterChange?.(null);
+                          onMinFacilitiesChange?.(undefined);
+                          onMinScoreChange?.(undefined);
+                          announce?.('Cleared quick filter');
+                        } else {
+                          // Apply the quick filter
+                          onQuickFilterChange?.(preset);
+                          
+                          // Apply tier filter (single tier only until S36D adds multi-select)
+                          if (preset.filters.tiers?.length === 1) {
+                            onTierFilterChange?.(preset.filters.tiers[0]);
+                          } else if (preset.filters.tiers && preset.filters.tiers.length > 1) {
+                            // For now, use first tier (S36D will add proper multi-tier)
+                            onTierFilterChange?.(preset.filters.tiers[0]);
+                          } else {
+                            onTierFilterChange?.('All');
+                          }
+                          
+                          // Apply email filter
+                          if (preset.filters.emailStatus) {
+                            onEmailFilterChange?.(preset.filters.emailStatus);
+                          } else {
+                            onEmailFilterChange?.('all');
+                          }
+                          
+                          // Apply tag filter
+                          if (preset.filters.tags?.length) {
+                            onTagFilterChange?.(preset.filters.tags[0]);
+                          } else {
+                            onTagFilterChange?.(null);
+                          }
+                          
+                          // Apply numeric filters
+                          if (preset.filters.minFacilities !== undefined) {
+                            onMinFacilitiesChange?.(preset.filters.minFacilities);
+                          } else {
+                            onMinFacilitiesChange?.(undefined);
+                          }
+                          
+                          if (preset.filters.minScore !== undefined) {
+                            onMinScoreChange?.(preset.filters.minScore);
+                          } else {
+                            onMinScoreChange?.(undefined);
+                          }
+                          
+                          announce?.(`Filtered to ${preset.label}: ${preset.description}`);
+                        }
+                      }}
+                      className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                        isActive 
+                          ? `${preset.color.bgActive} text-white` 
+                          : `${preset.color.bg} ${preset.color.text} hover:opacity-80`
+                      }`}
+                      title={preset.description}
+                      data-testid={`quick-filter-${preset.id}`}
+                    >
+                      {preset.emoji} {preset.label}
+                    </button>
+                  );
+                })}
+                {/* Clear button */}
                 <button
                   onClick={() => {
-                    onTagFilterChange?.('Manifest 2026');
-                    onTierFilterChange?.('All');
-                    onEmailFilterChange?.('all');
-                    announce?.('Filtered to Manifest 2026 attendees');
-                  }}
-                  className={`px-2 py-1 text-xs rounded-full transition-colors ${
-                    tagFilter === 'Manifest 2026' 
-                      ? 'bg-purple-600 text-white' 
-                      : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                  }`}
-                  data-testid="quick-filter-manifest"
-                >
-                  🎯 Manifest 2026
-                </button>
-                <button
-                  onClick={() => {
-                    onTierFilterChange?.('Tier 1');
-                    onEmailFilterChange?.('has_email');
-                    onTagFilterChange?.(null);
-                    announce?.('Filtered to Tier 1 with email');
-                  }}
-                  className={`px-2 py-1 text-xs rounded-full transition-colors ${
-                    tierFilter === 'Tier 1' && emailFilter === 'has_email'
-                      ? 'bg-amber-600 text-white' 
-                      : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                  }`}
-                  data-testid="quick-filter-tier1-email"
-                >
-                  ⭐ T1 + Email
-                </button>
-                <button
-                  onClick={() => {
-                    onTierFilterChange?.('All');
-                    onEmailFilterChange?.('no_email');
-                    onTagFilterChange?.(null);
-                    announce?.('Filtered to prospects without email');
-                  }}
-                  className={`px-2 py-1 text-xs rounded-full transition-colors ${
-                    emailFilter === 'no_email'
-                      ? 'bg-red-600 text-white' 
-                      : 'bg-red-100 text-red-700 hover:bg-red-200'
-                  }`}
-                  data-testid="quick-filter-no-email"
-                >
-                  📧 Needs Email
-                </button>
-                <button
-                  onClick={() => {
+                    onQuickFilterChange?.(null);
                     onTierFilterChange?.('All');
                     onEmailFilterChange?.('all');
                     onTagFilterChange?.(null);
                     onFilterChange?.('');
+                    onMinFacilitiesChange?.(undefined);
+                    onMinScoreChange?.(undefined);
                     announce?.('Cleared all filters');
                   }}
                   className="px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"

@@ -279,22 +279,23 @@ describe('SidebarContent', () => {
 
     it('renders quick filter buttons on prospects tab', () => {
       render(<SidebarContent {...filterProps} />);
-      expect(screen.getByTestId('quick-filter-manifest')).toBeInTheDocument();
-      expect(screen.getByTestId('quick-filter-tier1-email')).toBeInTheDocument();
-      expect(screen.getByTestId('quick-filter-no-email')).toBeInTheDocument();
+      // Sprint 36C: Now uses preset IDs
+      expect(screen.getByTestId('quick-filter-manifest-2026')).toBeInTheDocument();
+      expect(screen.getByTestId('quick-filter-t1-ready')).toBeInTheDocument();
+      expect(screen.getByTestId('quick-filter-needs-email')).toBeInTheDocument();
       expect(screen.getByTestId('quick-filter-clear')).toBeInTheDocument();
     });
 
     it('Manifest button sets tag filter', () => {
       render(<SidebarContent {...filterProps} />);
-      fireEvent.click(screen.getByTestId('quick-filter-manifest'));
+      fireEvent.click(screen.getByTestId('quick-filter-manifest-2026'));
       expect(filterProps.onTagFilterChange).toHaveBeenCalledWith('Manifest 2026');
-      expect(filterProps.announce).toHaveBeenCalledWith('Filtered to Manifest 2026 attendees');
+      expect(filterProps.announce).toHaveBeenCalledWith('Filtered to Manifest 2026: Conference attendees');
     });
 
     it('T1+Email button sets tier and email filters', () => {
       render(<SidebarContent {...filterProps} />);
-      fireEvent.click(screen.getByTestId('quick-filter-tier1-email'));
+      fireEvent.click(screen.getByTestId('quick-filter-t1-ready'));
       expect(filterProps.onTierFilterChange).toHaveBeenCalledWith('Tier 1');
       expect(filterProps.onEmailFilterChange).toHaveBeenCalledWith('has_email');
       expect(filterProps.onTagFilterChange).toHaveBeenCalledWith(null);
@@ -302,7 +303,7 @@ describe('SidebarContent', () => {
 
     it('Needs Email button sets email filter', () => {
       render(<SidebarContent {...filterProps} />);
-      fireEvent.click(screen.getByTestId('quick-filter-no-email'));
+      fireEvent.click(screen.getByTestId('quick-filter-needs-email'));
       expect(filterProps.onEmailFilterChange).toHaveBeenCalledWith('no_email');
     });
 
@@ -316,8 +317,8 @@ describe('SidebarContent', () => {
     });
 
     it('highlights active quick filter', () => {
-      render(<SidebarContent {...filterProps} tagFilter="Manifest 2026" />);
-      const manifestBtn = screen.getByTestId('quick-filter-manifest');
+      render(<SidebarContent {...filterProps} activeQuickFilter="manifest-2026" />);
+      const manifestBtn = screen.getByTestId('quick-filter-manifest-2026');
       expect(manifestBtn).toHaveClass('bg-purple-600');
     });
   });
