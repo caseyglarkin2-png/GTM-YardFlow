@@ -28,13 +28,14 @@ Calendly handles scheduling — no calendar integration needed.
 | Sprint | Focus | Status |
 |--------|-------|--------|
 | 22A/B | Bulk Email + Sequence Fallback | ✅ Complete |
-| 23 | Railway S2S Auth | ✅ Complete |
-| **24** | **Railway Email Activation** | 🚀 **ACTIVE** |
+| 23-24 | Railway S2S Auth + Email Activation | ✅ Complete |
+| 36 | HitList Filtering (S36A-E) | ✅ Complete |
+| **37** | **QA Gate & Email Integration** | 🚀 **ACTIVE** |
 
-*Last updated: 2026-02-02*
+*Last updated: 2026-02-05*
 
-**Sprint 24 Phases** (see [SPRINT_PLAN_V24_EMAIL_ACTIVATION.md](../SPRINT_PLAN_V24_EMAIL_ACTIVATION.md)):
-- S0: Secrets verification → S1: E2E email test → S1.5: Compliance gates → S2: Frontend integration → S3: Error handling → S4: Monitoring
+**Sprint 37 Focus** (see [SPRINT_PLAN_V37_QA_GATE.md](../SPRINT_PLAN_V37_QA_GATE.md)):
+- S37E: Integration Test Hardening → S37B: Railway Health → S37A: Manual E2E → S37C: Error Boundaries → S37D: Button Audit
 
 ## Architecture
 
@@ -66,7 +67,24 @@ if (shouldUseRailwayEmail()) { sendViaRailway(); }
 if (import.meta.env.VITE_RAILWAY_ENABLED) { ... }
 \`\`\`
 All flags: \`src/config/featureFlags.ts\` — controlled via \`VITE_*\` env vars.
+### Bulk Email Sending (Sprint 27+)
+```typescript
+// Use the orchestration hook for bulk emails with status tracking
+import { useBulkEmailSend } from '@/hooks/useBulkEmailSend';
 
+const { recipients, initRecipients, generateForRecipient, sendRecipient, progress } = useBulkEmailSend();
+
+// Initialize with prospects
+initRecipients(selectedProspects, 'Subject', 'Body');
+
+// Generate AI content per recipient
+await generateForRecipient(recipientId, 'professional');
+
+// Send individual emails (idempotency key auto-generated)
+await sendRecipient(recipientId);
+```
+
+**Key types**: `BulkRecipient`, `RecipientStatus` ('pending'|'generating'|'generated'|'approved'|'sending'|'sent'|'failed')
 ### Railway API Calls
 - **Browser → Railway**: Always through \`railwayClient\` which proxies via \`api/railway/[...path].ts\`
 - **Server → Railway**: Use \`lib/railway-client.ts\` with S2S auth via \`PLATFORM_TO_PLATFORM_SECRET\`
@@ -265,7 +283,24 @@ if (enrollment.railwayEnrollmentId) {
 | Alerting | \`lib/alerting.ts\` |
 | Logger | \`lib/logger.ts\` |
 | Railway mock (tests) | \`src/__tests__/mocks/railwayServerClient.mock.ts\` |
+## Email Flow Architecture
 
+### Browser → Email Send Flow
+```
+BulkEmailModal → useBulkEmailSend → /api/email/send → EmailQueueService → SendGrid
+                                           ↓
+                                    EmailComplianceService (suppression check)
+                                           ↓
+                                    EmailTrackingService (open/click injection)
+```
+
+### Key Email Hooks
+| Hook | Purpose |
+|------|---------|
+| `useBulkEmailSend` | Orchestrates bulk email with per-recipient status |
+| `useRailwayEmail` | Single email sending via Railway |
+| `useRailwayHealth` | Monitor Railway backend health |
+| `useEmailAnalytics` | Email performance metrics |
 ## Desktop UI Components (Sprint 700+)
 
 **Status: Desktop layout integrated, App.tsx decomposition in progress (Sprint 901).**
@@ -279,7 +314,16 @@ import { LazyIcon } from '@/components/icons';
 // ❌ Wrong: Direct Lucide imports cause INP blocking
 import { Menu } from 'lucide-react';
 \`\`\`
+### HitList Column Customization (Sprint 36+)
+```typescript
+// Persist column visibility preferences
+import { useColumnPreferences } from '@/hooks/useColumnPreferences';
 
+const { columns, visibleColumns, toggleColumn, isVisible, resetToDefaults } = useColumnPreferences();
+
+// Use with ColumnSettingsMenu component
+<ColumnSettingsMenu columns={columns} onToggle={toggleColumn} onReset={resetToDefaults} />
+```
 ### Layout Components (\`src/components/layout/\`)
 | Component | Purpose |
 |-----------|---------|
