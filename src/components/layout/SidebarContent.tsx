@@ -13,7 +13,7 @@
  * - Sprint V34: Quick filter presets + saved filters
  */
 
-import { type ReactNode, useCallback, useState } from 'react';
+import { type ReactNode, useCallback, useState, useMemo } from 'react';
 import { Zap } from 'lucide-react';
 import { LazyIcon } from '../icons';
 import { NAVIGATION_TABS, type TabId } from '@/config/navigation';
@@ -24,6 +24,7 @@ import { type SyncStatus as SyncStatusType } from '@/services/OfflineQueue';
 import { ViewModeToggle } from '@/components/ViewModeToggle';
 import { useRailwayHealth, type RailwayHealthStatus } from '@/hooks/useRailwayHealth';
 import { useSavedFilters } from '@/hooks/useSavedFilters';
+import { MultiSelectDropdown, type MultiSelectOption } from '../MultiSelectDropdown';
 
 // =============================================================================
 // Types
@@ -63,6 +64,11 @@ export interface SidebarContentProps {
   onMinFacilitiesChange?: (min: number | undefined) => void;
   minScoreFilter?: number;
   onMinScoreChange?: (min: number | undefined) => void;
+  
+  // Sprint 36D - Multi-tier support
+  multiTierFilter?: string[];
+  onMultiTierFilterChange?: (tiers: string[]) => void;
+  tierCounts?: Record<string, number>; // For showing counts in dropdown
   
   // Dashboard date period (only used when activeTab === 'dashboard')
   datePeriod?: string;
@@ -265,6 +271,10 @@ export function SidebarContent({
   onMinFacilitiesChange,
   minScoreFilter,
   onMinScoreChange,
+  // Sprint 36D - Multi-tier support
+  multiTierFilter = [],
+  onMultiTierFilterChange,
+  tierCounts,
   datePeriod,
   onDatePeriodChange,
   syncStatus,
@@ -277,6 +287,14 @@ export function SidebarContent({
 }: SidebarContentProps): React.ReactElement {
   const { status: derivedStatus } = useRailwayHealth();
   const effectiveRailwayStatus = railwayStatus ?? derivedStatus;
+  
+  // Sprint 36D: Tier options for multi-select dropdown
+  const tierOptions: MultiSelectOption[] = useMemo(() => [
+    { value: 'Tier 1', label: 'Tier 1', emoji: '⭐', count: tierCounts?.['Tier 1'] },
+    { value: 'Tier 2', label: 'Tier 2', emoji: '🔵', count: tierCounts?.['Tier 2'] },
+    { value: 'Tier 3', label: 'Tier 3', emoji: '⚪', count: tierCounts?.['Tier 3'] },
+    { value: 'Tier 4', label: 'Tier 4', emoji: '⬜', count: tierCounts?.['Tier 4'] },
+  ], [tierCounts]);
   
   // Handle tab selection
   const handleTabClick = useCallback((tabId: TabId) => {
@@ -540,19 +558,45 @@ export function SidebarContent({
             
             {/* Tier, Status, and Email filters */}
             <div className="grid grid-cols-1 gap-2">
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  value={tierFilter}
-                  onChange={(e) => onTierFilterChange?.(e.target.value)}
-                  className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                  aria-label="Filter by tier"
-                >
-                  <option value="All">All Tiers</option>
-                  <option value="Tier 1">Tier 1</option>
-                  <option value="Tier 2">Tier 2</option>
-                  <option value="Tier 3">Tier 3</option>
-                </select>
-                
+              {/* Sprint 36D: Multi-select tier filter */}
+              {onMultiTierFilterChange ? (
+                <MultiSelectDropdown
+                  id="tier-filter"
+                  label="Tier"
+                  options={tierOptions}
+                  selected={multiTierFilter}
+                  onChange={onMultiTierFilterChange}
+                  placeholder="All Tiers"
+                />
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={tierFilter}
+                    onChange={(e) => onTierFilterChange?.(e.target.value)}
+                    className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                    aria-label="Filter by tier"
+                  >
+                    <option value="All">All Tiers</option>
+                    <option value="Tier 1">Tier 1</option>
+                    <option value="Tier 2">Tier 2</option>
+                    <option value="Tier 3">Tier 3</option>
+                  </select>
+                  
+                  <select
+                    value={emailFilter}
+                    onChange={(e) => onEmailFilterChange?.(e.target.value)}
+                    className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                    aria-label="Filter by email"
+                  >
+                    <option value="all">Any Email</option>
+                    <option value="has_email">Has Email</option>
+                    <option value="no_email">No Email</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Email filter (shown separately when multi-tier enabled) */}
+              {onMultiTierFilterChange && (
                 <select
                   value={emailFilter}
                   onChange={(e) => onEmailFilterChange?.(e.target.value)}
@@ -563,7 +607,7 @@ export function SidebarContent({
                   <option value="has_email">Has Email</option>
                   <option value="no_email">No Email</option>
                 </select>
-              </div>
+              )}
 
               <select
                 value={statusFilter}
