@@ -28,7 +28,9 @@ import {
   Sparkles,
   CheckCircle,
   Loader,
+  HelpCircle,
 } from 'lucide-react';
+import { Tooltip } from './Tooltip';
 import type { CompanyRow } from '../services/CompanyAggregator';
 import type { Prospect } from '../types';
 import type { CompanyTier } from '../types/marketing';
@@ -82,6 +84,7 @@ export function CompanyListView({
   onSequenceCompany,
 }: CompanyListViewProps) {
   const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set());
+  const [showHelp, setShowHelp] = useState(false);
 
   // Sprint 1003: Virtualize company list to prevent INP blocking
   const parentRef = useRef<HTMLDivElement>(null);
@@ -158,15 +161,47 @@ export function CompanyListView({
 
         {/* Sort Controls */}
         {onSortChange && (
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-400 flex items-center gap-1">
-              <Filter className="h-3 w-3" />
-              Sort:
-            </span>
-            <SortButton field="score" label="Score" />
-            <SortButton field="facilities" label="Facilities" />
-            <SortButton field="contacts" label="Contacts" />
-            <SortButton field="roi" label="ROI" />
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400 flex items-center gap-1">
+                <Filter className="h-3 w-3" />
+                Sort:
+              </span>
+              <SortButton field="score" label="Score" />
+              <SortButton field="facilities" label="Facilities" />
+              <SortButton field="contacts" label="Contacts" />
+              <SortButton field="roi" label="ROI" />
+            </div>
+            
+            {/* Help Toggle */}
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className="text-slate-500 hover:text-blue-600 flex items-center gap-1 transition-colors"
+              aria-expanded={showHelp}
+              aria-controls="company-list-help"
+            >
+              <HelpCircle className="h-3 w-3" />
+              <span>{showHelp ? 'Hide guide' : 'How to use'}</span>
+            </button>
+          </div>
+        )}
+        
+        {/* Help Panel - Collapsible Guide */}
+        {showHelp && (
+          <div 
+            id="company-list-help"
+            className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs space-y-2"
+          >
+            <h4 className="font-semibold text-blue-800">Quick Guide</h4>
+            <div className="grid grid-cols-2 gap-2 text-blue-700">
+              <div><span className="font-medium">T1-T4:</span> Priority tiers (T1 = best fit)</div>
+              <div><span className="font-medium">Score:</span> Primo lookalike score (0-100)</div>
+              <div><span className="font-medium">Facilities:</span> Distribution sites (60+ = 🔥)</div>
+              <div><span className="font-medium">Gate:</span> Yard congestion likelihood</div>
+            </div>
+            <div className="text-blue-600 pt-1 border-t border-blue-200">
+              💡 <strong>Tips:</strong> Click a row to expand contacts. Click column headers to see detailed explanations. Use quick filters in the sidebar.
+            </div>
           </div>
         )}
       </div>
@@ -178,18 +213,116 @@ export function CompanyListView({
       >
         <span className="w-6" /> {/* Expand toggle */}
         <span className="flex-1">Company</span>
-        <span className="w-14 text-center">Tier</span>
-        <span className="w-12 text-center" title="Contacts">
-          <Users className="h-3 w-3 mx-auto" />
-        </span>
-        <span className="w-14 text-center" title="Facilities">
-          <Building2 className="h-3 w-3 mx-auto" />
-        </span>
-        <span className="w-12 text-center">Gate?</span>
-        <span className="w-20 text-right">ROI</span>
-        <span className="w-12 text-center" title="Score">
-          <Zap className="h-3 w-3 mx-auto" />
-        </span>
+        
+        {/* Tier Column Header */}
+        <Tooltip
+          content={
+            <div className="space-y-1">
+              <strong>Company Tier</strong>
+              <p>Priority tier based on fit score:</p>
+              <ul className="text-[10px] space-y-0.5">
+                <li>⭐ T1 = Highest priority</li>
+                <li>🔵 T2 = High potential</li>
+                <li>⚪ T3 = Standard</li>
+                <li>⬜ T4 = Lower priority</li>
+              </ul>
+            </div>
+          }
+        >
+          <span className="w-14 text-center cursor-help flex flex-col items-center gap-0.5">
+            <span>Tier</span>
+          </span>
+        </Tooltip>
+        
+        {/* Contacts Column Header */}
+        <Tooltip
+          content={
+            <div className="space-y-1">
+              <strong>Contacts</strong>
+              <p>Number of people at this company in your prospect list.</p>
+              <p className="text-blue-300">💡 Click row to expand and see all contacts</p>
+            </div>
+          }
+        >
+          <span className="w-12 text-center cursor-help flex flex-col items-center gap-0.5">
+            <Users className="h-3 w-3" aria-hidden="true" />
+            <span className="text-[9px] font-normal normal-case">Contacts</span>
+          </span>
+        </Tooltip>
+        
+        {/* Facilities Column Header */}
+        <Tooltip
+          content={
+            <div className="space-y-1">
+              <strong>Facilities</strong>
+              <p>Estimated distribution centers, warehouses, or yards.</p>
+              <p className="text-green-300">💡 60+ facilities = high-priority target ★</p>
+            </div>
+          }
+        >
+          <span className="w-14 text-center cursor-help flex flex-col items-center gap-0.5">
+            <Building2 className="h-3 w-3" aria-hidden="true" />
+            <span className="text-[9px] font-normal normal-case">Facilities</span>
+          </span>
+        </Tooltip>
+        
+        {/* Gate Issue Column Header */}
+        <Tooltip
+          content={
+            <div className="space-y-1">
+              <strong>Gate Issue</strong>
+              <p>Likelihood of yard congestion or gate problems:</p>
+              <ul className="text-[10px] space-y-0.5">
+                <li>✅ = Confirmed gate issues</li>
+                <li>? = Unknown (needs research)</li>
+                <li>— = No known issues</li>
+              </ul>
+              <p className="text-blue-300">Based on industry + facility data</p>
+            </div>
+          }
+        >
+          <span className="w-12 text-center cursor-help flex flex-col items-center gap-0.5">
+            <Truck className="h-3 w-3" aria-hidden="true" />
+            <span className="text-[9px] font-normal normal-case">Gate</span>
+          </span>
+        </Tooltip>
+        
+        {/* ROI Column Header */}
+        <Tooltip
+          content={
+            <div className="space-y-1">
+              <strong>ROI Potential</strong>
+              <p>Estimated annual savings from solving yard issues.</p>
+              <p className="text-[10px]">Based on: facility count × average savings per site</p>
+              <p className="text-green-300">💡 $100M+ = exceptional opportunity</p>
+            </div>
+          }
+        >
+          <span className="w-20 text-right cursor-help flex flex-col items-center gap-0.5">
+            <span>ROI</span>
+          </span>
+        </Tooltip>
+        
+        {/* Score Column Header */}
+        <Tooltip
+          content={
+            <div className="space-y-1">
+              <strong>Primo Score</strong>
+              <p>Lookalike score (0-100). Higher = more similar to ideal customer profile.</p>
+              <ul className="text-[10px] space-y-0.5">
+                <li>🔥 70+ = Hot lead</li>
+                <li>🔵 50-69 = Warm lead</li>
+                <li>⚪ &lt;50 = Cold lead</li>
+              </ul>
+            </div>
+          }
+        >
+          <span className="w-12 text-center cursor-help flex flex-col items-center gap-0.5">
+            <Zap className="h-3 w-3" aria-hidden="true" />
+            <span className="text-[9px] font-normal normal-case">Score</span>
+          </span>
+        </Tooltip>
+        
         {/* Sprint V33: Actions column */}
         {(onEmailCompany || onSequenceCompany) && (
           <span className="w-20 text-center">Actions</span>
