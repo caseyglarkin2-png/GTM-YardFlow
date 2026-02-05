@@ -19,6 +19,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { LazyIcon } from './icons';
 import { SuccessCelebration } from './SuccessCelebration';
 import { WarmupLimitBadge } from './WarmupLimitBadge';
+import { SpamScoreIndicator } from './SpamScoreIndicator';
+import { useSpamScore } from '../hooks/useSpamScore';
 import { personalizeTemplate } from '../config/emailTemplates';
 import { TONE_OPTIONS, DEFAULT_TONE, getTone, type ToneId } from '../config/tones';
 import { SENDER_IDENTITIES, getDefaultSender, interpolateSender, type SenderId } from '../config/senders';
@@ -351,6 +353,14 @@ export function BulkEmailModal({
   
   // Sprint V34 P1.3: Success celebration state
   const [showCelebration, setShowCelebration] = useState(false);
+  
+  // Sprint 39C: Spam score analysis for email content
+  const spamAnalysis = useSpamScore({
+    subject,
+    body,
+    debounceMs: 500,
+    enabled: sendMode === 'template' && modalState === 'composing',
+  });
   
   // Determine modal state
   const modalState: ModalState = useMemo(() => {
@@ -1364,6 +1374,17 @@ export function BulkEmailModal({
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100 font-mono text-sm ${
                   isOverLimit ? 'border-amber-400 bg-amber-50' : 'border-slate-300'
                 }`}
+              />
+            )}
+            
+            {/* Sprint 39C: Spam Score Indicator */}
+            {(subject.trim() || body.trim()) && (
+              <SpamScoreIndicator
+                result={spamAnalysis.result}
+                isLoading={spamAnalysis.isLoading}
+                error={spamAnalysis.error}
+                testId="bulk-email-spam-indicator"
+                className="mt-3"
               />
             )}
             
