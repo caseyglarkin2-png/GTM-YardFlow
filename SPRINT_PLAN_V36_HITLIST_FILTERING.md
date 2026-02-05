@@ -1,7 +1,8 @@
 # Sprint Plan V36: HitList Filtering & Column UX Improvements
 
-**Status**: 🚀 ACTIVE  
+**Status**: ✅ COMPLETE  
 **Created**: February 5, 2026  
+**Completed**: February 5, 2026  
 **Goal**: Make HitList filtering intuitive and columns meaningful for sales workflow  
 **North Star**: User can find high-value prospects in <30 seconds with clear, actionable filters
 
@@ -76,7 +77,7 @@ Transform the HitList into a powerful, user-friendly filtering experience:
 | **S36C** | Enhanced Quick Filters | 2 hours | ✅ Complete | 8+ quick filter presets |
 | **S36D** | Multi-Select Tier Filter | 2 hours | ✅ Complete | Check multiple tiers at once |
 | **S36E** | Column Customization | 2 hours | ✅ Complete | Show/hide columns menu |
-| **S36F** | Data Quality Indicators | 1.5 hours | 🔲 Not Started | Visual cues for missing data |
+| **S36F** | Data Quality Indicators | 1.5 hours | ✅ Complete | Visual cues for missing data |
 | **S36G** | AI Templates for 1-Off Emails | 2.5 hours | ✅ Complete | AI Generate in detail panel |
 | **S36H** | Per-Recipient Preview | 2 hours | ✅ Complete | Approve before send |
 
