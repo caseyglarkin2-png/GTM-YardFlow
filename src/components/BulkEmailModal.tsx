@@ -483,11 +483,15 @@ export function BulkEmailModal({
   // Initialize bulk recipients when switching to AI mode
   useEffect(() => {
     if (sendMode === 'ai' && withEmail.length > 0) {
-      bulkSend.initRecipients(withEmail, subject, body);
+      // Sprint 39D: Pass scheduled times if optimization is enabled
+      const scheduled = optimizeSendTime && scheduledTimes 
+        ? new Map(Array.from(scheduledTimes.entries()).map(([id, opt]) => [id, { scheduledAt: opt.scheduledAt.getTime() }]))
+        : undefined;
+      bulkSend.initRecipients(withEmail, subject, body, scheduled);
     }
     // Only re-init when switching mode or prospect list changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sendMode, withEmail.length]);
+  }, [sendMode, withEmail.length, optimizeSendTime]);
 
   // Handle mode switch
   const handleModeSwitch = useCallback((mode: 'template' | 'ai') => {

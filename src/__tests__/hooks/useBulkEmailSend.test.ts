@@ -255,8 +255,8 @@ describe('useBulkEmailSend', () => {
       const body = JSON.parse(callArgs[1].body);
       expect(body.to).toBe('john@example.com');
       expect(body.subject).toBe('Test Subject');
-      expect(body.body).toBe('Test Body');
-      expect(body.prospectId).toBe('p1');
+      expect(body.text).toBe('Test Body'); // API uses 'text' field
+      expect(body.metadata.prospectId).toBe('p1');
     });
 
     it('sends Idempotency-Key header with request', async () => {

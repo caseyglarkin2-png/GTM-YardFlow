@@ -30,6 +30,8 @@ export interface BulkRecipient {
   error?: string;
   /** Idempotency key to prevent duplicate sends */
   idempotencyKey: string;
+  /** Sprint 39D: Scheduled send time (ms since epoch) */
+  scheduledAt?: number;
 }
 
 export interface BulkSendProgress {
@@ -45,7 +47,7 @@ export interface UseBulkEmailSendReturn {
   /** List of recipients with their status */
   recipients: BulkRecipient[];
   /** Initialize recipients from prospect list */
-  initRecipients: (prospects: Prospect[], baseSubject: string, baseBody: string) => void;
+  initRecipients: (prospects: Prospect[], baseSubject: string, baseBody: string, scheduledTimes?: Map<string, { scheduledAt: number }>) => void;
   /** Generate AI content for a single recipient */
   generateForRecipient: (recipientId: string, tone: ToneId) => Promise<void>;
   /** Generate AI content for all pending recipients (with concurrency limit) */
@@ -107,7 +109,9 @@ export function useBulkEmailSend(): UseBulkEmailSendReturn {
   const initRecipients = useCallback((
     prospects: Prospect[], 
     baseSubject: string, 
-    baseBody: string
+    baseBody: string,
+    /** Sprint 39D: Optional map of prospect ID to scheduled send time */
+    scheduledTimes?: Map<string, { scheduledAt: number }>
   ) => {
     const newRecipients: BulkRecipient[] = prospects
       .filter(p => p.email) // Only prospects with email
@@ -118,6 +122,7 @@ export function useBulkEmailSend(): UseBulkEmailSendReturn {
         subject: baseSubject,
         body: baseBody,
         idempotencyKey: generateIdempotencyKey(p.id),
+        scheduledAt: scheduledTimes?.get(p.id)?.scheduledAt,
       }));
     
     setRecipients(newRecipients);
@@ -218,8 +223,14 @@ export function useBulkEmailSend(): UseBulkEmailSendReturn {
         body: JSON.stringify({
           to: recipient.prospect.email,
           subject: recipient.subject,
-          body: recipient.body,
-          prospectId: recipient.prospect.id,
+          text: recipient.body, // API expects 'text' field
+          metadata: {
+            prospectId: recipient.prospect.id,
+            prospectName: recipient.prospect.name,
+            source: 'bulk_email_modal',
+          },
+          // Sprint 39D: Include scheduled send time if set
+          scheduledAt: recipient.scheduledAt,
         }),
       });
 
