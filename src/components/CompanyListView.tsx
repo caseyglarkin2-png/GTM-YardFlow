@@ -19,7 +19,6 @@ import {
   AlertCircle,
   Search,
   Filter,
-  ArrowUpDown,
   Zap,
   User,
   Briefcase,
@@ -31,6 +30,8 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { Tooltip } from './Tooltip';
+import { SortableHeader } from './SortableHeader';
+import type { SortDirection } from '@/hooks/useSortableTable';
 import type { CompanyRow } from '../services/CompanyAggregator';
 import type { Prospect } from '../types';
 import type { CompanyTier } from '../types/marketing';
@@ -45,6 +46,7 @@ interface CompanyListViewProps {
   searchTerm?: string;
   onSearchChange?: (term: string) => void;
   sortBy?: 'score' | 'facilities' | 'contacts' | 'roi';
+  sortDirection?: SortDirection;
   onSortChange?: (sortBy: 'score' | 'facilities' | 'contacts' | 'roi') => void;
   // Sprint V33: Company-level action handlers
   onEmailCompany?: (company: CompanyRow) => void;
@@ -78,6 +80,7 @@ export function CompanyListView({
   searchTerm = '',
   onSearchChange,
   sortBy = 'score',
+  sortDirection = 'desc',
   onSortChange,
   // Sprint V33: Company-level action handlers
   onEmailCompany,
@@ -111,20 +114,15 @@ export function CompanyListView({
     // Note: This happens automatically as the size changes
   };
 
-  // Sort buttons
-  const SortButton = ({ field, label }: { field: typeof sortBy; label: string }) => (
-    <button
-      onClick={() => onSortChange?.(field)}
-      className={`px-2 py-1 text-xs rounded flex items-center gap-1 transition-colors ${
-        sortBy === field
-          ? 'bg-blue-100 text-blue-700'
-          : 'text-slate-500 hover:bg-slate-100'
-      }`}
-    >
-      <ArrowUpDown className="h-3 w-3" />
-      {label}
-    </button>
-  );
+  // Get sort indicator for a column
+  const getSortIndicator = (field: typeof sortBy): SortDirection | null => {
+    return sortBy === field ? sortDirection : null;
+  };
+
+  // Handle sort column click
+  const handleSortClick = (field: string) => {
+    onSortChange?.(field as typeof sortBy);
+  };
 
   // Format ROI as currency
   const formatROI = (roi: number | null): string => {
@@ -167,10 +165,34 @@ export function CompanyListView({
                 <Filter className="h-3 w-3" />
                 Sort:
               </span>
-              <SortButton field="score" label="Score" />
-              <SortButton field="facilities" label="Facilities" />
-              <SortButton field="contacts" label="Contacts" />
-              <SortButton field="roi" label="ROI" />
+              <SortableHeader
+                column="score"
+                label="Score"
+                sortIndicator={getSortIndicator('score')}
+                onSort={handleSortClick}
+                className="px-2 py-1 rounded hover:bg-slate-100"
+              />
+              <SortableHeader
+                column="facilities"
+                label="Facilities"
+                sortIndicator={getSortIndicator('facilities')}
+                onSort={handleSortClick}
+                className="px-2 py-1 rounded hover:bg-slate-100"
+              />
+              <SortableHeader
+                column="contacts"
+                label="Contacts"
+                sortIndicator={getSortIndicator('contacts')}
+                onSort={handleSortClick}
+                className="px-2 py-1 rounded hover:bg-slate-100"
+              />
+              <SortableHeader
+                column="roi"
+                label="ROI"
+                sortIndicator={getSortIndicator('roi')}
+                onSort={handleSortClick}
+                className="px-2 py-1 rounded hover:bg-slate-100"
+              />
             </div>
             
             {/* Help Toggle */}
