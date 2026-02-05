@@ -17,7 +17,7 @@ import type { ToneId } from '../config/tones';
 import { useAIGenerate } from './useAIGenerate';
 
 /** Status for each recipient in bulk send */
-export type RecipientStatus = 'pending' | 'generating' | 'generated' | 'sending' | 'sent' | 'failed';
+export type RecipientStatus = 'pending' | 'generating' | 'generated' | 'approved' | 'sending' | 'sent' | 'failed';
 
 export interface BulkRecipient {
   id: string;
@@ -50,6 +50,10 @@ export interface UseBulkEmailSendReturn {
   generateForRecipient: (recipientId: string, tone: ToneId) => Promise<void>;
   /** Generate AI content for all pending recipients (with concurrency limit) */
   generateAll: (tone: ToneId, concurrency?: number) => Promise<void>;
+  /** T36H.2: Approve a generated recipient for sending */
+  approveRecipient: (recipientId: string) => void;
+  /** T36H.2: Approve all generated recipients */
+  approveAll: () => void;
   /** Send email for a single recipient */
   sendRecipient: (recipientId: string) => Promise<void>;
   /** Send all generated/ready recipients */
@@ -92,7 +96,7 @@ export function useBulkEmailSend(): UseBulkEmailSendReturn {
   const progress: BulkSendProgress = {
     total: recipients.length,
     generated: recipients.filter(r => 
-      ['generated', 'sending', 'sent'].includes(r.status)
+      ['generated', 'approved', 'sending', 'sent'].includes(r.status)
     ).length,
     sent: recipients.filter(r => r.status === 'sent').length,
     failed: recipients.filter(r => r.status === 'failed').length,
@@ -246,12 +250,18 @@ export function useBulkEmailSend(): UseBulkEmailSendReturn {
   ) => {
     setIsProcessing(true);
     
+    // T36H.2: In AI mode, only send approved recipients; otherwise send generated/pending
     const ready = recipients.filter(r => 
-      ['pending', 'generated'].includes(r.status) && r.subject && r.body
+      ['approved'].includes(r.status) && r.subject && r.body
+    );
+    
+    // Fallback: if no approved, send generated (for template mode backwards compatibility)
+    const toSend = ready.length > 0 ? ready : recipients.filter(r => 
+      ['generated'].includes(r.status) && r.subject && r.body
     );
     
     // Send sequentially to respect rate limits
-    for (const recipient of ready) {
+    for (const recipient of toSend) {
       // Sprint V34 P2.2: Set current recipient name
       setCurrentRecipientName(recipient.prospect.name || recipient.prospect.email);
       await sendRecipient(recipient.id);
@@ -284,11 +294,31 @@ export function useBulkEmailSend(): UseBulkEmailSendReturn {
     sentKeysRef.current.clear();
   }, []);
 
+  // T36H.2: Approve a single recipient for sending
+  const approveRecipient = useCallback((recipientId: string) => {
+    setRecipients(prev => prev.map(r => 
+      r.id === recipientId && r.status === 'generated'
+        ? { ...r, status: 'approved' as RecipientStatus }
+        : r
+    ));
+  }, []);
+
+  // T36H.2: Approve all generated recipients
+  const approveAll = useCallback(() => {
+    setRecipients(prev => prev.map(r => 
+      r.status === 'generated'
+        ? { ...r, status: 'approved' as RecipientStatus }
+        : r
+    ));
+  }, []);
+
   return {
     recipients,
     initRecipients,
     generateForRecipient,
     generateAll,
+    approveRecipient,
+    approveAll,
     sendRecipient,
     sendAll,
     updateRecipientContent,

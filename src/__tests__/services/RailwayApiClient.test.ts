@@ -329,7 +329,7 @@ describe('RailwayApiClient', () => {
       });
 
       const result = await client.enrollments.create({
-        sequenceId: 'seq-1',
+        flowId: 'seq-1', // Railway calls sequences 'flows'
         prospectId: 'prospect-1',
         startImmediately: true,
       });

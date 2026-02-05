@@ -208,7 +208,7 @@ describe('Railway Enrollment API Integration', () => {
   describe('enrollments.create', () => {
     it('creates a new enrollment', async () => {
       const createRequest: CreateEnrollmentRequest = {
-        sequenceId: 'seq-456',
+        flowId: 'seq-456', // Railway calls sequences 'flows'
         prospectId: 'prospect-new',
       };
 
@@ -243,7 +243,7 @@ describe('Railway Enrollment API Integration', () => {
       );
 
       const result = await railwayClient.enrollments.create({
-        sequenceId: 'seq-456',
+        flowId: 'seq-456', // Railway calls sequences 'flows'
         prospectId: 'prospect-789', // Already enrolled
       });
 
@@ -255,7 +255,7 @@ describe('Railway Enrollment API Integration', () => {
       mockFetch.mockResolvedValueOnce(mockErrorResponse('Sequence not found', 404));
 
       const result = await railwayClient.enrollments.create({
-        sequenceId: 'invalid-seq',
+        flowId: 'invalid-seq', // Railway calls sequences 'flows'
         prospectId: 'prospect-123',
       });
 

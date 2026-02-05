@@ -219,7 +219,7 @@ export interface RailwayEnrollment extends Timestamps {
 }
 
 export interface CreateEnrollmentRequest {
-  sequenceId: UUID;
+  flowId: UUID; // Railway calls sequences 'flows'
   prospectId: UUID;
   startImmediately?: boolean;
 }

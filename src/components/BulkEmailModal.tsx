@@ -69,7 +69,9 @@ function getStatusDisplay(status: RecipientStatus): { icon: string; color: strin
     case 'generating':
       return { icon: 'Loader2', color: 'text-purple-500', label: 'Generating...' };
     case 'generated':
-      return { icon: 'CheckCircle2', color: 'text-green-500', label: 'Ready' };
+      return { icon: 'Eye', color: 'text-amber-500', label: 'Review' };
+    case 'approved':
+      return { icon: 'CheckCircle2', color: 'text-green-500', label: 'Approved' };
     case 'sending':
       return { icon: 'Loader2', color: 'text-blue-500', label: 'Sending...' };
     case 'sent':
@@ -84,37 +86,65 @@ function getStatusDisplay(status: RecipientStatus): { icon: string; color: strin
 /** Single recipient row in AI mode table with expandable preview */
 function RecipientRow({ 
   recipient, 
-  onGenerate, 
+  onGenerate,
+  onApprove,
+  onEdit,
   disabled 
 }: { 
   recipient: BulkRecipient; 
   onGenerate: () => void;
+  onApprove?: () => void;
+  onEdit?: (subject: string, body: string) => void;
   disabled: boolean;
 }) {
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [editSubject, setEditSubject] = React.useState('');
+  const [editBody, setEditBody] = React.useState('');
+  
   const statusDisplay = getStatusDisplay(recipient.status);
   const isGenerating = recipient.status === 'generating';
   const canGenerate = recipient.status === 'pending' || recipient.status === 'failed';
-  const hasContent = recipient.status === 'generated' && recipient.subject && recipient.body;
+  const hasContent = (recipient.status === 'generated' || recipient.status === 'approved') && recipient.subject && recipient.body;
+  const isApproved = recipient.status === 'approved';
+  
+  // Start editing
+  const handleEdit = () => {
+    setEditSubject(recipient.subject || '');
+    setEditBody(recipient.body || '');
+    setIsEditing(true);
+  };
+  
+  // Save edits
+  const handleSaveEdit = () => {
+    onEdit?.(editSubject, editBody);
+    setIsEditing(false);
+  };
   
   return (
-    <div className="border-b border-slate-100 last:border-b-0">
+    <div className={`border-b border-slate-100 last:border-b-0 ${isApproved ? 'bg-green-50/50' : ''}`}>
       {/* Main row */}
       <div 
-        className={`flex items-center justify-between px-3 py-2 hover:bg-slate-50 ${hasContent ? 'cursor-pointer' : ''}`}
+        className={`flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 ${hasContent ? 'cursor-pointer' : ''}`}
         onClick={hasContent ? () => setIsExpanded(!isExpanded) : undefined}
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          {/* Status icon */}
-          <LazyIcon 
-            name={statusDisplay.icon} 
-            className={`h-4 w-4 flex-shrink-0 ${statusDisplay.color} ${isGenerating ? 'animate-spin' : ''}`} 
-          />
+          {/* Status icon with approval indicator */}
+          <div className="relative">
+            <LazyIcon 
+              name={statusDisplay.icon} 
+              className={`h-4 w-4 flex-shrink-0 ${statusDisplay.color} ${isGenerating ? 'animate-spin' : ''}`} 
+            />
+            {isApproved && (
+              <span className="absolute -top-1 -right-1 h-2 w-2 bg-green-500 rounded-full" />
+            )}
+          </div>
           
           {/* Prospect info */}
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-slate-800 truncate">
+            <p className="text-sm font-medium text-slate-800 truncate flex items-center gap-2">
               {recipient.prospect.name}
+              {isApproved && <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Approved</span>}
             </p>
             <p className="text-xs text-slate-500 truncate">
               {recipient.prospect.company} • {recipient.prospect.email}
@@ -127,8 +157,9 @@ function RecipientRow({
           {hasContent && (
             <button
               onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-              className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800"
+              className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
             >
+              <LazyIcon name={isExpanded ? 'ChevronUp' : 'ChevronDown'} className="h-3 w-3" />
               {isExpanded ? 'Hide' : 'Preview'}
             </button>
           )}
@@ -141,8 +172,9 @@ function RecipientRow({
             <button
               onClick={(e) => { e.stopPropagation(); onGenerate(); }}
               disabled={disabled}
-              className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 disabled:opacity-50"
+              className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 disabled:opacity-50 flex items-center gap-1"
             >
+              <LazyIcon name="Sparkles" className="h-3 w-3" />
               Generate
             </button>
           )}
@@ -155,15 +187,86 @@ function RecipientRow({
         </div>
       </div>
       
-      {/* Expandable preview section */}
+      {/* Enhanced expandable preview section */}
       {isExpanded && hasContent && (
-        <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
-          <div className="text-xs text-slate-500 mb-1">Subject:</div>
-          <div className="text-sm font-medium text-slate-800 mb-3">{recipient.subject}</div>
-          <div className="text-xs text-slate-500 mb-1">Body:</div>
-          <div className="text-sm text-slate-700 whitespace-pre-wrap max-h-40 overflow-y-auto">
-            {recipient.body}
-          </div>
+        <div className="px-4 py-4 bg-slate-50 border-t border-slate-100">
+          {isEditing ? (
+            /* Edit mode */
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Subject:</label>
+                <input
+                  type="text"
+                  value={editSubject}
+                  onChange={(e) => setEditSubject(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Body:</label>
+                <textarea
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                  rows={6}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Preview mode */
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500">Subject:</span>
+                <button
+                  onClick={handleEdit}
+                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                >
+                  <LazyIcon name="Edit2" className="h-3 w-3" />
+                  Edit
+                </button>
+              </div>
+              <div className="text-sm font-medium text-slate-800 bg-white px-3 py-2 rounded border border-slate-100">
+                {recipient.subject}
+              </div>
+              
+              <div className="text-xs text-slate-500">Body:</div>
+              <div className="text-sm text-slate-700 whitespace-pre-wrap bg-white px-3 py-3 rounded border border-slate-100 max-h-48 overflow-y-auto">
+                {recipient.body}
+              </div>
+              
+              {/* Approval button - only show if not already approved */}
+              {!isApproved && (
+                <button
+                  onClick={() => onApprove?.()}
+                  className="w-full py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 transition-colors"
+                >
+                  <LazyIcon name="CheckCircle" className="h-4 w-4" />
+                  Approve for Sending
+                </button>
+              )}
+              
+              {isApproved && (
+                <div className="flex items-center justify-center gap-2 py-2 text-sm text-green-700 bg-green-100 rounded-lg">
+                  <LazyIcon name="CheckCircle" className="h-4 w-4" />
+                  Approved - Ready to Send
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -190,7 +293,7 @@ export function BulkEmailModal({
   onUpdateProspect,
 }: BulkEmailModalProps) {
   // Initial template ID - will be updated when hook loads templates
-  const [templateId, setTemplateId] = useState('intro_yardflow');
+  const [templateId, setTemplateId] = useState('intro_freightroll');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [selectedTone, setSelectedTone] = useState<ToneId>(DEFAULT_TONE);
@@ -627,10 +730,15 @@ export function BulkEmailModal({
     }
   };
 
-  // Count ready recipients in AI mode
-  const readyToSendCount = sendMode === 'ai' 
+  // Count recipients by status in AI mode
+  const approvedCount = sendMode === 'ai' 
+    ? bulkSend.recipients.filter(r => r.status === 'approved').length
+    : 0;
+  const pendingReviewCount = sendMode === 'ai'
     ? bulkSend.recipients.filter(r => r.status === 'generated' && r.subject && r.body).length
-    : withEmail.length;
+    : 0;
+  // Ready to send = approved recipients only (must review before sending)
+  const readyToSendCount = sendMode === 'ai' ? approvedCount : withEmail.length;
 
   if (!isOpen) return null;
 
@@ -1166,6 +1274,8 @@ export function BulkEmailModal({
                     key={recipient.id} 
                     recipient={recipient}
                     onGenerate={() => bulkSend.generateForRecipient(recipient.id, selectedTone)}
+                    onApprove={() => bulkSend.approveRecipient(recipient.id)}
+                    onEdit={(subject, body) => bulkSend.updateRecipientContent(recipient.id, subject, body)}
                     disabled={bulkSend.isProcessing}
                   />
                 ))}
@@ -1366,8 +1476,11 @@ export function BulkEmailModal({
               </span>
             ) : sendMode === 'ai' ? (
               <span>
-                <span className="font-medium text-purple-700">{readyToSendCount}</span> ready to send
-                {bulkSend.progress.total > readyToSendCount && (
+                <span className="font-medium text-green-700">{approvedCount}</span> approved
+                {pendingReviewCount > 0 && (
+                  <>, <span className="font-medium text-amber-600">{pendingReviewCount}</span> pending review</>
+                )}
+                {bulkSend.progress.total > (approvedCount + pendingReviewCount) && (
                   <span className="text-slate-400"> of {bulkSend.progress.total}</span>
                 )}
               </span>
@@ -1378,6 +1491,17 @@ export function BulkEmailModal({
             )}
           </div>
           <div className="flex gap-3">
+            {/* Approve All button - only show when there are pending reviews in AI mode */}
+            {sendMode === 'ai' && pendingReviewCount > 0 && modalState === 'composing' && (
+              <button
+                onClick={() => bulkSend.approveAll()}
+                disabled={bulkSend.isProcessing || isSending}
+                className="px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 disabled:opacity-50 flex items-center gap-2"
+              >
+                <LazyIcon name="CheckCircle" className="h-4 w-4" />
+                Approve All ({pendingReviewCount})
+              </button>
+            )}
             <button
               onClick={onClose}
               disabled={modalState === 'sending' || bulkSend.isProcessing}
@@ -1389,7 +1513,7 @@ export function BulkEmailModal({
             {modalState === 'composing' && (
               <button
                 onClick={handleSubmit}
-                disabled={!canSend || bulkSend.isProcessing || isSending}
+                disabled={!canSend || bulkSend.isProcessing || isSending || (sendMode === 'ai' && approvedCount === 0)}
                 data-testid="bulk-email-send"
                 className={`px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
                   sendMode === 'ai' 
@@ -1406,7 +1530,9 @@ export function BulkEmailModal({
                   <>
                     <LazyIcon name="Send" className="h-4 w-4" />
                     {sendMode === 'ai' 
-                      ? `Send ${readyToSendCount} personalized`
+                      ? approvedCount > 0 
+                        ? `Send ${approvedCount} approved`
+                        : 'Approve emails first'
                       : `Send to ${withEmail.length} prospect${withEmail.length !== 1 ? 's' : ''}`
                     }
                   </>

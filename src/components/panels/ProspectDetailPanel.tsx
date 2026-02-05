@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { LazyIcon } from '../icons';
 import { Prospect } from '../../types';
 import { getTemplates, DM_CHAR_LIMIT } from '../../config/templates';
@@ -7,6 +7,8 @@ import { EmailQualityBadge } from '../EmailQualityBadge';
 import { SequenceEnrollmentBadge } from '../SequenceEnrollmentBadge';
 import type { ProspectEnrollmentInfo } from '../../hooks/useSequenceEnrollment';
 import { useProspectActivity, formatActivityType, getActivityIcon } from '../../hooks/useProspectActivity';
+import { useAIGenerate } from '../../hooks/useAIGenerate';
+import { TONE_OPTIONS, DEFAULT_TONE, type ToneId } from '../../config/tones';
 import { featureFlags } from '../../config/featureFlags';
 
 // Email validation regex
@@ -39,6 +41,15 @@ export function ProspectDetailPanel({
   const [emailError, setEmailError] = useState<string | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [showActivityTimeline, setShowActivityTimeline] = useState(false);
+  
+  // T36G.1: AI Generation state
+  const [selectedTone, setSelectedTone] = useState<ToneId>(DEFAULT_TONE);
+  const [isAIMode, setIsAIMode] = useState(false);
+  const [aiSubject, setAISubject] = useState<string>('');
+  const [showPreview, setShowPreview] = useState(false);
+  
+  // AI generation hook
+  const { generate: generateAI, isGenerating, error: aiError, clearError: clearAIError } = useAIGenerate();
 
   // T4.1/T4.6: Activity timeline with pagination
   const {
@@ -50,9 +61,10 @@ export function ProspectDetailPanel({
     error: activityError,
   } = useProspectActivity(prospect.id, { pageSize: 5 });
 
+  // T36G.3: Always use 'The FreightRoll Team' for consistent branding
   const templates = useMemo(() => 
-    getTemplates(prospect, currentUser === 'Me' ? 'The FreightRoll Team' : 'Jake'),
-    [prospect, currentUser]
+    getTemplates(prospect, 'The FreightRoll Team'),
+    [prospect]
   );
 
   const currentTemplate = templates.find(t => t.id === selectedTemplateId) || templates[0];
@@ -97,9 +109,39 @@ export function ProspectDetailPanel({
     if (emailError) setEmailError(null);
   };
 
+  // T36G.1: AI Generate handler
+  const handleAIGenerate = useCallback(async () => {
+    clearAIError();
+    const result = await generateAI({
+      tone: selectedTone,
+      prospectName: prospect.name?.split(' ')[0] || 'there',
+      companyName: prospect.company || 'your company',
+      title: prospect.title,
+      goal: 'Schedule a meeting to discuss yard operations',
+    });
+
+    if (result.success) {
+      setGeneratedMessage(result.content || '');
+      if (result.subject) {
+        setAISubject(result.subject);
+      }
+      setIsAIMode(true);
+    }
+  }, [generateAI, selectedTone, prospect, clearAIError]);
+
+  // T36G.1: Handle template selection - reset AI mode
+  const handleTemplateChange = useCallback((templateId: string) => {
+    setSelectedTemplateId(templateId);
+    setIsAIMode(false);
+    setAISubject('');
+  }, []);
+
   const isShortDM = currentTemplate.type === 'short_dm';
   const charCount = generatedMessage.length;
   const isOverLimit = isShortDM && charCount > DM_CHAR_LIMIT;
+  
+  // Get the effective subject (AI-generated or template)
+  const effectiveSubject = isAIMode && aiSubject ? aiSubject : currentTemplate.subject;
 
   return (
     <div className="flex flex-col h-full bg-white border-l border-slate-200 shadow-xl w-[400px]">
@@ -277,30 +319,101 @@ export function ProspectDetailPanel({
         <div className="space-y-2">
             <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-slate-500 uppercase">Message Generator</label>
-                <select 
-                    value={selectedTemplateId}
-                    onChange={(e) => setSelectedTemplateId(e.target.value)}
-                    className="text-xs border-none bg-transparent font-medium text-slate-700 focus:ring-0 cursor-pointer text-right"
+                <div className="flex items-center gap-2">
+                    {/* Template selector */}
+                    <select 
+                        value={selectedTemplateId}
+                        onChange={(e) => handleTemplateChange(e.target.value)}
+                        className="text-xs border-none bg-transparent font-medium text-slate-700 focus:ring-0 cursor-pointer text-right max-w-[140px]"
+                    >
+                        {templates.map(t => (
+                            <option key={t.id} value={t.id}>{t.label}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            {/* T36G.1: AI Generation Controls */}
+            <div className="flex items-center gap-2 pb-1">
+                <select
+                    value={selectedTone}
+                    onChange={(e) => setSelectedTone(e.target.value as ToneId)}
+                    className="text-xs border border-slate-200 rounded px-2 py-1.5 bg-white"
                 >
-                    {templates.map(t => (
+                    {TONE_OPTIONS.map(t => (
                         <option key={t.id} value={t.id}>{t.label}</option>
                     ))}
                 </select>
+                <button
+                    onClick={handleAIGenerate}
+                    disabled={isGenerating}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    {isGenerating ? (
+                        <>
+                            <LazyIcon name="Loader2" className="h-3.5 w-3.5 animate-spin" />
+                            Generating...
+                        </>
+                    ) : (
+                        <>
+                            <LazyIcon name="Sparkles" className="h-3.5 w-3.5" />
+                            AI Generate
+                        </>
+                    )}
+                </button>
             </div>
+            
+            {/* AI error display */}
+            {aiError && (
+                <div className="text-xs text-red-600 bg-red-50 px-2 py-1.5 rounded border border-red-100">
+                    {aiError}
+                </div>
+            )}
+            
+            {/* AI mode indicator */}
+            {isAIMode && (
+                <div className="text-xs text-purple-600 bg-purple-50 px-2 py-1.5 rounded flex items-center gap-1.5 border border-purple-100">
+                    <LazyIcon name="Sparkles" className="h-3 w-3" />
+                    AI Generated • {TONE_OPTIONS.find(t => t.id === selectedTone)?.label} tone
+                </div>
+            )}
 
-            <textarea
-                value={generatedMessage}
-                onChange={handleMessageChange}
-                rows={8}
-                className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none font-sans
-                    ${isOverLimit ? 'border-red-300 bg-red-50' : 'border-slate-200'}`}
-            />
+            {/* T36G.2: Preview toggle */}
+            {!showPreview ? (
+                <textarea
+                    value={generatedMessage}
+                    onChange={handleMessageChange}
+                    rows={8}
+                    className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none font-sans
+                        ${isOverLimit ? 'border-red-300 bg-red-50' : 'border-slate-200'}`}
+                />
+            ) : (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                    <div className="text-xs text-slate-500">Subject:</div>
+                    <div className="text-sm font-medium text-slate-800 pb-2 border-b border-slate-200">
+                        {effectiveSubject || '(No subject)'}
+                    </div>
+                    <div className="text-xs text-slate-500 pt-1">Message:</div>
+                    <div className="text-sm text-slate-700 whitespace-pre-wrap">
+                        {generatedMessage}
+                    </div>
+                </div>
+            )}
             
             <div className="flex items-center justify-between text-xs text-slate-400">
                 <span className={isOverLimit ? 'text-red-500 font-medium' : ''}>
                     {charCount} / {isShortDM ? DM_CHAR_LIMIT : '∞'} chars
                 </span>
-                {showCopied && <span className="text-green-600 font-medium flex items-center gap-1"><LazyIcon name="Check" className="h-3 w-3" /> Copied</span>}
+                <div className="flex items-center gap-2">
+                    {showCopied && <span className="text-green-600 font-medium flex items-center gap-1"><LazyIcon name="Check" className="h-3 w-3" /> Copied</span>}
+                    <button
+                        onClick={() => setShowPreview(!showPreview)}
+                        className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                    >
+                        <LazyIcon name={showPreview ? 'Edit2' : 'Eye'} className="h-3 w-3" />
+                        {showPreview ? 'Edit' : 'Preview'}
+                    </button>
+                </div>
             </div>
             
             {/* T204.1: Smart Clipboard Widget */}
@@ -318,10 +431,10 @@ export function ProspectDetailPanel({
                     <LazyIcon name="Copy" className="h-3.5 w-3.5" />
                     Copy Body
                 </button>
-                {currentTemplate.subject && (
+                {effectiveSubject && (
                     <button
                         onClick={async () => {
-                            await copyToClipboard(currentTemplate.subject);
+                            await copyToClipboard(effectiveSubject);
                             setShowCopied(true);
                             setTimeout(() => setShowCopied(false), 2000);
                         }}
@@ -361,7 +474,8 @@ export function ProspectDetailPanel({
                 onClick={async () => {
                     setIsSendingEmail(true);
                     try {
-                        await onSendEmail(selectedTemplateId, generatedMessage, currentTemplate.subject);
+                        // Use AI subject if in AI mode, otherwise use template subject
+                        await onSendEmail(selectedTemplateId, generatedMessage, effectiveSubject);
                     } finally {
                         setIsSendingEmail(false);
                     }

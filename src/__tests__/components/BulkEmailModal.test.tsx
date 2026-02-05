@@ -245,10 +245,12 @@ describe('BulkEmailModal', () => {
       // Switch to AI mode
       fireEvent.click(screen.getByRole('button', { name: /ai per-recipient/i }));
       
-      // Should show "ready to send" text in footer
-      expect(screen.getByText(/ready to send/i)).toBeInTheDocument();
-      // And the send button should show "Send 1 personalized"
-      expect(screen.getByRole('button', { name: /send 1 personalized/i })).toBeInTheDocument();
+      // Should show approval status in footer (new approval flow)
+      // Footer shows "0 approved, 1 pending review of 2"
+      expect(screen.getByText(/approved/i)).toBeInTheDocument();
+      expect(screen.getByText(/pending review/i)).toBeInTheDocument();
+      // Send button should say "Approve emails first" when nothing is approved
+      expect(screen.getByRole('button', { name: /approve emails first/i })).toBeInTheDocument();
     });
   });
 

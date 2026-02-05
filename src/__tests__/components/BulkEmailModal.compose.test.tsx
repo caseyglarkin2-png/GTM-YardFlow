@@ -146,6 +146,8 @@ describe('BulkEmailModal - Compose Flow', () => {
       sendRecipient: vi.fn(),
       sendAll: vi.fn(),
       updateRecipientContent: vi.fn(),
+      approveRecipient: vi.fn(),
+      approveAll: vi.fn(),
       reset: vi.fn(),
     });
   });

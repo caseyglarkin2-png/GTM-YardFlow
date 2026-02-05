@@ -55,7 +55,7 @@ const mockTemplates: EmailTemplateRecord[] = [
   {
     id: 'template-1',
     name: 'Welcome Email',
-    subject: 'Welcome to YardFlow',
+    subject: 'Welcome to FreightRoll',
     body: 'Hello {name}, welcome!',
     category: 'outreach',
     tone: 'professional',

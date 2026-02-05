@@ -373,7 +373,7 @@ describe('useSequenceEnrollment', () => {
 
       expect(mockRailwayClient.enrollments.create).toHaveBeenCalledWith({
         prospectId: 'prospect-1',
-        sequenceId: 'seq-1',
+        flowId: 'seq-1', // Railway calls sequences 'flows'
       });
       expect(enrollmentResult!.success).toBe(true);
       expect(enrollmentResult!.enrollmentId).toBe('railway-enrollment-1');

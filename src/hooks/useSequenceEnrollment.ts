@@ -364,7 +364,7 @@ export function useSequenceEnrollment(): UseSequenceEnrollmentReturn {
       try {
         const result = await railwayClient.enrollments.create({
           prospectId: prospect.id,
-          sequenceId,
+          flowId: sequenceId, // Railway calls sequences 'flows'
         });
 
         if (result.ok && result.data) {
