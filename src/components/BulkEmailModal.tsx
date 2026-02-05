@@ -591,7 +591,7 @@ export function BulkEmailModal({
     }
   }, [generateAI, selectedTone, sampleProspect, lastGenerateTime]);
 
-  // Character count helpers for Luis tone warning
+  // Character count helpers for FreightRoll tone warning
   const currentTone = getTone(selectedTone);
   const charCount = body.length;
   const isOverLimit = currentTone?.charLimit && charCount > currentTone.charLimit;
@@ -1155,7 +1155,7 @@ export function BulkEmailModal({
                       >
                         <option value="professional">Professional</option>
                         <option value="casual">Casual</option>
-                        <option value="luis">Luis</option>
+                        <option value="freightroll">FreightRoll</option>
                         <option value="friendly">Friendly</option>
                         <option value="formal">Formal</option>
                       </select>

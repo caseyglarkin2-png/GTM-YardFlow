@@ -7,7 +7,7 @@
  * The actual system prompts live on the Railway backend.
  */
 
-export type ToneId = 'luis' | 'professional' | 'challenger';
+export type ToneId = 'freightroll' | 'professional' | 'challenger';
 
 export interface ToneOption {
   id: ToneId;
@@ -19,8 +19,8 @@ export interface ToneOption {
 
 export const TONE_OPTIONS: ToneOption[] = [
   {
-    id: 'luis',
-    label: 'Luis Style',
+    id: 'freightroll',
+    label: 'FreightRoll Voice',
     description: 'Short, punchy, metrics-driven (250 chars)',
     charLimit: 250,
   },

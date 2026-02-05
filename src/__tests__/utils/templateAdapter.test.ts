@@ -24,7 +24,7 @@ import type { CreateTemplateRequest, UpdateTemplateRequest } from '@/types/railw
 describe('templateAdapter', () => {
   describe('toRailwayTone', () => {
     it('converts lowercase GTM tones to uppercase Railway tones', () => {
-      expect(toRailwayTone('luis')).toBe('LUIS');
+      expect(toRailwayTone('freightroll')).toBe('FREIGHTROLL');
       expect(toRailwayTone('professional')).toBe('PROFESSIONAL');
       expect(toRailwayTone('challenger')).toBe('CHALLENGER');
     });
@@ -42,13 +42,13 @@ describe('templateAdapter', () => {
 
   describe('toGtmTone', () => {
     it('converts uppercase Railway tones to lowercase GTM tones', () => {
-      expect(toGtmTone('LUIS')).toBe('luis');
+      expect(toGtmTone('FREIGHTROLL')).toBe('freightroll');
       expect(toGtmTone('PROFESSIONAL')).toBe('professional');
       expect(toGtmTone('CHALLENGER')).toBe('challenger');
     });
 
     it('handles mixed case input', () => {
-      expect(toGtmTone('Luis')).toBe('luis');
+      expect(toGtmTone('Freightroll')).toBe('freightroll');
       expect(toGtmTone('Professional')).toBe('professional');
     });
 
@@ -91,7 +91,7 @@ describe('templateAdapter', () => {
         id: 'template-123',
         name: 'Follow Up',
         channel: 'EMAIL',
-        tone: 'LUIS',
+        tone: 'FREIGHTROLL',
         subject: 'Quick follow up',
         template: 'Hi {first_name}, just following up...',
         isActive: true,
@@ -108,7 +108,7 @@ describe('templateAdapter', () => {
         subject: 'Quick follow up',
         body: 'Hi {first_name}, just following up...', // Railway 'template' → GTM 'body'
         category: 'custom',
-        tone: 'luis', // Uppercase → lowercase
+        tone: 'freightroll', // Uppercase → lowercase
         isDefault: false,
         isActive: true,
         createdAt: '2026-02-03T10:00:00Z',
@@ -161,7 +161,7 @@ describe('templateAdapter', () => {
         subject: 'Subject line',
         body: 'Email body content',
         category: 'intro',
-        tone: 'luis',
+        tone: 'freightroll',
       };
 
       const railwayRequest = toRailwayCreateRequest(gtmRequest);
@@ -169,7 +169,7 @@ describe('templateAdapter', () => {
       expect(railwayRequest).toEqual({
         name: 'New Template',
         channel: 'EMAIL',
-        tone: 'LUIS',
+        tone: 'FREIGHTROLL',
         subject: 'Subject line',
         template: 'Email body content', // GTM 'body' → Railway 'template'
         isActive: true,
@@ -229,13 +229,13 @@ describe('templateAdapter', () => {
 
   describe('isValidRailwayTone', () => {
     it('returns true for valid Railway tones', () => {
-      expect(isValidRailwayTone('LUIS')).toBe(true);
+      expect(isValidRailwayTone('FREIGHTROLL')).toBe(true);
       expect(isValidRailwayTone('PROFESSIONAL')).toBe(true);
       expect(isValidRailwayTone('CHALLENGER')).toBe(true);
     });
 
     it('returns false for invalid tones', () => {
-      expect(isValidRailwayTone('luis')).toBe(false);
+      expect(isValidRailwayTone('freightroll')).toBe(false);
       expect(isValidRailwayTone('CASUAL')).toBe(false);
       expect(isValidRailwayTone('invalid')).toBe(false);
     });
@@ -257,17 +257,17 @@ describe('templateAdapter', () => {
 
   describe('normalizeToRailwayTone', () => {
     it('handles uppercase input', () => {
-      expect(normalizeToRailwayTone('LUIS')).toBe('LUIS');
+      expect(normalizeToRailwayTone('FREIGHTROLL')).toBe('FREIGHTROLL');
       expect(normalizeToRailwayTone('PROFESSIONAL')).toBe('PROFESSIONAL');
     });
 
     it('handles lowercase input', () => {
-      expect(normalizeToRailwayTone('luis')).toBe('LUIS');
+      expect(normalizeToRailwayTone('freightroll')).toBe('FREIGHTROLL');
       expect(normalizeToRailwayTone('professional')).toBe('PROFESSIONAL');
     });
 
     it('handles mixed case input', () => {
-      expect(normalizeToRailwayTone('Luis')).toBe('LUIS');
+      expect(normalizeToRailwayTone('Freightroll')).toBe('FREIGHTROLL');
       expect(normalizeToRailwayTone('Professional')).toBe('PROFESSIONAL');
     });
 

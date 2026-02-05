@@ -21,7 +21,7 @@ const RAILWAY_API_SECRET = (
 )?.trim() || '';
 
 export interface GenerateRequest {
-  tone: 'luis' | 'professional' | 'challenger';
+  tone: 'freightroll' | 'professional' | 'challenger';
   prospectName: string;
   companyName: string;
   title?: string;
@@ -100,10 +100,10 @@ export default async function handler(
     }
 
     // Validate tone
-    if (!['luis', 'professional', 'challenger'].includes(body.tone)) {
+    if (!['freightroll', 'professional', 'challenger'].includes(body.tone)) {
       res.status(400).json({ 
         success: false, 
-        error: 'Invalid tone. Must be: luis, professional, or challenger' 
+        error: 'Invalid tone. Must be: freightroll, professional, or challenger' 
       });
       return;
     }
@@ -121,7 +121,7 @@ export default async function handler(
 
     // Build prompt for email generation
     const toneDescriptions: Record<string, string> = {
-      luis: 'Conversational, warm, slightly casual. Mention yard chaos and specific pain points.',
+      freightroll: 'Conversational, warm, slightly casual. Mention yard chaos and specific pain points.',
       professional: 'Polished, formal, value-focused. Emphasize ROI and efficiency gains.',
       challenger: 'Bold, provocative, pattern-interrupt. Ask a pointed question.',
     };
@@ -141,7 +141,7 @@ REQUIREMENTS:
 1. Subject line: 6 words or less, compelling, no spam words
 2. Body: 3-4 short paragraphs, personalized, specific to their role
 3. CTA: Clear ask for a 15-minute call
-4. Sign off: "Best, Luis" 
+4. Sign off: "Best, {{senderName}}" 
 
 Respond in this exact JSON format:
 {
@@ -161,7 +161,7 @@ Respond in this exact JSON format:
         },
         body: JSON.stringify({
           message,
-          systemPrompt: 'You are an expert sales copywriter specializing in B2B cold outreach for yard management software. Generate compelling, personalized emails that get replies. Always respond with valid JSON.',
+          systemPrompt: 'You are an expert sales copywriter specializing in B2B cold outreach for FreightRoll, a freight and yard management platform. Generate compelling, personalized emails that get replies. Never mention "YardFlow" - always use "FreightRoll" as the product name. Always respond with valid JSON.',
         }),
       }
     );

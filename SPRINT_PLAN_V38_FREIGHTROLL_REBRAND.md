@@ -40,7 +40,7 @@
 | **S38A** | FreightRoll Branding Swap | P0 | S | AI generates without "YardFlow"/"Luis" |
 | **S38B** | Sender Identity Configuration | P0 | M | User selects Jake/Casey/Team |
 | **S38C** | Dashboard Analytics Fix | P1 | M | Dashboard shows real email stats |
-| **S38D** | CaseyOS Railway Integration | P2 | L | AI uses CaseyOS endpoint |
+| **S38D** | ~~CaseyOS Integration~~ | P3 | L | ⏸️ DEFERRED - stick with innovative-ambition |
 | **S38E** | Tags, Filters & Search | P1 | M | Filter prospects by tag |
 | **S38F** | Bulk Send UX & Limits Display | P1 | M | See warmup limits + progress |
 
@@ -53,8 +53,19 @@ S38C (Dashboard) ──────────────────┘
                                     
 S38E (Tags) ──► [Parallel, no deps]
 
-S38D (CaseyOS) ──► [BLOCKED: Needs API contract]
+S38D (CaseyOS) ──► [⏸️ DEFERRED - Est. 4-6 hours when needed]
 ```
+
+### S38D Effort Estimate (Deferred)
+
+If we ever need to migrate to a different Railway backend:
+- **Discovery & API contract doc**: 1-2 hours
+- **Feature flag + client creation**: 1-2 hours  
+- **Proxy route updates**: 1-2 hours
+- **Testing & validation**: 1 hour
+- **Total**: ~4-6 hours
+
+Currently sticking with **innovative-ambition** (yardflow-hitlist) which has all needed endpoints.
 
 ---
 

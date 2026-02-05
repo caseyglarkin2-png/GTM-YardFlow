@@ -176,7 +176,7 @@ describe('BulkEmailModal - Compose Flow', () => {
       const options = screen.getAllByRole('option');
       const toneOptionNames = options.map(o => o.textContent?.toLowerCase());
       expect(toneOptionNames.some(t => t?.includes('professional'))).toBe(true);
-      expect(toneOptionNames.some(t => t?.includes('luis'))).toBe(true);
+      expect(toneOptionNames.some(t => t?.includes('freightroll'))).toBe(true);
     });
 
     it('shows generate AI button', () => {
@@ -189,9 +189,9 @@ describe('BulkEmailModal - Compose Flow', () => {
     it('generates content with selected tone', async () => {
       renderModal();
 
-      // Change tone to 'luis'
+      // Change tone to 'freightroll'
       const toneSelect = screen.getByLabelText(/tone/i);
-      await userEvent.selectOptions(toneSelect, 'luis');
+      await userEvent.selectOptions(toneSelect, 'freightroll');
 
       // Click generate
       const generateBtn = screen.getByRole('button', { name: /generate/i });
@@ -200,7 +200,7 @@ describe('BulkEmailModal - Compose Flow', () => {
       await waitFor(() => {
         expect(mockGenerate).toHaveBeenCalledWith(
           expect.objectContaining({
-            tone: 'luis',
+            tone: 'freightroll',
           })
         );
       });
@@ -251,15 +251,15 @@ describe('BulkEmailModal - Compose Flow', () => {
     it('displays character count for body when tone has limit', async () => {
       renderModal();
 
-      // Select 'luis' tone which has a character limit
+      // Select 'freightroll' tone which has a character limit
       const toneSelect = screen.getByLabelText(/tone/i);
-      await userEvent.selectOptions(toneSelect, 'luis');
+      await userEvent.selectOptions(toneSelect, 'freightroll');
 
       const bodyInput = screen.getByLabelText(/message/i);
       await userEvent.clear(bodyInput);
       await userEvent.type(bodyInput, 'Test content');
 
-      // Wait for the character count to appear (format: N/250 for luis)
+      // Wait for the character count to appear (format: N/250 for freightroll)
       await waitFor(() => {
         expect(screen.getByText(/\d+\/250/)).toBeInTheDocument();
       });

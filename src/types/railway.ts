@@ -557,7 +557,7 @@ export type TemplateCategory =
 
 /** Voice/tone for AI generation */
 export type TemplateTone = 
-  | 'luis'           // Luis's casual style
+  | 'freightroll'    // FreightRoll's voice - short, punchy, metrics-driven
   | 'professional'   // Business professional
   | 'casual'         // Casual/friendly
   | 'friendly'       // Warm and approachable

@@ -91,7 +91,7 @@ describe('useAIGenerate', () => {
     let generateResult: unknown;
     await act(async () => {
       generateResult = await result.current.generate({
-        tone: 'luis',
+        tone: 'freightroll',
         prospectName: 'Casey',
         companyName: 'FreightRoll',
         title: 'VP Operations',
@@ -212,7 +212,7 @@ describe('useAIGenerate', () => {
       let generateResult: Awaited<ReturnType<typeof result.current.generate>>;
       await act(async () => {
         generateResult = await result.current.generate({
-          tone: 'luis',
+          tone: 'freightroll',
           prospectName: 'John',
           companyName: 'Acme',
         });
@@ -243,7 +243,7 @@ describe('useAIGenerate', () => {
       let generateResult: Awaited<ReturnType<typeof result.current.generate>>;
       await act(async () => {
         generateResult = await result.current.generate({
-          tone: 'luis',
+          tone: 'freightroll',
           prospectName: 'John',
           companyName: 'Acme',
         });
@@ -273,7 +273,7 @@ describe('useAIGenerate', () => {
       let generateResult: Awaited<ReturnType<typeof result.current.generate>>;
       await act(async () => {
         generateResult = await result.current.generate({
-          tone: 'luis',
+          tone: 'freightroll',
           prospectName: 'John',
           companyName: 'Acme',
         });
@@ -300,7 +300,7 @@ describe('useAIGenerate', () => {
       let generateResult: Awaited<ReturnType<typeof result.current.generate>>;
       await act(async () => {
         generateResult = await result.current.generate({
-          tone: 'luis',
+          tone: 'freightroll',
           prospectName: 'John',
           companyName: 'Acme',
         });
@@ -321,7 +321,7 @@ describe('useAIGenerate', () => {
 
       await act(async () => {
         await result.current.generate({
-          tone: 'luis',
+          tone: 'freightroll',
           prospectName: 'John',
           companyName: 'Acme',
         });

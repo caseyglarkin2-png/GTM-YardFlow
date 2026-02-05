@@ -28,7 +28,7 @@ import type {
 export type RailwayChannel = 'EMAIL' | 'LINKEDIN' | 'PHONE';
 
 /** Railway's tone enum (UPPERCASE) */
-export type RailwayTone = 'LUIS' | 'PROFESSIONAL' | 'CHALLENGER';
+export type RailwayTone = 'FREIGHTROLL' | 'PROFESSIONAL' | 'CHALLENGER';
 
 /** Template as stored in Railway Postgres */
 export interface RailwayTemplateRecord {
@@ -75,7 +75,7 @@ export function toRailwayTone(tone: TemplateTone | undefined): RailwayTone | und
   if (!tone) return undefined;
   
   const map: Record<TemplateTone, RailwayTone | undefined> = {
-    'luis': 'LUIS',
+    'freightroll': 'FREIGHTROLL',
     'professional': 'PROFESSIONAL',
     'challenger': 'CHALLENGER',
     // These don't have Railway equivalents yet - default to PROFESSIONAL
@@ -92,7 +92,7 @@ export function toGtmTone(tone: RailwayTone | string | undefined): TemplateTone 
   if (!tone) return undefined;
   
   const map: Record<string, TemplateTone> = {
-    'LUIS': 'luis',
+    'FREIGHTROLL': 'freightroll',
     'PROFESSIONAL': 'professional',
     'CHALLENGER': 'challenger',
   };
@@ -193,7 +193,7 @@ export function toRailwayUpdateRequest(gtm: UpdateTemplateRequest): RailwayUpdat
 // =============================================================================
 
 /** Valid Railway tone values (must be exact match) */
-const VALID_RAILWAY_TONES = ['LUIS', 'PROFESSIONAL', 'CHALLENGER'] as const;
+const VALID_RAILWAY_TONES = ['FREIGHTROLL', 'PROFESSIONAL', 'CHALLENGER'] as const;
 
 /** Valid Railway channel values (must be exact match) */
 const VALID_RAILWAY_CHANNELS = ['EMAIL', 'LINKEDIN', 'PHONE'] as const;

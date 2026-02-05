@@ -12,16 +12,16 @@ describe('Tone Configuration', () => {
     it('includes all required tones', () => {
       const toneIds = TONE_OPTIONS.map(t => t.id);
       
-      expect(toneIds).toContain('luis');
+      expect(toneIds).toContain('freightroll');
       expect(toneIds).toContain('professional');
       expect(toneIds).toContain('challenger');
     });
 
-    it('luis tone has 250 char limit', () => {
-      const luis = TONE_OPTIONS.find(t => t.id === 'luis');
+    it('freightroll tone has 250 char limit', () => {
+      const freightroll = TONE_OPTIONS.find(t => t.id === 'freightroll');
       
-      expect(luis).toBeDefined();
-      expect(luis?.charLimit).toBe(250);
+      expect(freightroll).toBeDefined();
+      expect(freightroll?.charLimit).toBe(250);
     });
 
     it('all tones have required fields', () => {
@@ -35,10 +35,10 @@ describe('Tone Configuration', () => {
 
   describe('getTone', () => {
     it('returns tone by id', () => {
-      const luis = getTone('luis');
+      const freightroll = getTone('freightroll');
       
-      expect(luis?.id).toBe('luis');
-      expect(luis?.label).toBe('Luis Style');
+      expect(freightroll?.id).toBe('freightroll');
+      expect(freightroll?.label).toBe('FreightRoll Voice');
     });
 
     it('returns undefined for unknown tone', () => {

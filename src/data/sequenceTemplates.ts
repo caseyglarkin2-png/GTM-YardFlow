@@ -1,11 +1,11 @@
 // src/data/sequenceTemplates.ts
 import type { SequenceTemplate } from '@/types/emailSequence';
 
-// Sprint 29: Pepsi/Luis style DM template - short, punchy, metrics-driven
+// Sprint 29: FreightRoll style DM template - short, punchy, metrics-driven
 export const MANIFEST_DM_TEMPLATES: SequenceTemplate[] = [
   {
-    id: 'manifest-dm-luis',
-    name: 'DM: Luis Style (Short)',
+    id: 'manifest-dm-freightroll',
+    name: 'DM: FreightRoll Voice (Short)',
     description: 'Short punchy DM for Manifest app (250 char limit)',
     category: 'manifest_outreach',
     persona: 'logistics_executive',
@@ -221,11 +221,11 @@ If {{company}} has yard congestion, you'd be a perfect fit. 15-min call: {{calen
       }
     ]
   },
-  // Sprint 29: Pilot Proof Points (Luis Style for Email)
+  // Sprint 29: Pilot Proof Points (FreightRoll Style for Email)
   {
     id: 'manifest-pilot-proof',
     name: 'Manifest: Pilot Proof Points',
-    description: 'Short metrics-driven outreach for logistics execs (Pepsi/Luis style)',
+    description: 'Short metrics-driven outreach for logistics execs (FreightRoll style)',
     category: 'manifest_outreach',
     persona: 'logistics_executive',
     usageCount: 0,

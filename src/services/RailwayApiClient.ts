@@ -639,11 +639,11 @@ class RailwayApiClient {
   ai = {
     /**
      * Generate AI content for outreach
-     * Note: Railway AI endpoint expects lowercase tones: 'luis' | 'professional' | 'challenger'
+     * Note: Railway AI endpoint expects lowercase tones: 'freightroll' | 'professional' | 'challenger'
      */
     generateContent: async (data: {
       type: 'email' | 'linkedin' | 'subject';
-      tone?: 'luis' | 'professional' | 'challenger';  // lowercase for AI endpoint
+      tone?: 'freightroll' | 'professional' | 'challenger';  // lowercase for AI endpoint
       goal?: string;
       context: {
         prospectName?: string;

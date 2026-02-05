@@ -54,7 +54,7 @@ const AI_TIMEOUT_MS = 15000;
  * const { generate, isGenerating, error } = useAIGenerate();
  * 
  * const result = await generate({
- *   tone: 'luis',
+ *   tone: 'freightroll',
  *   prospectName: 'Casey',
  *   companyName: 'FreightRoll',
  * });
