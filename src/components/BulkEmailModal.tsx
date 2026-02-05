@@ -21,6 +21,7 @@ import { SuccessCelebration } from './SuccessCelebration';
 import { WarmupLimitBadge } from './WarmupLimitBadge';
 import { SpamScoreIndicator } from './SpamScoreIndicator';
 import { useSpamScore } from '../hooks/useSpamScore';
+import { sendTimeOptimizer, type OptimalSendTime } from '../services/SendTimeOptimizer';
 import { personalizeTemplate } from '../config/emailTemplates';
 import { TONE_OPTIONS, DEFAULT_TONE, getTone, type ToneId } from '../config/tones';
 import { SENDER_IDENTITIES, getDefaultSender, interpolateSender, type SenderId } from '../config/senders';
@@ -354,13 +355,8 @@ export function BulkEmailModal({
   // Sprint V34 P1.3: Success celebration state
   const [showCelebration, setShowCelebration] = useState(false);
   
-  // Sprint 39C: Spam score analysis for email content
-  const spamAnalysis = useSpamScore({
-    subject,
-    body,
-    debounceMs: 500,
-    enabled: sendMode === 'template' && modalState === 'composing',
-  });
+  // Sprint 39D: Send time optimization
+  const [optimizeSendTime, setOptimizeSendTime] = useState(false);
   
   // Determine modal state
   const modalState: ModalState = useMemo(() => {
@@ -368,6 +364,14 @@ export function BulkEmailModal({
     if (isSending) return 'sending';
     return 'composing';
   }, [isSending, progress.results]);
+  
+  // Sprint 39C: Spam score analysis for email content
+  const spamAnalysis = useSpamScore({
+    subject,
+    body,
+    debounceMs: 500,
+    enabled: sendMode === 'template' && modalState === 'composing',
+  });
 
   // Sprint V34 P1.3: Trigger celebration when all emails succeed
   useEffect(() => {
@@ -420,6 +424,26 @@ export function BulkEmailModal({
 
   // For backwards compatibility
   const withoutEmail = skippedProspects;
+
+  // Sprint 39D: Compute optimal send times when optimization is enabled
+  const scheduledTimes = useMemo(() => {
+    if (!optimizeSendTime) return null;
+    
+    const times = new Map<string, OptimalSendTime>();
+    for (const prospect of withEmail) {
+      // Parse location for state/city if available (format: "City, State" or "State")
+      const locationParts = prospect.location?.split(',').map(s => s.trim()) || [];
+      const city = locationParts.length > 1 ? locationParts[0] : undefined;
+      const state = locationParts.length > 1 ? locationParts[1] : locationParts[0];
+      
+      times.set(prospect.id, sendTimeOptimizer.getOptimalTime({
+        state,
+        city,
+        country: prospect.country,
+      }));
+    }
+    return times;
+  }, [optimizeSendTime, withEmail]);
 
   // Validation: subject and body required
   const validationErrors = useMemo(() => {
@@ -1387,6 +1411,47 @@ export function BulkEmailModal({
                 className="mt-3"
               />
             )}
+            
+            {/* Sprint 39D: Send Time Optimization Toggle */}
+            <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <label className="flex items-center justify-between cursor-pointer">
+                <div className="flex items-center gap-2">
+                  <LazyIcon name="Clock" className="h-4 w-4 text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700">
+                    Optimize send time for each recipient
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={optimizeSendTime}
+                  onClick={() => setOptimizeSendTime(!optimizeSendTime)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    optimizeSendTime ? 'bg-blue-600' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      optimizeSendTime ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </label>
+              
+              {optimizeSendTime && scheduledTimes && (
+                <div className="mt-2 text-xs text-slate-500 space-y-1">
+                  <p className="flex items-center gap-1">
+                    <LazyIcon name="Info" className="h-3 w-3" />
+                    Emails will be scheduled for each recipient's optimal business hours
+                  </p>
+                  {withEmail.length > 0 && scheduledTimes.get(withEmail[0].id) && (
+                    <p className="text-blue-600">
+                      Example: {withEmail[0].name} → {scheduledTimes.get(withEmail[0].id)?.localTime}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
             
             {/* Copy Guardrails: Char count + Calendly indicator */}
             <div className="flex items-center justify-between mt-1.5">
