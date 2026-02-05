@@ -126,6 +126,11 @@ export function useEmailReputation(
    * Fetch reputation data from API
    */
   const fetchReputation = useCallback(async () => {
+    if (!auth) {
+      setError('Auth not initialized');
+      setIsLoading(false);
+      return;
+    }
     const user = auth.currentUser;
     if (!user) {
       setError('Authentication required');

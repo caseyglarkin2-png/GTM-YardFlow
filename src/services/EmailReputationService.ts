@@ -189,6 +189,9 @@ export class EmailReputationService {
     userId: string,
     startDate: Date
   ): Promise<Array<{ type: string; timestamp: Date }>> {
+    if (!db) {
+      throw new Error('Firestore not initialized');
+    }
     try {
       const eventsRef = collection(db, 'email_events');
       const q = query(
@@ -367,6 +370,9 @@ export class EmailReputationService {
   ): Promise<ReputationTrendPoint[]> {
     // For now, return empty - will be populated by aggregation cron
     // This will query from the daily_metrics collection
+    if (!db) {
+      return [];
+    }
     try {
       const days = period === '24h' ? 1 : period === '7d' ? 7 : 30;
       const metricsRef = collection(db, 'daily_metrics');
