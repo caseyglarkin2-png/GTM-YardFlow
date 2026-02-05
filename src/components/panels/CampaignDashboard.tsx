@@ -9,6 +9,7 @@ import { useToast } from '../Toast';
 import { dashboardExporter } from '../../services/DashboardExporter';
 import { createAnalyticsAggregator, type ProspectData, type ActivityData } from '../../services/AnalyticsAggregator';
 import { getMeetingStats } from '../../services/MeetingAttributionService';
+import { ReputationCard } from '../dashboard/ReputationCard';
 import type { TimePeriod, DateRange } from '../../types/analytics';
 import type { Prospect } from '../../types';
 
@@ -275,7 +276,8 @@ export function CampaignDashboard({ prospects = [], currentUser, stats }: Campai
 
       {/* Email Warmup & Analytics Section */}
       {!dashboard.isLoading && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <ReputationCard />
           <WarmupDashboard className="lg:col-span-1" />
           <MeetingsKPICard className="lg:col-span-1" />
         </div>
