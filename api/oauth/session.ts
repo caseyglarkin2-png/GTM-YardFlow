@@ -7,8 +7,6 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { decryptTokenData, clearTokenCookie as clearCookieHelper, parseCookies, SESSION_COOKIE_NAME } from './callback';
-import type { TokenData } from './callback';
 
 // =============================================================================
 // Types
@@ -21,13 +19,6 @@ interface SessionResponse {
   expiresAt?: number;
   needsRefresh?: boolean;
   error?: string;
-}
-
-/**
- * Clear the token cookie
- */
-function clearTokenCookie(res: VercelResponse): void {
-  clearCookieHelper(res);
 }
 
 // =============================================================================
@@ -45,6 +36,42 @@ export default async function handler(
       return;
     }
 
+    // Check if HubSpot is configured BEFORE loading crypto-heavy module
+    const clientSecret = process.env.HUBSPOT_CLIENT_SECRET;
+    
+    if (!clientSecret) {
+      // Not configured - return gracefully without loading callback module
+      if (req.method === 'DELETE') {
+        res.status(200).json({ success: true, message: 'Session cleared (no HubSpot configured)' });
+        return;
+      }
+      res.status(200).json({ 
+        connected: false, 
+        error: 'OAuth not configured' 
+      } as SessionResponse);
+      return;
+    }
+
+    // Only load the callback module if HubSpot is configured
+    // This avoids crypto initialization issues when not needed
+    let callbackModule;
+    try {
+      callbackModule = await import('./callback');
+    } catch (importErr) {
+      console.error('[oauth/session] Failed to load callback module:', importErr);
+      if (req.method === 'DELETE') {
+        res.status(200).json({ success: true, message: 'Session cleared (module unavailable)' });
+        return;
+      }
+      res.status(200).json({ 
+        connected: false, 
+        error: 'OAuth module unavailable' 
+      } as SessionResponse);
+      return;
+    }
+
+    const { decryptTokenData, clearTokenCookie, parseCookies, SESSION_COOKIE_NAME } = callbackModule;
+
     // Handle DELETE - disconnect session
     if (req.method === 'DELETE') {
       clearTokenCookie(res);
@@ -53,16 +80,6 @@ export default async function handler(
     }
 
     // GET - check session status
-    const clientSecret = process.env.HUBSPOT_CLIENT_SECRET;
-    
-    if (!clientSecret) {
-      res.status(200).json({ 
-        connected: false, 
-        error: 'OAuth not configured' 
-      } as SessionResponse);
-      return;
-    }
-
     const cookies = parseCookies(req.headers.cookie);
     const encryptedSession = cookies[SESSION_COOKIE_NAME];
 
@@ -104,7 +121,8 @@ export default async function handler(
     } as SessionResponse);
   } catch (err) {
     console.error('[oauth/session] Error:', err);
-    res.status(500).json({ 
+    // Return JSON error instead of 500 HTML
+    res.status(200).json({ 
       connected: false, 
       error: 'Session check failed' 
     } as SessionResponse);
