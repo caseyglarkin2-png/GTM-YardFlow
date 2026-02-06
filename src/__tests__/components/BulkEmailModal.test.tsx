@@ -114,9 +114,9 @@ describe('BulkEmailModal', () => {
     it('shows subject and body fields in template mode', () => {
       render(<BulkEmailModal {...defaultProps} />);
       
-      // Check for "Subject Line" label text
-      expect(screen.getByText(/subject line/i)).toBeInTheDocument();
-      expect(screen.getByText(/message body/i)).toBeInTheDocument();
+      // Check for "Subject Line" label (using getAllByText since ComplianceChecklist may also reference subject)
+      expect(screen.getAllByText(/subject line/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/message body/i).length).toBeGreaterThanOrEqual(1);
     });
 
     it('can switch to AI mode', async () => {
