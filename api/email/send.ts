@@ -10,10 +10,14 @@ import { EmailComplianceService } from '../../src/services/EmailComplianceServic
 import { EmailWarmupService } from '../../src/services/EmailWarmupService';
 import { EmailTrackingService } from '../../src/services/EmailTrackingService';
 import { SendGridClient } from '../../src/services/SendGridClient';
+import { spamScoreService } from '../../src/services/SpamScoreService';
 import type { EmailMessage } from '../../src/types/email';
 import { withSentry } from '../../lib/sentry-server';
 import { getRequestId } from '../../lib/request-id';
 import { applyRateLimitToRequest } from '../../lib/rateLimiter';
+
+// Spam score threshold — emails scoring above this are blocked server-side
+const SPAM_SCORE_THRESHOLD = Number(process.env.SPAM_SCORE_THRESHOLD) || 70;
 
 // Zod schema for email message validation
 const EmailMessageSchema = z.object({
@@ -172,6 +176,42 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     const status = validation.reason === 'suppressed' ? 422 : 400;
     userLog.warn('Email blocked by compliance', { to: message.to, reason: validation.reason });
     res.status(status).json({ error: 'Email blocked', reason: validation.reason, requestId });
+    return;
+  }
+
+  // T39F.2: Enforce CAN-SPAM compliance elements (unsubscribe headers, postal address)
+  const complianceCheck = compliance.validateComplianceElements(message);
+  if (!complianceCheck.valid) {
+    userLog.warn('Email missing compliance elements', { missing: complianceCheck.missing });
+    res.status(422).json({
+      error: 'Email missing required compliance elements',
+      missing: complianceCheck.missing,
+      detail: `CAN-SPAM requires: ${complianceCheck.missing.join(', ')}`,
+      requestId,
+    });
+    return;
+  }
+
+  // T39C.5: Block high-spam content server-side
+  const spamResult = spamScoreService.analyze({
+    subject: message.subject,
+    body: message.text || message.html || '',
+    isHtml: Boolean(message.html),
+  });
+  if (spamResult.score > SPAM_SCORE_THRESHOLD) {
+    userLog.warn('Email blocked by spam score', {
+      score: spamResult.score,
+      level: spamResult.level,
+      issues: spamResult.issues.map(i => i.message),
+    });
+    res.status(422).json({
+      error: 'Email blocked — content flagged as high spam risk',
+      score: spamResult.score,
+      level: spamResult.level,
+      issues: spamResult.issues.map(i => ({ message: i.message, severity: i.severity })),
+      suggestions: spamResult.suggestions,
+      requestId,
+    });
     return;
   }
 

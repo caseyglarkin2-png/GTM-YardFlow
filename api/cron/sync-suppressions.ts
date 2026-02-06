@@ -11,6 +11,38 @@ import { SendGridClient } from '../../src/services/SendGridClient';
 const log = createLogger('cron-sync-suppressions');
 
 /**
+ * Retry with exponential backoff
+ * Sprint 39E.2fix: Retry transient failures
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: { maxRetries?: number; baseDelayMs?: number; name?: string } = {}
+): Promise<T> {
+  const { maxRetries = 3, baseDelayMs = 1000, name = 'operation' } = options;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const error = err as Error;
+      const isLastAttempt = attempt === maxRetries;
+      
+      if (isLastAttempt) {
+        log.error(`${name} failed after ${maxRetries} attempts`, error);
+        throw error;
+      }
+      
+      const delay = baseDelayMs * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+      log.warn(`${name} attempt ${attempt} failed, retrying in ${delay}ms`, { error: error.message });
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  // TypeScript: unreachable but needed for type safety
+  throw new Error('Unreachable');
+}
+
+/**
  * Suppression List Sync Cron Job
  * Sprint 39E.2: Two-way sync between Firestore and SendGrid suppression lists
  * 
@@ -46,18 +78,24 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     const compliance = new EmailComplianceService(db, sendGrid);
     const syncService = new SuppressionSyncService(sendGrid, compliance, db);
 
-    // Phase 1: Push Firestore suppressions to SendGrid
+    // Phase 1: Push Firestore suppressions to SendGrid (with retry)
     requestLog.info('Phase 1: Syncing Firestore to SendGrid');
-    const toSendGrid = await syncService.syncToSendGrid();
+    const toSendGrid = await withRetry(
+      () => syncService.syncToSendGrid(),
+      { name: 'syncToSendGrid', maxRetries: 3 }
+    );
     requestLog.info('Firestore to SendGrid sync complete', {
       synced: toSendGrid.synced,
       errors: toSendGrid.errors,
       total: toSendGrid.total,
     });
 
-    // Phase 2: Pull SendGrid suppressions to Firestore
+    // Phase 2: Pull SendGrid suppressions to Firestore (with retry)
     requestLog.info('Phase 2: Syncing SendGrid to Firestore');
-    const fromSendGrid = await syncService.syncFromSendGrid();
+    const fromSendGrid = await withRetry(
+      () => syncService.syncFromSendGrid(),
+      { name: 'syncFromSendGrid', maxRetries: 3 }
+    );
     requestLog.info('SendGrid to Firestore sync complete', {
       imported: fromSendGrid.imported,
       total: fromSendGrid.total,

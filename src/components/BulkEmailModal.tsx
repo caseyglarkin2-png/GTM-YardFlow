@@ -20,6 +20,7 @@ import { LazyIcon } from './icons';
 import { SuccessCelebration } from './SuccessCelebration';
 import { WarmupLimitBadge } from './WarmupLimitBadge';
 import { SpamScoreIndicator } from './SpamScoreIndicator';
+import { ComplianceChecklist } from './email/ComplianceChecklist';
 import { useSpamScore } from '../hooks/useSpamScore';
 import { sendTimeOptimizer, type OptimalSendTime } from '../services/SendTimeOptimizer';
 import { personalizeTemplate } from '../config/emailTemplates';
@@ -1412,6 +1413,16 @@ export function BulkEmailModal({
                 isLoading={spamAnalysis.isLoading}
                 error={spamAnalysis.error}
                 testId="bulk-email-spam-indicator"
+                className="mt-3"
+              />
+            )}
+            
+            {/* Sprint 39F: Compliance Checklist */}
+            {(subject.trim() || body.trim()) && (
+              <ComplianceChecklist
+                subject={subject}
+                body={body}
+                fromEmail={SENDER_IDENTITIES.find(s => s.id === selectedSender)?.email || SENDER_IDENTITIES[0].email}
                 className="mt-3"
               />
             )}
