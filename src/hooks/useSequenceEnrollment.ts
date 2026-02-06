@@ -260,7 +260,7 @@ export function useSequenceEnrollment(): UseSequenceEnrollmentReturn {
         try {
           const result = await railwayClient.sequences.list();
           
-          if (result.ok && result.data) {
+          if (result.ok && result.data && Array.isArray(result.data)) {
             // T0.4: Handle empty Railway response - fall back to templates
             if (result.data.length === 0) {
               console.info('[useSequenceEnrollment] Railway returned empty, using default templates');
@@ -282,6 +282,9 @@ export function useSequenceEnrollment(): UseSequenceEnrollmentReturn {
             setSequences(railwaySequences);
             console.info(`[useSequenceEnrollment] Loaded ${railwaySequences.length} sequences from Railway`);
             return;
+          } else if (result.ok && result.data && !Array.isArray(result.data)) {
+            // Railway returned non-array data (error object or unexpected shape)
+            console.warn('[useSequenceEnrollment] Railway returned non-array data:', typeof result.data);
           }
         } catch (railwayError) {
           console.warn('[useSequenceEnrollment] Railway fetch failed, falling back to templates:', railwayError);

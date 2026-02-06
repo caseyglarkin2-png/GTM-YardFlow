@@ -709,17 +709,17 @@ class RailwayApiClient {
       // Fetch Railway format and convert to GTM format
       const result = await this.get<RailwayTemplateRecord[]>(url);
       
-      if (result.ok && result.data) {
+      if (result.ok && result.data && Array.isArray(result.data)) {
         return {
           ...result,
           data: result.data.map(toGtmTemplate),
         };
       }
       
-      // Error case - return with undefined data
+      // Error case or non-array - return with empty data
       return {
         ok: false,
-        error: result.error,
+        error: result.error || 'Invalid response format',
         statusCode: result.statusCode,
       };
     },

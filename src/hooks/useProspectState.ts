@@ -198,7 +198,7 @@ export function useProspectState(options: UseProspectStateOptions = {}): UsePros
 
       if (!mountedRef.current) return;
 
-      if (result.ok && result.data) {
+      if (result.ok && result.data && Array.isArray(result.data.data)) {
         const mapped = result.data.data.map(p => {
           const prospect = mapRailwayToProspect(p);
           // Sprint 906.2: Infer estimated facilities
