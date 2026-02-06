@@ -8,19 +8,38 @@ import { getFirestore } from 'firebase-admin/firestore';
  * 1. FIREBASE_SERVICE_ACCOUNT_KEY - Full JSON service account
  * 2. FIREBASE_SERVICE_ACCOUNT - Alias for above
  * 3. Application Default Credentials (for Cloud Run, etc.)
+ * 
+ * ⚠️ In Vercel, you MUST set FIREBASE_SERVICE_ACCOUNT_KEY
+ *    applicationDefault() only works in Google Cloud environments
  */
 function buildCredentials() {
   const key = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || process.env.FIREBASE_SERVICE_ACCOUNT;
+  
   if (!key) {
-    return applicationDefault();
+    // Check if we're in a Google Cloud environment where ADC works
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_CLOUD_PROJECT) {
+      console.log('[Firebase Admin] Using Application Default Credentials');
+      return applicationDefault();
+    }
+    
+    // In Vercel or other non-GCP environments, we need explicit credentials
+    console.error('[Firebase Admin] CRITICAL: FIREBASE_SERVICE_ACCOUNT_KEY not set!');
+    console.error('[Firebase Admin] Set this env var in Vercel with your Firebase service account JSON');
+    throw new Error(
+      'Firebase Admin SDK requires FIREBASE_SERVICE_ACCOUNT_KEY environment variable. ' +
+      'Get this from Firebase Console > Project Settings > Service Accounts > Generate new private key'
+    );
   }
 
   try {
     const parsed = JSON.parse(key);
     return cert(parsed);
   } catch (err) {
-    console.warn('Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY, falling back to applicationDefault', err);
-    return applicationDefault();
+    console.error('[Firebase Admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY as JSON:', err);
+    throw new Error(
+      'Invalid FIREBASE_SERVICE_ACCOUNT_KEY: must be valid JSON. ' +
+      'Paste the entire service account JSON file contents.'
+    );
   }
 }
 
