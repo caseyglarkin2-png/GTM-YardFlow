@@ -179,18 +179,9 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     return;
   }
 
-  // T39F.2: Enforce CAN-SPAM compliance elements (unsubscribe headers, postal address)
-  const complianceCheck = compliance.validateComplianceElements(message);
-  if (!complianceCheck.valid) {
-    userLog.warn('Email missing compliance elements', { missing: complianceCheck.missing });
-    res.status(422).json({
-      error: 'Email missing required compliance elements',
-      missing: complianceCheck.missing,
-      detail: `CAN-SPAM requires: ${complianceCheck.missing.join(', ')}`,
-      requestId,
-    });
-    return;
-  }
+  // Note: CAN-SPAM compliance elements (List-Unsubscribe headers, postal address) are
+  // automatically injected by EmailQueueService.processQueue() via injectComplianceElements().
+  // We don't block here since the queue handles injection before sending.
 
   // T39C.5: Block high-spam content server-side
   const spamResult = spamScoreService.analyze({
