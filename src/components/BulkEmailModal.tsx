@@ -1422,7 +1422,7 @@ export function BulkEmailModal({
               <ComplianceChecklist
                 subject={subject}
                 body={body}
-                fromEmail={SENDER_IDENTITIES.find(s => s.id === selectedSender)?.email || SENDER_IDENTITIES[0].email}
+                from={SENDER_IDENTITIES.find(s => s.id === selectedSender)?.email || SENDER_IDENTITIES[0].email}
                 className="mt-3"
               />
             )}

@@ -2,11 +2,14 @@
  * useSequences Hook - Railway-backed sequence management
  * 
  * Sprint 94: T94.1 - Create useSequences Hook with Railway Backend
+ * Sprint 40: T40.1 - Add Firestore fallback when Railway is disabled
  * 
  * This hook provides CRUD operations for sequences using the Railway API.
+ * When Railway is disabled, falls back to Firestore for persistence.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getFirestore, collection, addDoc, updateDoc, doc, deleteDoc, getDocs, query, orderBy } from 'firebase/firestore';
 import { railwayClient } from '@/services/RailwayApiClient';
 import type { 
   RailwaySequence, 
@@ -17,6 +20,9 @@ import type {
 import { featureFlags } from '@/config/featureFlags';
 import { MANIFEST_SEQUENCES } from '@/data/sequenceTemplates';
 import type { SequenceTemplate } from '@/types/emailSequence';
+
+// Firestore instance for fallback
+const db = getFirestore();
 
 // =============================================================================
 // Default Sequences (Fallback when Railway is disabled)
@@ -107,10 +113,35 @@ export function useSequences(options: UseSequencesOptions = {}): UseSequencesRet
   // ---------------------------------------------------------------------------
 
   const loadSequences = useCallback(async (): Promise<void> => {
-    // Sprint 22B: Fallback to default sequences when Railway is disabled
+    // Sprint 40: Load from Firestore when Railway is disabled
     if (!featureFlags.RAILWAY_ENABLED) {
-      console.log('[useSequences] Railway disabled, using default sequences');
-      setSequences(DEFAULT_SEQUENCES);
+      console.log('[useSequences] Railway disabled, loading from Firestore + defaults');
+      setIsLoading(true);
+      try {
+        // Load sequences from Firestore
+        const sequencesRef = collection(db, 'sequences');
+        const q = query(sequencesRef, orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        
+        const firestoreSequences: RailwaySequence[] = snapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        } as RailwaySequence));
+        
+        // Merge with defaults (defaults as fallback, Firestore sequences take priority)
+        const defaultIds = new Set(DEFAULT_SEQUENCES.map(s => s.id));
+        const mergedSequences = [
+          ...firestoreSequences,
+          ...DEFAULT_SEQUENCES.filter(s => !firestoreSequences.some(fs => fs.name === s.name)),
+        ];
+        
+        setSequences(mergedSequences);
+      } catch (err) {
+        console.warn('[useSequences] Firestore load failed, using defaults only', err);
+        setSequences(DEFAULT_SEQUENCES);
+      } finally {
+        setIsLoading(false);
+      }
       return;
     }
 
@@ -151,9 +182,46 @@ export function useSequences(options: UseSequencesOptions = {}): UseSequencesRet
   const createSequence = useCallback(async (
     data: CreateSequenceRequest
   ): Promise<RailwaySequence | null> => {
+    // Sprint 40: Use Firestore fallback when Railway is disabled
     if (!featureFlags.RAILWAY_ENABLED) {
-      console.warn('[useSequences] Railway disabled, skipping createSequence');
-      return null;
+      console.log('[useSequences] Railway disabled, using Firestore fallback');
+      try {
+        const now = new Date().toISOString();
+        const newSequence: Omit<RailwaySequence, 'id'> = {
+          name: data.name,
+          description: data.description || null,
+          status: 'active',
+          steps: (data.steps || []).map((step, idx) => ({
+            id: `step-${Date.now()}-${idx}`,
+            order: step.order || idx + 1,
+            type: step.type || 'email',
+            delayDays: step.delayDays || 0,
+            templateId: `template-${Date.now()}-${idx}`,
+            subject: step.subject || '',
+            body: step.body || '',
+          })),
+          enrollmentCount: 0,
+          activeEnrollmentCount: 0,
+          completedEnrollmentCount: 0,
+          ownerId: 'local-user',
+          createdAt: now,
+          updatedAt: now,
+        };
+        
+        const docRef = await addDoc(collection(db, 'sequences'), newSequence);
+        const createdSequence: RailwaySequence = {
+          ...newSequence,
+          id: docRef.id,
+        };
+        
+        // Add to local state
+        setSequences(prev => [...prev, createdSequence]);
+        return createdSequence;
+      } catch (err) {
+        console.error('[useSequences] Firestore create failed', err);
+        setError(err instanceof Error ? err : new Error('Failed to create sequence'));
+        return null;
+      }
     }
 
     try {
