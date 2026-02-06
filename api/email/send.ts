@@ -130,8 +130,19 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   try {
     services = getServices();
   } catch (err) {
-    requestLog.error('Failed to initialize email services', err as Error);
-    res.status(503).json({ error: 'Email service unavailable', detail: (err as Error).message });
+    const errorDetails = {
+      message: (err as Error).message,
+      name: (err as Error).name,
+      hasFirebaseKey: !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
+      hasFirebaseProject: !!process.env.FIREBASE_PROJECT_ID,
+      hasSendGridKey: !!process.env.SENDGRID_API_KEY,
+    };
+    requestLog.error('Failed to initialize email services', err as Error, errorDetails);
+    res.status(503).json({ 
+      error: 'Email service unavailable', 
+      detail: (err as Error).message,
+      diagnostic: errorDetails,
+    });
     return;
   }
 
@@ -236,8 +247,16 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     userLog.info('Email enqueued successfully', { emailId: item.id, to: message.to });
     res.status(202).json({ id: item.id, status: item.status, requestId });
   } catch (err) {
-    userLog.error('Failed to enqueue email', err as Error, { to: message.to });
-    res.status(500).json({ error: 'Failed to enqueue', detail: (err as Error).message, requestId });
+    const errorDetail = err instanceof Error ? err.message : String(err);
+    const errorStack = err instanceof Error ? err.stack : undefined;
+    userLog.error('Failed to enqueue email', err as Error, { to: message.to, errorDetail, errorStack });
+    res.status(500).json({ 
+      error: 'Failed to enqueue', 
+      detail: errorDetail, 
+      requestId,
+      // Include stack in non-production for debugging
+      ...(process.env.VERCEL_ENV !== 'production' && errorStack ? { stack: errorStack.split('\n').slice(0, 5) } : {}),
+    });
   }
 }
 
