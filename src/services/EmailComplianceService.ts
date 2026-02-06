@@ -72,11 +72,11 @@ export class EmailComplianceService {
       unsubscribeUrl = `${baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`}/api/email/unsubscribe?email=${encodeURIComponent(message.to)}`;
     }
     const headers = { ...(message.headers || {}) };
-    headers['List-Unsubscribe'] = `<mailto:${process.env.SUPPORT_EMAIL || 'unsubscribe@yardflow.invalid'}>, <${unsubscribeUrl}>`;
+    headers['List-Unsubscribe'] = `<mailto:${process.env.SUPPORT_EMAIL || 'unsubscribe@freightroll.com'}>, <${unsubscribeUrl}>`;
     headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
 
-    const footerAddress = process.env.COMPLIANCE_POSTAL_ADDRESS || 'YardFlow GTM Hub';
-    const footerHtml = `<div style="margin-top:16px;font-size:12px;color:#6b7280;line-height:18px;">You are receiving this email because you interacted with YardFlow GTM Hub.\n<a href="${unsubscribeUrl}">Unsubscribe</a> | ${footerAddress}</div>`;
+    const footerAddress = process.env.COMPLIANCE_POSTAL_ADDRESS || 'FreightRoll';
+    const footerHtml = `<div style="margin-top:16px;font-size:12px;color:#6b7280;line-height:18px;">You are receiving this email because you interacted with FreightRoll.\n<a href="${unsubscribeUrl}">Unsubscribe</a> | ${footerAddress}</div>`;
 
     return {
       ...message,

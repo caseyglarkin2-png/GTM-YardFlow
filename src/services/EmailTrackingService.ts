@@ -26,7 +26,11 @@ export class EmailTrackingService {
     if (!this._secret) {
       this._secret = this.providedSecret || process.env.TRACKING_SECRET;
       if (!this._secret) {
-        throw new Error('TRACKING_SECRET environment variable is required');
+        // Fallback: generate a deterministic secret from project ID for consistency
+        // WARNING: This is less secure than a proper secret - set TRACKING_SECRET in production!
+        const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || 'freightroll';
+        this._secret = createHash('sha256').update(`tracking-${projectId}-fallback`).digest('hex');
+        console.warn('[EmailTrackingService] TRACKING_SECRET not set - using fallback. Set TRACKING_SECRET for better security.');
       }
     }
     return this._secret;
