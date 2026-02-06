@@ -126,6 +126,11 @@ const ALLOWED_PATHS = [
   '/api/sequences',
   '/api/cron/sequences',
   '/api/ai/content/generate',
+  '/api/ai/content',
+  '/api/ai/dossier',
+  '/api/ai/research',
+  '/api/ai/status',
+  '/api/ai/conversations',
   // NEW: Prospects (Sprint 93)
   '/api/prospects',
   // NEW: Enrollments (Sprint 94)
@@ -134,10 +139,14 @@ const ALLOWED_PATHS = [
   '/api/email/queue',
   '/api/email/events',
   '/api/email/analytics',
+  '/api/email/send',
+  '/api/email/warmup',
   '/api/webhooks/sendgrid',
   // NEW: Auth (Sprint 97)
   '/api/auth',
   '/api/users',
+  // NEW: Templates (Sprint 38)
+  '/api/templates',
   // NEW: Dashboards (Frontend Integration)
   '/api/dashboards',
   '/api/campaigns',
@@ -211,11 +220,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const pathMatch = url?.match(/\/api\/railway(.+)/);
   const targetPath = pathMatch ? pathMatch[1] : '';
 
-  if (!targetPath || !isPathAllowed('/api' + targetPath.split('?')[0])) {
-    logRequest(403, 'Path not allowed');
+  const normalizedPath = '/api' + targetPath.split('?')[0];
+  if (!targetPath || !isPathAllowed(normalizedPath)) {
+    logRequest(403, `Path not allowed: ${normalizedPath}`);
+    console.error(`[Railway Proxy] 403: Path "${normalizedPath}" not in ALLOWED_PATHS`);
     return res.status(403).json({
       error: 'Forbidden',
       message: 'This path is not allowed through the proxy',
+      path: normalizedPath,
+      hint: 'Add this path to ALLOWED_PATHS in api/railway/[...path].ts',
     });
   }
 
@@ -283,11 +296,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       headers['Authorization'] = `Bearer ${SERVICE_TO_SERVICE_SECRET}`;
       // x-service-key header (new S2S auth pattern - required by Railway)
       headers['x-service-key'] = SERVICE_TO_SERVICE_SECRET;
+    } else {
+      console.warn(`[Railway Proxy] WARNING: No S2S secret configured. Set SERVICE_TO_SERVICE_SECRET, RAILWAY_API_SECRET, or CRON_SECRET env var.`);
     }
     
     // Add source identification for request tracing
     headers['x-source'] = 'gtm-yardflow-proxy';
     headers['x-user-id'] = headers['X-Firebase-UID'] || 'service:gtm-frontend';
+    
+    // Forward user email if available (for Railway user context)
+    const userEmail = req.headers['x-user-email'];
+    if (userEmail) {
+      headers['x-user-email'] = Array.isArray(userEmail) ? userEmail[0] : userEmail;
+    }
 
     // Forward the request with timeout signal
     const fetchOptions: RequestInit = {
@@ -317,7 +338,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     // Forward status and body
-    const data = await response.json().catch(() => ({}));
+    // Handle non-JSON responses gracefully (e.g., HTML error pages)
+    const text = await response.text();
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // Railway returned non-JSON (HTML error page, etc.)
+      logRequest(response.status, 'Non-JSON response from Railway');
+      return res.status(response.status).json({
+        error: 'Backend Error',
+        message: response.ok ? 'Unexpected response format' : 'Railway backend error',
+        details: text.substring(0, 200), // Truncate for safety
+      });
+    }
 
     // Cache successful GET responses to cacheable paths
     if (cacheKey && response.ok) {
