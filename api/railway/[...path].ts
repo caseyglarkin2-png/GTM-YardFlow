@@ -296,8 +296,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       headers['Authorization'] = `Bearer ${SERVICE_TO_SERVICE_SECRET}`;
       // x-service-key header (new S2S auth pattern - required by Railway)
       headers['x-service-key'] = SERVICE_TO_SERVICE_SECRET;
+      
+      // Debug: Log that we're sending the key (first 4 chars only for security)
+      const keyPreview = SERVICE_TO_SERVICE_SECRET.substring(0, 4) + '...';
+      console.log(`[Railway Proxy] Sending x-service-key: ${keyPreview} (${SERVICE_TO_SERVICE_SECRET.length} chars)`);
     } else {
-      console.warn(`[Railway Proxy] WARNING: No S2S secret configured. Set SERVICE_TO_SERVICE_SECRET, RAILWAY_API_SECRET, or CRON_SECRET env var.`);
+      console.error(`[Railway Proxy] CRITICAL: No S2S secret configured!`);
+      console.error(`[Railway Proxy] Check Vercel env vars: SERVICE_TO_SERVICE_SECRET, RAILWAY_API_SECRET, or CRON_SECRET`);
+      console.error(`[Railway Proxy] Current values: S2S=${!!process.env.SERVICE_TO_SERVICE_SECRET}, RAILWAY=${!!process.env.RAILWAY_API_SECRET}, CRON=${!!process.env.CRON_SECRET}`);
     }
     
     // Add source identification for request tracing
@@ -350,6 +356,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         error: 'Backend Error',
         message: response.ok ? 'Unexpected response format' : 'Railway backend error',
         details: text.substring(0, 200), // Truncate for safety
+      });
+    }
+
+    // Special handling for auth failures - help debug S2S issues
+    if (response.status === 401 || response.status === 403) {
+      console.error(`[Railway Proxy] Auth failed with ${response.status}`);
+      console.error(`[Railway Proxy] S2S key configured: ${!!SERVICE_TO_SERVICE_SECRET}`);
+      console.error(`[Railway Proxy] Target URL: ${targetUrl}`);
+      console.error(`[Railway Proxy] Response: ${JSON.stringify(data)}`);
+      
+      // Return helpful error for debugging
+      return res.status(response.status).json({
+        ...data as object,
+        _debug: {
+          s2sKeyConfigured: !!SERVICE_TO_SERVICE_SECRET,
+          s2sKeyLength: SERVICE_TO_SERVICE_SECRET?.length || 0,
+          s2sKeyPreview: SERVICE_TO_SERVICE_SECRET ? `${SERVICE_TO_SERVICE_SECRET.substring(0, 4)}...` : null,
+          hint: 'Ensure SERVICE_TO_SERVICE_SECRET in Vercel matches Railway\'s SERVICE_TO_SERVICE_SECRET exactly',
+        },
       });
     }
 
