@@ -60,9 +60,17 @@ export class EmailComplianceService {
   }
 
   injectComplianceElements(message: EmailMessage): EmailMessage {
-    const token = this.generateUnsubscribeToken(message.id);
-    const baseUrl = process.env.PUBLIC_BASE_URL || process.env.VERCEL_URL || '';
-    const unsubscribeUrl = `${baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`}/api/email/unsubscribe?token=${encodeURIComponent(token)}`;
+    // Generate token if possible, otherwise use placeholder (allows emails to send without HMAC secret)
+    let unsubscribeUrl: string;
+    try {
+      const token = this.generateUnsubscribeToken(message.id);
+      const baseUrl = process.env.PUBLIC_BASE_URL || process.env.VERCEL_URL || '';
+      unsubscribeUrl = `${baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`}/api/email/unsubscribe?token=${encodeURIComponent(token)}`;
+    } catch {
+      // Fallback: use email ID directly (less secure but allows emails to send)
+      const baseUrl = process.env.PUBLIC_BASE_URL || process.env.VERCEL_URL || '';
+      unsubscribeUrl = `${baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`}/api/email/unsubscribe?email=${encodeURIComponent(message.to)}`;
+    }
     const headers = { ...(message.headers || {}) };
     headers['List-Unsubscribe'] = `<mailto:${process.env.SUPPORT_EMAIL || 'unsubscribe@yardflow.invalid'}>, <${unsubscribeUrl}>`;
     headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
