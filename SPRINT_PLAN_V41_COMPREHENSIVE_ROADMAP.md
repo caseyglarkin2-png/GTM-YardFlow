@@ -2061,3 +2061,253 @@ Examples:
 ---
 
 **END OF SPRINT PLAN V41 (REVISED)**
+
+---
+
+# SPRINT 50: Production Deployment Fix & Email Verification [P0-CRITICAL]
+
+**Goal**: Site loads in production, email sending works end-to-end  
+**Demo**: Production site loads, send a test email successfully  
+**Duration**: 2-3 hours  
+**Depends On**: None (blocking issue)  
+**Status**: 🚨 ACTIVE - Deployment broken
+
+---
+
+## Root Cause Analysis
+
+**Issue**: Site not loading in production despite Firebase env vars being set  
+**Diagnosis**: Missing `VITE_FIREBASE_PROJECT_ID` in Vercel environment  
+**Evidence**: 
+- User screenshot shows `FIREBASE_PROJECT_ID` (server-side) but NOT `VITE_FIREBASE_PROJECT_ID` (client-side)
+- Client code requires `VITE_` prefix for Vite to bundle vars: `import.meta.env.VITE_FIREBASE_PROJECT_ID`
+- Firebase client init fails silently → app renders nothing or errors
+
+**Required Client Env Vars** (from `src/utils/envValidation.ts`):
+```
+VITE_FIREBASE_API_KEY      ✅ Present
+VITE_FIREBASE_AUTH_DOMAIN  ✅ Present  
+VITE_FIREBASE_PROJECT_ID   ❌ MISSING
+VITE_FIREBASE_APP_ID       ✅ Present
+```
+
+---
+
+## Exit Criteria
+
+- [ ] `VITE_FIREBASE_PROJECT_ID` added to Vercel Production env
+- [ ] Production site loads without console errors
+- [ ] Firebase Auth works (can log in)
+- [ ] Firestore reads work (prospects load)
+- [ ] Email send endpoint responds correctly
+- [ ] Test email sent and received in inbox
+- [ ] EnvStartupCheck component shows user-friendly errors for missing config
+
+---
+
+### T50.1: Add Missing VITE_FIREBASE_PROJECT_ID to Vercel [MANUAL - 2min]
+
+**Description**: Add the missing environment variable to Vercel dashboard
+
+**Steps**:
+1. Go to: `vercel.com/caseys-projects-2a50de81/gtm-yard-flow/settings/environment-variables`
+2. Click "Add New"
+3. Name: `VITE_FIREBASE_PROJECT_ID`
+4. Value: Copy from `FIREBASE_PROJECT_ID` (same value)
+5. Environment: Select "Production" (and Preview/Development if desired)
+6. Click "Save"
+7. Trigger redeploy: Go to Deployments → click "..." on latest → "Redeploy"
+
+**Validation**:
+```bash
+# After redeploy completes (~2 min), check production:
+curl -s https://gtm-yard-flow.vercel.app | head -20
+# Should return HTML with <title>YardFlow</title>
+```
+
+**Commit**: None (manual Vercel change)
+
+---
+
+### T50.2: Create EnvStartupCheck Component [S - 20min]
+
+**Description**: User-friendly error display when env vars are missing instead of blank page
+
+**Files**: `src/components/EnvStartupCheck.tsx`
+
+**Implementation**:
+```typescript
+/**
+ * EnvStartupCheck - Displays helpful error if Firebase config is missing
+ * Sprint 50 - T50.2
+ */
+import React from 'react';
+import { hasFirebaseConfig } from '../lib/firebase';
+
+interface Props {
+  children: React.ReactNode;
+}
+
+export function EnvStartupCheck({ children }: Props) {
+  if (!hasFirebaseConfig) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md">
+          <h1 className="text-xl font-bold text-red-600 mb-4">
+            Configuration Error
+          </h1>
+          <p className="text-gray-600 mb-4">
+            Firebase is not configured. Please check that the following 
+            environment variables are set in your deployment:
+          </p>
+          <ul className="list-disc list-inside text-sm font-mono bg-gray-50 p-3 rounded mb-4">
+            <li>VITE_FIREBASE_API_KEY</li>
+            <li>VITE_FIREBASE_PROJECT_ID</li>
+            <li>VITE_FIREBASE_AUTH_DOMAIN</li>
+            <li>VITE_FIREBASE_APP_ID</li>
+          </ul>
+          <p className="text-xs text-gray-500">
+            If you are the admin, add these in Vercel Project Settings then 
+            Environment Variables. Remember to use the VITE_ prefix.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
+  return <>{children}</>;
+}
+```
+
+**Tests**: `src/__tests__/components/EnvStartupCheck.test.tsx`
+
+**Validation**: `npm test -- --run EnvStartupCheck`
+
+**Commit**: `feat(startup): add EnvStartupCheck for missing config errors`
+
+---
+
+### T50.3: Integrate EnvStartupCheck in main.tsx [S - 5min]
+
+**Description**: Wrap app with EnvStartupCheck so users see helpful error
+
+**Files**: `src/main.tsx`
+
+**Validation**: 
+1. Remove `VITE_FIREBASE_API_KEY` from `.env.local`
+2. Run `npm run dev`
+3. See helpful error message instead of blank page
+4. Restore env var
+
+**Commit**: `feat(startup): integrate EnvStartupCheck wrapper`
+
+---
+
+### T50.4: Add Deployment Health Check Endpoint [S - 20min]
+
+**Description**: API endpoint that verifies all services are configured
+
+**Files**: `api/health/config.ts`
+
+**Implementation**:
+```typescript
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+export default function handler(req: VercelRequest, res: VercelResponse) {
+  const clientVars = [
+    'VITE_FIREBASE_API_KEY',
+    'VITE_FIREBASE_PROJECT_ID', 
+    'VITE_FIREBASE_AUTH_DOMAIN',
+    'VITE_FIREBASE_APP_ID',
+  ];
+  
+  const serverVars = [
+    'FIREBASE_PROJECT_ID',
+    'FIREBASE_SERVICE_ACCOUNT_KEY',
+    'SENDGRID_API_KEY',
+    'FROM_EMAIL',
+  ];
+  
+  const client = clientVars.map(v => ({
+    name: v,
+    configured: !!process.env[v],
+  }));
+  
+  const server = serverVars.map(v => ({
+    name: v,
+    configured: !!process.env[v],
+  }));
+  
+  const allConfigured = [...client, ...server].every(v => v.configured);
+  
+  res.status(allConfigured ? 200 : 503).json({
+    status: allConfigured ? 'healthy' : 'misconfigured',
+    client,
+    server,
+    timestamp: new Date().toISOString(),
+  });
+}
+```
+
+**Validation**: `curl https://gtm-yard-flow.vercel.app/api/health/config`
+
+**Commit**: `feat(health): add config verification endpoint`
+
+---
+
+### T50.5: Update docs/DEPLOYMENT.md with Env Var Checklist [S - 10min]
+
+**Description**: Document all required Vercel env vars to prevent future issues
+
+**Commit**: `docs(deploy): add comprehensive env var documentation`
+
+---
+
+### T50.6-T50.8: Manual Verification [MANUAL]
+
+- T50.6: Verify production site loads after env fix
+- T50.7: Verify Firebase Auth works  
+- T50.8: Send test email E2E and verify receipt
+
+---
+
+## Sprint 50 Demo Script
+
+```bash
+# 1. Site loads
+open https://gtm-yard-flow.vercel.app
+# Verify: App renders, no error screen
+
+# 2. Config health check passes
+curl -s https://gtm-yard-flow.vercel.app/api/health/config | jq .
+
+# 3. Auth works - Manual: Sign in
+
+# 4. Email works - Manual: Select prospect, Send email, Check inbox
+```
+
+---
+
+## Vercel Environment Variables Checklist
+
+```
+# Client-Side (VITE_ prefix REQUIRED)
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_PROJECT_ID=        ← THIS WAS MISSING
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_APP_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+
+# Server-Side  
+FIREBASE_PROJECT_ID=
+FIREBASE_SERVICE_ACCOUNT_KEY=
+SENDGRID_API_KEY=
+FROM_EMAIL=
+RAILWAY_API_SECRET=
+CRON_SECRET=
+```
+
+---
+
+**END OF SPRINT PLAN V41 + V50 ADDENDUM**

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import { AppProvider } from './context/AppContext'
 import { GlobalErrorBoundary } from './components/GlobalErrorBoundary'
+import { EnvStartupCheck } from './components/EnvStartupCheck'
 import './index.css'
 import { initSentry } from './lib/sentry'
 
@@ -11,9 +12,11 @@ initSentry()
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <GlobalErrorBoundary>
-      <AppProvider>
-        <App />
-      </AppProvider>
+      <EnvStartupCheck>
+        <AppProvider>
+          <App />
+        </AppProvider>
+      </EnvStartupCheck>
     </GlobalErrorBoundary>
   </React.StrictMode>,
 )
