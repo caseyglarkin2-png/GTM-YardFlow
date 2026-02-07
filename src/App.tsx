@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, Suspense, lazy } from 'react';
 // Sprint 1003: Virtualization for large prospect lists
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { v4 as uuidv4 } from 'uuid';
@@ -69,18 +69,21 @@ import { Prospect, MessageTemplate, ChatMessage } from './types';
 // HITLIST_PROSPECTS now loaded via useProspectState hook
 
 // --- New Sprint 18-20 Components ---
-import { ROITab } from './components/ROITab';
+// ROITab lazy loaded for bundle optimization (Sprint 49)
+const ROITab = lazy(() => import('./components/ROITab').then(m => ({ default: m.ROITab })));
 import { AssetsPanel } from './components/AssetsPanel';
 
 // --- Sprint 72: Company-Centric View ---
-import { CompanyListView } from './components/CompanyListView';
-import { CompanyDetailPanel } from './components/CompanyDetailPanel';
+// Lazy loaded for bundle optimization (Sprint 49)
+const CompanyListView = lazy(() => import('./components/CompanyListView').then(m => ({ default: m.CompanyListView })));
+const CompanyDetailPanel = lazy(() => import('./components/CompanyDetailPanel').then(m => ({ default: m.CompanyDetailPanel })));
 import { ViewModeToggle, type ViewMode } from './components/ViewModeToggle';
 import { aggregateByCompany, type CompanyRow } from './services/CompanyAggregator';
 import { researchCompany, type CompanyResearchResult } from './services/CompanyResearchService';
 
 // --- Sprint 26-33 Components ---
-import { ImportWizard } from './components/ImportWizard';
+// ImportWizard lazy loaded (Sprint 49) - only needed when importing
+const ImportWizard = lazy(() => import('./components/ImportWizard').then(m => ({ default: m.ImportWizard })));
 import { EmailImportModal } from './components/EmailImportModal';
 import { KPICard } from './components/KPICard';
 import { Leaderboard } from './components/Leaderboard';
@@ -176,7 +179,8 @@ import { DesktopLayout, SidebarContent } from './components/layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // --- Sprint 2-4: Analytics & Sequence Components ---
-import { SequenceBuilder } from './components/SequenceBuilder';
+// SequenceBuilder lazy loaded (Sprint 49) - heavy editor, not first-load critical
+const SequenceBuilder = lazy(() => import('./components/SequenceBuilder').then(m => ({ default: m.SequenceBuilder })));
 
 // --- Sprint 1004: Data Quality Panel ---
 // Sprint 906: Manifest Dashboard Components
@@ -1557,15 +1561,17 @@ export default function App() {
           aria-labelledby="import-wizard-title"
         >
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            <ImportWizard
-              existingProspects={prospects}
-              onComplete={(imported) => {
-                setProspects(prev => [...prev, ...imported]);
-                setShowImportWizard(false);
-                announce(`Imported ${imported.length} prospects successfully`);
-              }}
-              onCancel={() => setShowImportWizard(false)}
-            />
+            <Suspense fallback={<div className="flex items-center justify-center p-8"><Loader className="h-6 w-6 animate-spin text-blue-500" /></div>}>
+              <ImportWizard
+                existingProspects={prospects}
+                onComplete={(imported) => {
+                  setProspects(prev => [...prev, ...imported]);
+                  setShowImportWizard(false);
+                  announce(`Imported ${imported.length} prospects successfully`);
+                }}
+                onCancel={() => setShowImportWizard(false)}
+              />
+            </Suspense>
           </div>
         </div>
       )}
@@ -1708,7 +1714,9 @@ export default function App() {
               )}
               {activeTab === 'roi' && (
                 <ErrorBoundary name="ROI Calculator">
-                  <ROITab selectedProspect={selectedProspect} />
+                  <Suspense fallback={<div className="flex items-center justify-center p-8"><Loader className="h-6 w-6 animate-spin text-blue-500" /></div>}>
+                    <ROITab selectedProspect={selectedProspect} />
+                  </Suspense>
                 </ErrorBoundary>
               )}
               {activeTab === 'assets' && (
@@ -1718,14 +1726,16 @@ export default function App() {
               )}
               {activeTab === 'import' && (
                 <ErrorBoundary name="Import">
-                  <ImportWizard 
-                    onCancel={() => setActiveTab('prospects')}
-                    onComplete={(newProspects) => {
-                      if (addProspects) addProspects(newProspects);
-                      setActiveTab('prospects');
-                    }}
-                    existingProspects={prospects}
-                  />
+                  <Suspense fallback={<div className="flex items-center justify-center p-8"><Loader className="h-6 w-6 animate-spin text-blue-500" /></div>}>
+                    <ImportWizard 
+                      onCancel={() => setActiveTab('prospects')}
+                      onComplete={(newProspects) => {
+                        if (addProspects) addProspects(newProspects);
+                        setActiveTab('prospects');
+                      }}
+                      existingProspects={prospects}
+                    />
+                  </Suspense>
                 </ErrorBoundary>
               )}
               {activeTab === 'prospects' && (
