@@ -44,8 +44,8 @@
 1. ✅ **Array.isArray guards** — Fixes "L.data.map" crash (DONE)
 2. ✅ **Tracking secret fallback** — Prevents 500 when env var missing (DONE)
 3. ✅ **Better error logging** — Shows actual failure reason (DONE)
-4. ⬜ **Test email send end-to-end** — Verify full path to SendGrid
-5. ⬜ **Railway health verification** — Confirm Railway is reachable
+4. ✅ **Test email send end-to-end** — 43/43 tests pass (DONE Feb 7)
+5. ✅ **Railway health verification** — All services healthy (DONE Feb 7)
 
 ---
 
