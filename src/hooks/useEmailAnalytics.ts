@@ -10,10 +10,38 @@
 import { useState, useEffect, useCallback } from 'react';
 import { railwayClient } from '../services/RailwayApiClient';
 import { featureFlags } from '../config/featureFlags';
-import type { EmailAnalytics } from '../types/railway';
 import { auth } from '@/lib/firebase';
 
 export type AnalyticsPeriod = 'day' | 'week' | 'month';
+
+/** Local analytics shape that combines Railway and Firestore formats */
+export interface EmailAnalytics {
+  period: {
+    start: string;
+    end: string;
+    days: number;
+  };
+  metrics: {
+    sent: number;
+    delivered: number;
+    opened: number;
+    clicked: number;
+    replied: number;
+    bounced: number;
+    unsubscribed: number;
+    deliveryRate: number;
+    openRate: number;
+    clickRate: number;
+    replyRate: number;
+    bounceRate: number;
+  };
+  timeline: Array<{
+    date: string;
+    sent: number;
+    opened: number;
+    clicked: number;
+  }>;
+}
 
 export interface UseEmailAnalyticsOptions {
   period?: AnalyticsPeriod;
@@ -60,7 +88,33 @@ export function useEmailAnalytics(options: UseEmailAnalyticsOptions = {}): Email
         });
 
         if (result.ok && result.data) {
-          setAnalytics(result.data);
+          // Transform Railway response to local EmailAnalytics format
+          // Railway returns a different shape than our local type
+          const railwayData = result.data as unknown as Record<string, unknown>;
+          const metrics = (railwayData.metrics ?? {}) as Record<string, number>;
+          const transformed: EmailAnalytics = {
+            period: {
+              start: mergedOptions.startDate.toISOString(),
+              end: mergedOptions.endDate.toISOString(),
+              days: Math.ceil((mergedOptions.endDate.getTime() - mergedOptions.startDate.getTime()) / (24 * 60 * 60 * 1000)),
+            },
+            metrics: {
+              sent: metrics.sent || 0,
+              delivered: metrics.delivered || 0,
+              opened: metrics.opened || 0,
+              clicked: metrics.clicked || 0,
+              replied: metrics.replied || 0,
+              bounced: metrics.bounced || 0,
+              unsubscribed: metrics.unsubscribed || 0,
+              deliveryRate: metrics.deliveryRate || 0,
+              openRate: metrics.openRate || 0,
+              clickRate: metrics.clickRate || 0,
+              replyRate: metrics.replyRate || 0,
+              bounceRate: metrics.bounceRate || 0,
+            },
+            timeline: (railwayData.byDay || railwayData.timeline || []) as EmailAnalytics['timeline'],
+          };
+          setAnalytics(transformed);
           setLastUpdated(new Date());
           return;
         }

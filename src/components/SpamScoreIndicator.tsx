@@ -86,6 +86,14 @@ function getLevelColors(level: SpamRiskLevel): {
         border: 'border-red-200',
         icon: XCircle,
       };
+    default:
+      // Exhaustive check - this should never happen if types are correct
+      return {
+        bg: 'bg-gray-100',
+        text: 'text-gray-700',
+        border: 'border-gray-200',
+        icon: AlertTriangle,
+      };
   }
 }
 
@@ -267,7 +275,7 @@ export function SpamScoreIndicator({
   // Check if safe to send
   const isSafe = result?.level === 'low';
   const hasCritical = result?.level === 'critical' || 
-    result?.issues.some(i => i.severity >= 5);
+    result?.issues.some((issue) => issue.severity >= 5);
 
   // Show compact badge for inline display
   if (compact) {

@@ -48,11 +48,10 @@ export function MultiSelectDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+  const listRef = useFocusTrap(isOpen);
   const buttonRef = useRef<HTMLButtonElement>(null);
   
-  // Use focus trap for accessibility
-  useFocusTrap(listRef, isOpen);
+  // Focus trap handles accessibility
 
   // Close on click outside
   useEffect(() => {

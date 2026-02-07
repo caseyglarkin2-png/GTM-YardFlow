@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { auth } from '@/lib/firebase';
 
 // Record status types
-type RecordStatus = 'valid' | 'invalid' | 'missing' | 'warning' | 'unknown';
+export type RecordStatus = 'valid' | 'invalid' | 'missing' | 'warning' | 'unknown';
 
 export interface DnsRecordResult {
   type: 'SPF' | 'DKIM' | 'DMARC';
