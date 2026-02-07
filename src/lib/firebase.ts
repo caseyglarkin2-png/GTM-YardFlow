@@ -12,7 +12,9 @@ import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 
 // Helper to sanitize env vars (handles trailing newlines from Vercel dashboard copy/paste)
-const sanitize = (val: string | undefined): string => val?.trim() || '';
+// Also strips literal \n strings that can get added when pasting in Vercel dashboard
+const sanitize = (val: string | undefined): string => 
+  val?.trim().replace(/\\n$/, '').replace(/\n$/, '') || '';
 
 // Firebase configuration from environment
 const firebaseConfig = {
