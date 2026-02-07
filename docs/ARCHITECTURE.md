@@ -1,5 +1,8 @@
 # YardFlow GTM Hub - Architecture Overview
 
+**Last Updated:** February 7, 2026  
+**Sprint:** V49 (Post-S41-S48 Comprehensive Roadmap)
+
 ## System Architecture (Railway-First)
 
 ```
@@ -143,14 +146,27 @@ NEXTAUTH_SECRET=xxx
 | Webhooks | ✅ Complete | Forwarded to Railway |
 | Firebase Removal | ⏳ Pending | After soak test completion |
 
-## Development Workflow
+## Bundle Structure (Sprint 49)
 
-1. **Local Development**: Frontend connects to Railway staging
-2. **Feature Branches**: Deploy to Vercel preview URLs
-3. **Staging**: Full stack on Railway staging environment
-4. **Production**: Vercel + Railway production
+| Chunk | Size | Lazy? |
+|-------|------|-------|
+| index | ~2.7MB | No (main bundle) |
+| vendor-firebase | ~416KB | No |
+| vendor-charts | ~518KB | No |
+| vendor-lucide | ~440KB | No |
+| ImportWizard | ~47KB | ✅ Yes |
+| SequenceBuilder | ~23KB | ✅ Yes |
+| ROITab | ~19KB | ✅ Yes |
 
-## Related Documentation
+## Key Services (Sprint 46-47)
+
+| Service | Purpose |
+|---------|---------|
+| AutoEnrollService | Rules engine for automatic sequence enrollment |
+| WebhookDispatcher | Outbound webhooks with retry + Zapier format |
+| SlackIntegration | Rich Slack notifications (Block Kit) |
+| FilterBuilderService | Advanced prospect filtering |
+| useBulkActions | Bulk operations hook (extracted from App.tsx) |
 
 - [Railway Integration](./RAILWAY_INTEGRATION.md)
 - [Auth Soak Test Results](./AUTH_SOAK_TEST_RESULTS.md)
