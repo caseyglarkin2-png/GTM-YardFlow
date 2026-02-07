@@ -1,10 +1,25 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
+import DOMPurify from 'dompurify';
+import { JSDOM } from 'jsdom';
 import { getAdminAuth, getAdminDb } from '../../lib/firebaseAdmin';
 import { validateRequestOrigin } from '../../lib/validateOrigin';
 import { createLogger } from '../../lib/logger';
 
 const log = createLogger('email-send');
+
+// Server-side DOMPurify setup (requires JSDOM window)
+const window = new JSDOM('').window;
+const purify = DOMPurify(window as unknown as Window);
+
+// Configure DOMPurify with safe allowlist for emails
+const PURIFY_CONFIG = {
+  ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'a', 'ul', 'ol', 'li', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'img', 'blockquote', 'pre', 'code', 'hr'],
+  ALLOWED_ATTR: ['href', 'src', 'alt', 'style', 'class', 'id', 'target', 'width', 'height', 'align', 'valign', 'border', 'cellpadding', 'cellspacing'],
+  ALLOW_DATA_ATTR: false,
+  // Prevent javascript: URLs
+  ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+};
 import { EmailQueueService } from '../../src/services/EmailQueueService';
 import { EmailComplianceService } from '../../src/services/EmailComplianceService';
 import { EmailWarmupService } from '../../src/services/EmailWarmupService';
@@ -97,7 +112,15 @@ function parseMessage(req: VercelRequest): EmailMessage {
       .join('; ');
     throw new Error(`Validation failed: ${fieldErrors || 'Invalid input'}`);
   }
-  return result.data as EmailMessage;
+  
+  const message = result.data as EmailMessage;
+  
+  // SECURITY: Sanitize HTML content to prevent XSS
+  if (message.html) {
+    message.html = purify.sanitize(message.html, PURIFY_CONFIG);
+  }
+  
+  return message;
 }
 
 async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {

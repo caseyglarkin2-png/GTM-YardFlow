@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, AlertCircle } from 'lucide-react';
+import { LazyIcon } from './icons';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { Prospect } from '../types';
 
 interface ProspectFormModalProps {
@@ -34,6 +35,9 @@ export function ProspectFormModal({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Accessibility: Focus trap and Escape key handling
+  const dialogRef = useFocusTrap(isOpen, { onEscape: onClose, returnFocus: true });
 
   useEffect(() => {
     if (isOpen && initialData) {
@@ -85,23 +89,30 @@ export function ProspectFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div 
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="prospect-form-title"
+        className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+      >
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <h2 className="text-lg font-semibold text-slate-800">
+          <h2 id="prospect-form-title" className="text-lg font-semibold text-slate-800">
             {mode === 'create' ? 'Add New Prospect' : 'Edit Prospect'}
           </h2>
           <button
             onClick={onClose}
+            aria-label="Close dialog"
             className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-100"
           >
-            <X className="h-5 w-5" />
+            <LazyIcon name="X" className="h-5 w-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {errors.form && (
             <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
+              <LazyIcon name="AlertCircle" className="h-4 w-4" />
               {errors.form}
             </div>
           )}
@@ -237,7 +248,7 @@ export function ProspectFormModal({
                 <>Saving...</>
               ) : (
                 <>
-                  <Check className="h-4 w-4" />
+                  <LazyIcon name="Check" className="h-4 w-4" />
                   {mode === 'create' ? 'Create Prospect' : 'Save Changes'}
                 </>
               )}

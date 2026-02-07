@@ -297,9 +297,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // x-service-key header (new S2S auth pattern - required by Railway)
       headers['x-service-key'] = SERVICE_TO_SERVICE_SECRET;
       
-      // Debug: Log that we're sending the key (first 4 chars only for security)
-      const keyPreview = SERVICE_TO_SERVICE_SECRET.substring(0, 4) + '...';
-      console.log(`[Railway Proxy] Sending x-service-key: ${keyPreview} (${SERVICE_TO_SERVICE_SECRET.length} chars)`);
+      // Debug: Only log in non-production to avoid exposing secrets
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Railway Proxy] S2S key configured (${SERVICE_TO_SERVICE_SECRET.length} chars)`);
+      }
     } else {
       console.error(`[Railway Proxy] CRITICAL: No S2S secret configured!`);
       console.error(`[Railway Proxy] Check Vercel env vars: SERVICE_TO_SERVICE_SECRET, RAILWAY_API_SECRET, or CRON_SECRET`);
@@ -366,15 +367,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error(`[Railway Proxy] Target URL: ${targetUrl}`);
       console.error(`[Railway Proxy] Response: ${JSON.stringify(data)}`);
       
-      // Return helpful error for debugging
+      // Return helpful error for debugging (without exposing secrets in production)
+      const isProduction = process.env.NODE_ENV === 'production';
       return res.status(response.status).json({
         ...data as object,
-        _debug: {
-          s2sKeyConfigured: !!SERVICE_TO_SERVICE_SECRET,
-          s2sKeyLength: SERVICE_TO_SERVICE_SECRET?.length || 0,
-          s2sKeyPreview: SERVICE_TO_SERVICE_SECRET ? `${SERVICE_TO_SERVICE_SECRET.substring(0, 4)}...` : null,
-          hint: 'Ensure SERVICE_TO_SERVICE_SECRET in Vercel matches Railway\'s SERVICE_TO_SERVICE_SECRET exactly',
-        },
+        ...(isProduction ? {} : {
+          _debug: {
+            s2sKeyConfigured: !!SERVICE_TO_SERVICE_SECRET,
+            hint: 'Ensure SERVICE_TO_SERVICE_SECRET in Vercel matches Railway\'s SERVICE_TO_SERVICE_SECRET exactly',
+          },
+        }),
       });
     }
 

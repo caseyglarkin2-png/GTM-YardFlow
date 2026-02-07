@@ -30,6 +30,7 @@ import { CALENDLY_CONFIG } from '../config/calendly';
 import { useAIGenerate } from '../hooks/useAIGenerate';
 import { useBulkEmailSend, type BulkRecipient, type RecipientStatus } from '../hooks/useBulkEmailSend';
 import { useTemplates } from '../hooks/useTemplates';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { shouldUseRailwayTemplates } from '../config/featureFlags';
 import { isValidEmail } from '../utils/emailValidator';
 import type { Prospect } from '../types';
@@ -203,6 +204,7 @@ function RecipientRow({
                 <label className="text-xs text-slate-500 mb-1 block">Subject:</label>
                 <input
                   type="text"
+                  data-testid="bulk-email-edit-subject"
                   value={editSubject}
                   onChange={(e) => setEditSubject(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -211,6 +213,7 @@ function RecipientRow({
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">Body:</label>
                 <textarea
+                  data-testid="bulk-email-edit-body"
                   value={editBody}
                   onChange={(e) => setEditBody(e.target.value)}
                   rows={6}
@@ -304,6 +307,9 @@ export function BulkEmailModal({
   const [body, setBody] = useState('');
   const [selectedTone, setSelectedTone] = useState<ToneId>(DEFAULT_TONE);
   const [selectedSender, setSelectedSender] = useState<SenderId>(getDefaultSender().id as SenderId);
+  
+  // Accessibility: Focus trap and Escape key handling
+  const dialogRef = useFocusTrap(isOpen, { onEscape: onClose, returnFocus: true });
   const [showPreview, setShowPreview] = useState(false);
   const [showSkippedList, setShowSkippedList] = useState(false);
   const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
@@ -790,6 +796,10 @@ export function BulkEmailModal({
       onClick={(e) => { if (e.target === e.currentTarget && !isSending) onClose(); }}
     >
       <div 
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bulk-email-title"
         className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -800,7 +810,7 @@ export function BulkEmailModal({
               <LazyIcon name="Mail" className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <h2 className="font-semibold text-slate-800">Send Bulk Email</h2>
+              <h2 id="bulk-email-title" className="font-semibold text-slate-800">Send Bulk Email</h2>
               <p className="text-sm text-slate-500">
                 {withEmail.length} prospects will receive this email
               </p>
@@ -971,6 +981,7 @@ export function BulkEmailModal({
                 <div className="flex gap-1">
                   <select
                     id="template-selector"
+                    data-testid="bulk-email-template-selector"
                     value={templateId}
                     onChange={(e) => { setTemplateId(e.target.value); setIsEditMode(false); }}
                     disabled={isSending || isGenerating}
@@ -1046,6 +1057,7 @@ export function BulkEmailModal({
               </label>
               <select
                 id="tone-selector"
+                data-testid="bulk-email-tone-selector"
                 value={selectedTone}
                 onChange={(e) => setSelectedTone(e.target.value as ToneId)}
                 disabled={isSending || isGenerating}
@@ -1064,6 +1076,7 @@ export function BulkEmailModal({
               </label>
               <select
                 id="sender-selector"
+                data-testid="bulk-email-sender-selector"
                 value={selectedSender}
                 onChange={(e) => setSelectedSender(e.target.value as SenderId)}
                 disabled={isSending || isGenerating}

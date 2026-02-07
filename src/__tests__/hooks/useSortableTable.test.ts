@@ -9,6 +9,9 @@ import { renderHook, act } from '@testing-library/react';
 import { useSortableTable, sortItems, type SortState } from '@/hooks/useSortableTable';
 
 describe('useSortableTable', () => {
+  // Type for test columns
+  type TestColumn = 'name' | 'score';
+  
   // Mock localStorage
   const mockLocalStorage: Record<string, string> = {};
   
@@ -27,7 +30,7 @@ describe('useSortableTable', () => {
 
   it('initializes with default column and direction', () => {
     const { result } = renderHook(() => 
-      useSortableTable({
+      useSortableTable<TestColumn>({
         defaultColumn: 'name',
         defaultDirection: 'asc',
       })
@@ -41,7 +44,7 @@ describe('useSortableTable', () => {
 
   it('defaults to desc direction if not specified', () => {
     const { result } = renderHook(() => 
-      useSortableTable({
+      useSortableTable<TestColumn>({
         defaultColumn: 'score',
       })
     );
@@ -51,7 +54,7 @@ describe('useSortableTable', () => {
 
   it('toggles sort direction when clicking same column', () => {
     const { result } = renderHook(() => 
-      useSortableTable({
+      useSortableTable<TestColumn>({
         defaultColumn: 'score',
         defaultDirection: 'desc',
       })
@@ -80,7 +83,7 @@ describe('useSortableTable', () => {
 
   it('switches to new column with desc direction', () => {
     const { result } = renderHook(() => 
-      useSortableTable({
+      useSortableTable<TestColumn>({
         defaultColumn: 'score',
         defaultDirection: 'asc',
       })
@@ -99,7 +102,7 @@ describe('useSortableTable', () => {
 
   it('setSort updates both column and direction', () => {
     const { result } = renderHook(() => 
-      useSortableTable({
+      useSortableTable<TestColumn>({
         defaultColumn: 'score',
       })
     );
@@ -116,7 +119,7 @@ describe('useSortableTable', () => {
 
   it('resetSort returns to default state', () => {
     const { result } = renderHook(() => 
-      useSortableTable({
+      useSortableTable<TestColumn>({
         defaultColumn: 'score',
         defaultDirection: 'desc',
       })
@@ -140,7 +143,7 @@ describe('useSortableTable', () => {
 
   it('getSortIndicator returns direction for active column', () => {
     const { result } = renderHook(() => 
-      useSortableTable({
+      useSortableTable<TestColumn>({
         defaultColumn: 'score',
         defaultDirection: 'desc',
       })
@@ -153,7 +156,7 @@ describe('useSortableTable', () => {
   describe('persistence', () => {
     it('persists state to localStorage when persistKey provided', () => {
       const { result } = renderHook(() => 
-        useSortableTable({
+        useSortableTable<TestColumn>({
           defaultColumn: 'score',
           persistKey: 'test-sort',
         })
@@ -173,7 +176,7 @@ describe('useSortableTable', () => {
       mockLocalStorage['test-sort'] = JSON.stringify({ column: 'name', direction: 'asc' });
 
       const { result } = renderHook(() => 
-        useSortableTable({
+        useSortableTable<TestColumn>({
           defaultColumn: 'score',
           persistKey: 'test-sort',
         })
@@ -189,7 +192,7 @@ describe('useSortableTable', () => {
       mockLocalStorage['test-sort'] = 'invalid json';
 
       const { result } = renderHook(() => 
-        useSortableTable({
+        useSortableTable<TestColumn>({
           defaultColumn: 'score',
           defaultDirection: 'desc',
           persistKey: 'test-sort',
@@ -204,7 +207,7 @@ describe('useSortableTable', () => {
 
     it('does not persist without persistKey', () => {
       const { result } = renderHook(() => 
-        useSortableTable({
+        useSortableTable<TestColumn>({
           defaultColumn: 'score',
         })
       );

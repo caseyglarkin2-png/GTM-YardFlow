@@ -203,7 +203,7 @@ describe('Mock Factories', () => {
       expect(enrollment.prospectId).toBeDefined();
       expect(enrollment.sequenceId).toBeDefined();
       expect(enrollment.status).toBe('active');
-      expect(enrollment.currentStep).toBe(0);
+      expect(enrollment.currentStepIndex).toBe(0);
     });
   });
 });
