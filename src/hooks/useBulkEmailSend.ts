@@ -11,7 +11,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { getAuth } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import type { Prospect } from '../types';
 import type { ToneId } from '../config/tones';
 import { useAIGenerate } from './useAIGenerate';
@@ -206,8 +206,7 @@ export function useBulkEmailSend(): UseBulkEmailSendReturn {
 
     try {
       // Get Firebase token
-      const auth = getAuth();
-      const user = auth.currentUser;
+      const user = auth?.currentUser;
       if (!user) throw new Error('Not authenticated');
       
       const token = await user.getIdToken();

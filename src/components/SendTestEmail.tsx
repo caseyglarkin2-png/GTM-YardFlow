@@ -7,7 +7,7 @@
 
 import { useState, useCallback } from 'react';
 import { Send, Loader, CheckCircle, AlertCircle, Mail } from 'lucide-react';
-import { getAuth } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 export interface SendTestEmailProps {
   /** Default recipient email */
@@ -47,8 +47,7 @@ export function SendTestEmail({
     setResult(null);
 
     try {
-      const auth = getAuth();
-      const user = auth.currentUser;
+      const user = auth?.currentUser;
 
       if (!user) {
         throw new Error('You must be logged in to send test emails');
@@ -114,8 +113,7 @@ export function SendTestEmail({
     if (!result?.emailId) return;
 
     try {
-      const auth = getAuth();
-      const user = auth.currentUser;
+      const user = auth?.currentUser;
       const token = user ? await user.getIdToken() : null;
 
       const headers: Record<string, string> = {};

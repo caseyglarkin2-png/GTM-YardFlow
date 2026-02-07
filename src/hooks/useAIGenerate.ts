@@ -8,7 +8,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { getAuth } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import type { ToneId } from '../config/tones';
 
 export interface GenerateParams {
@@ -78,8 +78,7 @@ export function useAIGenerate(): UseAIGenerateReturn {
 
     try {
       // Get Firebase token for auth
-      const auth = getAuth();
-      const user = auth.currentUser;
+      const user = auth?.currentUser;
       
       if (!user) {
         clearTimeout(timeoutId);

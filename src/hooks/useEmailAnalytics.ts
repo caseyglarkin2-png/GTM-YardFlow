@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { railwayClient } from '../services/RailwayApiClient';
 import { featureFlags } from '../config/featureFlags';
 import type { EmailAnalytics } from '../types/railway';
-import { getAuth } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 export type AnalyticsPeriod = 'day' | 'week' | 'month';
 
@@ -68,8 +68,7 @@ export function useEmailAnalytics(options: UseEmailAnalyticsOptions = {}): Email
       }
 
       // Fallback: Use local /api/email/stats endpoint (Firestore-based)
-      const auth = getAuth();
-      const token = await auth.currentUser?.getIdToken();
+      const token = await auth?.currentUser?.getIdToken();
       
       if (!token) {
         setError('Authentication required');
