@@ -10,7 +10,7 @@ const bulkExporter = new BulkExporter();
 const bulkDeleteService = new BulkDeleteService();
 const bulkActionService = new BulkActionService();
 
-export type BulkActionModalType = 'sequence' | 'tag' | 'status' | 'export' | 'delete' | null;
+export type BulkActionModalType = 'sequence' | 'tag' | 'status' | 'export' | 'delete' | 'email' | null;
 
 interface UseBulkActionsParams {
   prospects: Prospect[];

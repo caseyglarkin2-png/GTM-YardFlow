@@ -158,10 +158,8 @@ import { useRailwayHealthNotification } from './hooks/useRailwayHealthNotificati
 import { IntegrationsTab, ImportTab } from './components/tabs';
 
 // --- Sprint 36 Services (Bulk Operations) ---
-import { BulkExporter } from './services/BulkExporter';
-import { BulkDeleteService } from './services/BulkDeleteService';
-import { BulkActionService } from './services/BulkActionService';
 import { useMultiSelect } from './services/MultiSelectService';
+import { useBulkActions, type BulkActionModalType } from './hooks/useBulkActions';
 
 // --- Sprint 84: Meeting Attribution ---
 import { recordMeeting } from './services/MeetingAttributionService';
@@ -194,9 +192,7 @@ import { useFilteredProspects } from './hooks/useFilteredProspects';
 // Initialize singletons
 const conversationManager = ConversationManagerSingleton.getInstance();
 const activityTracker = getActivityTracker();
-const bulkExporter = new BulkExporter();
-const bulkDeleteService = new BulkDeleteService();
-const bulkActionService = new BulkActionService();
+// Bulk services moved to useBulkActions hook
 
 // Initialize SavedFiltersService for filter presets
 const savedFiltersService = new SavedFiltersService('yardflow');
@@ -488,10 +484,37 @@ export default function App() {
     isSelected,
   } = multiSelect;
   
-  const [bulkActionModal, setBulkActionModal] = useState<'sequence' | 'tag' | 'status' | 'delete' | 'email' | null>(null);
-  const [isProcessingBulkAction, setIsProcessingBulkAction] = useState(false);
-  const [isExportingBulk, setIsExportingBulk] = useState(false);
-  const [deletedProspects, setDeletedProspects] = useState<Prospect[]>([]);
+  // Sprint 48: Bulk actions extracted to hook
+  const {
+    bulkActionModal,
+    isProcessingBulkAction,
+    isExportingBulk,
+    deletedProspects,
+    setBulkActionModal,
+    handleBulkAssignSequence,
+    handleCreateFromTemplate,
+    handleBulkAddTag,
+    handleBulkChangeStatus,
+    handleBulkExport,
+    handleBulkDelete,
+    handleUndoDelete,
+  } = useBulkActions({
+    prospects,
+    selectedProspectIds,
+    selectedProspect,
+    currentUser,
+    clearSelection,
+    setProspects,
+    setSelectedProspect,
+    enrollProspects,
+    createSequence,
+    refreshSequences,
+    announce,
+    showSuccess,
+    showWarning,
+    showError,
+  });
+
   // Sprint 22A: Bulk email state
   const [isSendingBulkEmail, setIsSendingBulkEmail] = useState(false);
   const [bulkEmailProgress, setBulkEmailProgress] = useState<BulkEmailProgress>({ sent: 0, total: 0, failed: 0 });
@@ -573,240 +596,6 @@ export default function App() {
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [activeTab, selectAll, clearSelection, hasSelection, prospectIds.length, announce, selectedProspect]);
-
-
-  // --- Bulk Action Handlers (wired to BulkActionService) ---
-  const handleBulkAssignSequence = useCallback(async (sequenceId: string) => {
-    const prospectIdsArray = Array.from(selectedProspectIds);
-    setIsProcessingBulkAction(true);
-
-    try {
-      // Get prospect data for the selected IDs
-      const selectedProspects = prospects.filter(p => prospectIdsArray.includes(p.id));
-      
-      // Use the real sequence enrollment service
-      const results = await enrollProspects(selectedProspects, sequenceId);
-      
-      const succeeded = results.filter(r => r.success).length;
-      const failed = results.filter(r => !r.success).length;
-
-      if (failed === 0) {
-        clearSelection();
-        showSuccess(
-          'Enrolled in Sequence',
-          `${succeeded} prospect${succeeded === 1 ? '' : 's'} enrolled. First email will send at 9:15 AM.`
-        );
-        announce(`${succeeded} prospect${succeeded === 1 ? '' : 's'} enrolled in sequence`);
-      } else if (succeeded > 0) {
-        showWarning(
-          'Partial Enrollment',
-          `${succeeded} enrolled, ${failed} failed (already enrolled or invalid email)`
-        );
-        announce(`Partial success: ${succeeded} enrolled, ${failed} failed`);
-      } else {
-        showError('Enrollment Failed', 'Could not enroll any prospects. They may already be in this sequence.');
-        announce('Failed to enroll prospects in sequence');
-      }
-    } catch (error) {
-      console.error('Bulk sequence enrollment failed', error);
-      showError('Enrollment Failed', 'Unable to enroll prospects. Please try again.');
-      announce('Failed to enroll prospects in sequence');
-    } finally {
-      setBulkActionModal(null);
-      setIsProcessingBulkAction(false);
-    }
-  }, [selectedProspectIds, prospects, enrollProspects, clearSelection, announce, showSuccess, showWarning, showError]);
-
-  // Sprint V33: Create sequence from template
-  const handleCreateFromTemplate = useCallback(async (template: SequenceTemplate): Promise<string | null> => {
-    try {
-      const newSequence = await createSequence({
-        name: `${template.name} - ${new Date().toLocaleDateString()}`,
-        description: template.description || '',
-        steps: template.steps.map((step, idx) => ({
-          order: idx + 1,
-          type: 'email' as const,
-          subject: step.subjectTemplate,
-          body: step.bodyTemplate,
-          delayDays: step.delayDays,
-        })),
-      });
-      
-      if (newSequence) {
-        showSuccess('Sequence Created', `Created "${newSequence.name}" from template`);
-        await refreshSequences();
-        return newSequence.id;
-      }
-      showError('Creation Failed', 'Could not create sequence from template');
-      return null;
-    } catch (error) {
-      console.error('Failed to create sequence from template', error);
-      showError('Creation Failed', 'Could not create sequence from template');
-      return null;
-    }
-  }, [createSequence, refreshSequences, showSuccess, showError]);
-
-  const handleBulkAddTag = useCallback(async (tags: string[]) => {
-    const prospectIdsArray = Array.from(selectedProspectIds);
-    setIsProcessingBulkAction(true);
-
-    try {
-      // Register handler for tag action
-      bulkActionService.registerHandler('tag', async (ids, value) => {
-        const tagsToAdd = value as string[];
-        // Update prospects with new tags
-        setProspects(prev => prev.map(p => {
-          if (ids.includes(p.id)) {
-            const existingTags = p.tags || [];
-            const newTags = [...new Set([...existingTags, ...tagsToAdd])];
-            return { ...p, tags: newTags };
-          }
-          return p;
-        }));
-        return {
-          success: true,
-          type: 'tag' as const,
-          processed: ids.length,
-          failed: 0,
-          data: { tags: tagsToAdd }
-        };
-      });
-
-      const result = await bulkActionService.execute({
-        type: 'tag',
-        prospectIds: prospectIdsArray,
-        value: tags
-      });
-
-      if (result.success) {
-        clearSelection();
-        announce(`Added ${tags.length} tag${tags.length === 1 ? '' : 's'} to ${result.processed} prospect${result.processed === 1 ? '' : 's'}`);
-      }
-    } catch (error) {
-      console.error('Bulk tag failed', error);
-      showError('Tag Update Failed', 'Unable to add tags to the selected prospects. Please try again.');
-      announce('Failed to add tags');
-    } finally {
-      setBulkActionModal(null);
-      setIsProcessingBulkAction(false);
-    }
-  }, [selectedProspectIds, clearSelection, announce, showError]);
-
-  const handleBulkChangeStatus = useCallback(async (status: Prospect['status']) => {
-    const prospectIdsArray = Array.from(selectedProspectIds);
-    setIsProcessingBulkAction(true);
-
-    try {
-      // Register handler for status action
-      bulkActionService.registerHandler('status', async (ids, value) => {
-        const newStatus = value as Prospect['status'];
-        setProspects(prev => prev.map(p => {
-          if (ids.includes(p.id)) {
-            return { ...p, status: newStatus };
-          }
-          return p;
-        }));
-        return {
-          success: true,
-          type: 'status' as const,
-          processed: ids.length,
-          failed: 0,
-          data: { status: newStatus }
-        };
-      });
-
-      const result = await bulkActionService.execute({
-        type: 'status',
-        prospectIds: prospectIdsArray,
-        value: status
-      });
-
-      if (result.success) {
-        clearSelection();
-        announce(`Updated status to ${status} for ${result.processed} prospect${result.processed === 1 ? '' : 's'}`);
-      }
-    } catch (error) {
-      console.error('Bulk status change failed', error);
-      showError('Status Update Failed', 'Unable to update status for the selected prospects. Please try again.');
-      announce('Failed to update status');
-    } finally {
-      setBulkActionModal(null);
-      setIsProcessingBulkAction(false);
-    }
-  }, [selectedProspectIds, clearSelection, announce, showError]);
-
-  const handleBulkExport = useCallback(async () => {
-    setIsExportingBulk(true);
-    try {
-      const prospectsToExport = prospects.filter(p => selectedProspectIds.has(p.id));
-      const result = await bulkExporter.exportToCSV(
-        prospectsToExport,
-        `yardflow-prospects-${new Date().toISOString().split('T')[0]}.csv`
-      );
-
-      if (result.success) {
-        bulkExporter.download(result);
-        clearSelection();
-        showSuccess('Export Complete', `Exported ${result.rowCount} prospect${result.rowCount === 1 ? '' : 's'} to CSV`);
-        announce(`Exported ${result.rowCount} prospect${result.rowCount === 1 ? '' : 's'}`);
-      } else {
-        showError('Export Failed', 'Unable to generate the export file. Please try again.');
-        announce('Export failed');
-      }
-    } catch (error) {
-      console.error('Export failed:', error);
-      showError('Export Failed', 'An unexpected error occurred during export. Please try again.');
-      announce('Export failed');
-    } finally {
-      setBulkActionModal(null);
-      setIsExportingBulk(false);
-    }
-  }, [prospects, selectedProspectIds, clearSelection, announce, showSuccess, showError]);
-
-  const handleBulkDelete = useCallback(async () => {
-    const prospectsToDelete = prospects.filter(p => selectedProspectIds.has(p.id));
-    const prospectIdsArray = Array.from(selectedProspectIds);
-    setIsProcessingBulkAction(true);
-    setDeletedProspects(prospectsToDelete);
-    
-    try {
-      await bulkDeleteService.delete(prospectsToDelete, { soft: true, deletedBy: currentUser });
-
-      // Remove from prospects list (soft delete)
-      setProspects(prev => prev.filter(p => !selectedProspectIds.has(p.id)));
-      
-      // Also remove from selection if the selected prospect was deleted
-      if (selectedProspect && selectedProspectIds.has(selectedProspect.id)) {
-        setSelectedProspect(null);
-      }
-      
-      clearSelection();
-      setBulkActionModal(null);
-      announce(`Deleted ${prospectIdsArray.length} prospect${prospectIdsArray.length === 1 ? '' : 's'}`);
-    } catch (error) {
-      console.error('Bulk delete failed', error);
-      showError('Delete Failed', 'Unable to delete the selected prospects. Please try again.');
-      announce('Failed to delete prospects');
-    } finally {
-      setIsProcessingBulkAction(false);
-    }
-  }, [prospects, selectedProspectIds, selectedProspect, clearSelection, announce, currentUser, showError]);
-
-  const handleUndoDelete = useCallback(async () => {
-    if (deletedProspects.length === 0) return;
-    
-    try {
-      await bulkDeleteService.restore(deletedProspects.map(p => p.id));
-      // Restore deleted prospects
-      setProspects(prev => [...prev, ...deletedProspects]);
-      setDeletedProspects([]);
-      announce(`Restored ${deletedProspects.length} prospects`);
-    } catch (error) {
-      console.error('Undo delete failed', error);
-      showError('Restore Failed', 'Unable to restore deleted prospects. Please try again.');
-      announce('Failed to restore prospects');
-    }
-  }, [deletedProspects, announce, showError]);
 
   // Sprint 24: Railway Email Hook
   const { sendBatch, isRailwayEnabled } = useRailwayEmail();
