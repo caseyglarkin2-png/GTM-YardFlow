@@ -344,7 +344,7 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
           userId = decoded.uid;
         }
       } catch (error) {
-        requestLog.warn('Token verification failed', error instanceof Error ? error : undefined);
+        requestLog.warn('Token verification failed', { error: error instanceof Error ? error.message : String(error) });
       }
     }
   }
@@ -363,28 +363,30 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
       const cacheDoc = await db.collection('domain_health').doc(domain).get();
       if (cacheDoc.exists) {
         const cached = cacheDoc.data();
-        const cacheExpiry = cached?.cacheExpiry?.toDate?.() || new Date(cached?.cacheExpiry);
-        
-        if (cacheExpiry > new Date()) {
-          requestLog.info('Returning cached domain health', { domain });
+        if (cached) {
+          const cacheExpiry = cached.cacheExpiry?.toDate?.() || new Date(cached.cacheExpiry);
           
-          const response: DomainHealthResponse = {
-            domain,
-            isHealthy: cached.isHealthy,
-            score: cached.score,
-            records: cached.records,
-            recommendations: cached.recommendations,
-            lastChecked: cached.lastChecked?.toDate?.()?.toISOString() || cached.lastChecked,
-            cacheExpiry: cacheExpiry.toISOString(),
-            requestId,
-          };
-          
-          res.status(200).json(response);
-          return;
+          if (cacheExpiry > new Date()) {
+            requestLog.info('Returning cached domain health', { domain });
+            
+            const response: DomainHealthResponse = {
+              domain,
+              isHealthy: cached.isHealthy,
+              score: cached.score,
+              records: cached.records,
+              recommendations: cached.recommendations,
+              lastChecked: cached.lastChecked?.toDate?.()?.toISOString() || cached.lastChecked,
+              cacheExpiry: cacheExpiry.toISOString(),
+              requestId,
+            };
+            
+            res.status(200).json(response);
+            return;
+          }
         }
       }
     } catch (err) {
-      requestLog.warn('Cache read failed', err instanceof Error ? err : undefined, { domain });
+      requestLog.warn('Cache read failed', { domain, error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -420,7 +422,7 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
         checkedBy: userId,
       });
     } catch (err) {
-      requestLog.warn('Cache write failed', err instanceof Error ? err : undefined, { domain });
+      requestLog.warn('Cache write failed', { domain, error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -440,4 +442,4 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   res.status(200).json(response);
 }
 
-export default withSentry(handler, 'api-domain-check');
+export default withSentry(handler);

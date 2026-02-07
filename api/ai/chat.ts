@@ -48,6 +48,10 @@ interface RailwayResponse {
   confidence?: number;
   conversationId?: string;
   suggestions?: string[];
+  /** Error message (present when response is an error) */
+  error?: string;
+  /** Alternative error message field */
+  message?: string;
   metadata?: {
     provider?: string;
     fallbackUsed?: boolean;

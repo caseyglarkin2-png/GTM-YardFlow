@@ -243,12 +243,11 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
 
     // Alert if high failure rate
     if (failed > 0 && failed / allUserIds.size > 0.2) {
-      await sendAlert({
-        severity: AlertSeverity.WARNING,
-        title: 'Reputation aggregation partial failure',
-        message: `${failed}/${allUserIds.size} users failed to aggregate for ${dateStr}`,
-        data: { date: dateStr, aggregated, updated, failed, duration },
-      });
+      await sendAlert(
+        `Reputation aggregation partial failure: ${failed}/${allUserIds.size} users failed for ${dateStr}`,
+        AlertSeverity.WARNING,
+        { date: dateStr, aggregated, updated, failed, duration }
+      );
     }
 
     res.status(200).json({
@@ -266,12 +265,11 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     
     requestLog.error('Reputation aggregation failed', error instanceof Error ? error : undefined, { duration });
 
-    await sendAlert({
-      severity: AlertSeverity.ERROR,
-      title: 'Reputation aggregation cron failed',
-      message: errorMessage,
-      data: { error: errorMessage, duration },
-    });
+    await sendAlert(
+      `Reputation aggregation cron failed: ${errorMessage}`,
+      AlertSeverity.ERROR,
+      { error: errorMessage, duration }
+    );
 
     res.status(500).json({
       error: 'Aggregation failed',
@@ -281,4 +279,4 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   }
 }
 
-export default withSentry(handler, 'cron-aggregate-reputation');
+export default withSentry(handler);
