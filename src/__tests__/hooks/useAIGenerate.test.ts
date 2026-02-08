@@ -8,13 +8,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useAIGenerate } from '../../hooks/useAIGenerate';
 
-// Mock Firebase auth
-vi.mock('firebase/auth', () => ({
-  getAuth: vi.fn(() => ({
+// Mock @/lib/firebase - the hook imports auth from here
+vi.mock('@/lib/firebase', () => ({
+  auth: {
     currentUser: {
       getIdToken: vi.fn(() => Promise.resolve('mock-firebase-token')),
     },
-  })),
+  },
+  db: {},
 }));
 
 // Mock fetch

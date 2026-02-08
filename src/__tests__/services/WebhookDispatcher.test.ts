@@ -41,27 +41,33 @@ describe('WebhookDispatcher', () => {
   });
 
   describe('registerEndpoint', () => {
-    it('registers a webhook endpoint', () => {
+    it('registers a webhook endpoint and returns new ID', () => {
       const endpoint = createEndpoint();
-      dispatcher.registerEndpoint(endpoint);
+      const registered = dispatcher.registerEndpoint(endpoint);
 
       const endpoints = dispatcher.getEndpoints();
       expect(endpoints).toHaveLength(1);
-      expect(endpoints[0].id).toBe('hook-1');
+      // Service generates new unique ID
+      expect(registered.id).toBeDefined();
+      expect(typeof registered.id).toBe('string');
+      expect(endpoints[0].id).toBe(registered.id);
     });
 
-    it('throws on duplicate endpoint ID', () => {
-      const endpoint = createEndpoint({ id: 'duplicate' });
-      dispatcher.registerEndpoint(endpoint);
+    it('generates unique IDs for each registration', () => {
+      const endpoint1 = createEndpoint({ name: 'Hook 1' });
+      const endpoint2 = createEndpoint({ name: 'Hook 2' });
+      const registered1 = dispatcher.registerEndpoint(endpoint1);
+      const registered2 = dispatcher.registerEndpoint(endpoint2);
 
-      expect(() => dispatcher.registerEndpoint(endpoint)).toThrow();
+      expect(registered1.id).not.toBe(registered2.id);
+      expect(dispatcher.getEndpoints()).toHaveLength(2);
     });
   });
 
   describe('removeEndpoint', () => {
     it('removes an endpoint by ID', () => {
-      dispatcher.registerEndpoint(createEndpoint({ id: 'to-remove' }));
-      const removed = dispatcher.removeEndpoint('to-remove');
+      const registered = dispatcher.registerEndpoint(createEndpoint());
+      const removed = dispatcher.removeEndpoint(registered.id);
 
       expect(removed).toBe(true);
       expect(dispatcher.getEndpoints()).toHaveLength(0);
@@ -118,7 +124,7 @@ describe('WebhookDispatcher', () => {
       await dispatcher.dispatch('prospect.created', { id: 'p1' });
 
       const [, options] = mockFetch.mock.calls[0];
-      expect(options.headers).toHaveProperty('x-webhook-signature');
+      expect(options.headers).toHaveProperty('X-Webhook-Signature');
     });
 
     it('handles fetch errors gracefully', async () => {
@@ -166,26 +172,29 @@ describe('WebhookDispatcher', () => {
       const [, options] = mockFetch.mock.calls[0];
       const sentBody = JSON.parse(options.body);
       
-      // Zapier format should flatten nested objects
-      expect(sentBody.data_prospect_name).toBe('John');
-      expect(sentBody.data_prospect_company_name).toBe('Acme');
+      // Zapier format flattens nested objects with underscore-separated keys
+      expect(sentBody.prospect_name).toBe('John');
+      expect(sentBody.prospect_company_name).toBe('Acme');
+      expect(sentBody.event_type).toBe('prospect.created');
     });
   });
 
   describe('getEndpoints / getActiveEndpoints', () => {
     it('returns all endpoints via getEndpoints', () => {
-      dispatcher.registerEndpoint(createEndpoint({ id: 'e1', isActive: true }));
-      dispatcher.registerEndpoint(createEndpoint({ id: 'e2', isActive: false }));
+      const active = dispatcher.registerEndpoint(createEndpoint({ isActive: true }));
+      const inactive = dispatcher.registerEndpoint(createEndpoint({ isActive: false }));
 
       expect(dispatcher.getEndpoints()).toHaveLength(2);
+      expect(dispatcher.getEndpoints().map(e => e.id)).toContain(active.id);
+      expect(dispatcher.getEndpoints().map(e => e.id)).toContain(inactive.id);
     });
 
     it('returns only active endpoints via getActiveEndpoints', () => {
-      dispatcher.registerEndpoint(createEndpoint({ id: 'e1', isActive: true }));
-      dispatcher.registerEndpoint(createEndpoint({ id: 'e2', isActive: false }));
+      const active = dispatcher.registerEndpoint(createEndpoint({ isActive: true }));
+      dispatcher.registerEndpoint(createEndpoint({ isActive: false }));
 
       expect(dispatcher.getActiveEndpoints()).toHaveLength(1);
-      expect(dispatcher.getActiveEndpoints()[0].id).toBe('e1');
+      expect(dispatcher.getActiveEndpoints()[0].id).toBe(active.id);
     });
   });
 });

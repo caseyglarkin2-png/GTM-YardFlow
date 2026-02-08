@@ -206,7 +206,18 @@ describe('Email infrastructure', () => {
   });
 
   it('processes queue and marks sent', async () => {
-    const message: EmailMessage = { id: 'msg2', to: 'b@example.com', from: 'noreply@test.com', subject: 'Hi', html: '<p>hello</p>', scheduledAt: Date.now() - 1000 };
+    const message: EmailMessage = { 
+      id: 'msg2', 
+      to: 'b@example.com', 
+      from: 'noreply@test.com', 
+      subject: 'Hi', 
+      html: '<p>hello</p><p>To unsubscribe, click here. YardFlow GTM Hub, 123 Main St</p>',
+      headers: {
+        'List-Unsubscribe': '<mailto:unsubscribe@test.com>',
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
+      scheduledAt: Date.now() - 1000 
+    };
     await queue.enqueue(message);
     const processed = await queue.processNext();
     expect(processed?.status).toBe('sent');

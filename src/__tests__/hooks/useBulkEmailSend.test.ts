@@ -10,13 +10,14 @@ import { renderHook, act } from '@testing-library/react';
 import { useBulkEmailSend } from '../../hooks/useBulkEmailSend';
 import type { Prospect } from '../../types';
 
-// Mock Firebase auth
-vi.mock('firebase/auth', () => ({
-  getAuth: vi.fn(() => ({
+// Mock @/lib/firebase - the hook imports auth from here
+vi.mock('@/lib/firebase', () => ({
+  auth: {
     currentUser: {
       getIdToken: vi.fn(() => Promise.resolve('mock-firebase-token')),
     },
-  })),
+  },
+  db: {},
 }));
 
 // Mock useAIGenerate

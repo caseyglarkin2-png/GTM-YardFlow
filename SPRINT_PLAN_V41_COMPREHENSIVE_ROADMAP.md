@@ -2299,15 +2299,802 @@ VITE_FIREBASE_APP_ID=
 VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 
-# Server-Side  
+# Server-Side (NO VITE_ prefix - server only)
 FIREBASE_PROJECT_ID=
 FIREBASE_SERVICE_ACCOUNT_KEY=
 SENDGRID_API_KEY=
-FROM_EMAIL=
+FROM_EMAIL=casey@freightroll.com
 RAILWAY_API_SECRET=
 CRON_SECRET=
 ```
 
 ---
 
-**END OF SPRINT PLAN V41 + V50 ADDENDUM**
+# SPRINT 51: Test Suite Repair [P0-CRITICAL]
+
+**Goal**: All tests pass, CI/CD build succeeds  
+**Demo**: GitHub Actions shows green checkmark  
+**Duration**: 3-4 hours  
+**Depends On**: None (blocking all other work)  
+**Status**: 🚨 BLOCKING - Build broken, cannot deploy  
+
+---
+
+## Root Cause Analysis
+
+**Primary Failure**: WebhookDispatcher.test.ts (6 failures)
+
+The service implementation mismatches test expectations:
+
+| Issue | Test Expects | Service Does |
+|-------|--------------|--------------|
+| `registerEndpoint()` | Accept endpoint with `id: 'hook-1'` | Generates new UUID, ignores provided ID |
+| `removeEndpoint()` | Remove by provided ID 'to-remove' | Can't find because ID was overwritten |
+| `getActiveEndpoints()` | Return endpoint with `id: 'e1'` | Returns endpoint with random UUID |
+| Signature header | `x-webhook-signature` in headers | Not included in fetch options |
+| Zapier format | `data_prospect_name: 'John'` | Returns nested `data.prospect.name` |
+
+**Root Fix**: Either fix the service to respect provided IDs, OR fix the tests to work with generated IDs. **Fixing the tests is the correct approach** - the service correctly generates IDs for new endpoints.
+
+---
+
+## Exit Criteria
+
+- [ ] `npm test -- --run` shows 0 failures
+- [ ] `npx tsc --noEmit` exits with 0
+- [ ] GitHub Actions build passes
+- [ ] All 4 currently failing test files pass
+
+---
+
+### T51.1: Fix WebhookDispatcher Test - Use Returned ID [S - 15min]
+
+**Description**: Tests should use the ID returned by `registerEndpoint()` instead of expecting their provided ID to be used.
+
+**Files**: `src/__tests__/services/WebhookDispatcher.test.ts`
+
+**Change**:
+```typescript
+// BEFORE (line 44-47)
+const endpoint = createEndpoint();
+dispatcher.registerEndpoint(endpoint);
+const endpoints = dispatcher.getEndpoints();
+expect(endpoints[0].id).toBe('hook-1'); // ❌ Wrong - service generates new ID
+
+// AFTER
+const endpoint = createEndpoint();
+const registered = dispatcher.registerEndpoint(endpoint);
+const endpoints = dispatcher.getEndpoints();
+expect(endpoints).toHaveLength(1);
+expect(endpoints[0].id).toBe(registered.id); // ✅ Use returned ID
+```
+
+**Validation**: `npm test -- --run WebhookDispatcher -- -t "registers a webhook endpoint"`
+
+**Commit**: `fix(tests): use returned ID from registerEndpoint`
+
+---
+
+### T51.2: Fix WebhookDispatcher Test - removeEndpoint Uses Returned ID [S - 15min]
+
+**Description**: Store the returned endpoint ID and use it for removal.
+
+**Files**: `src/__tests__/services/WebhookDispatcher.test.ts`
+
+**Change**:
+```typescript
+// BEFORE (line 62-67)
+dispatcher.registerEndpoint(createEndpoint({ id: 'to-remove' }));
+const removed = dispatcher.removeEndpoint('to-remove'); // ❌ ID was overwritten
+
+// AFTER
+const registered = dispatcher.registerEndpoint(createEndpoint());
+const removed = dispatcher.removeEndpoint(registered.id); // ✅ Use actual ID
+expect(removed).toBe(true);
+```
+
+**Validation**: `npm test -- --run WebhookDispatcher -- -t "removes an endpoint by ID"`
+
+**Commit**: `fix(tests): use returned ID for removeEndpoint test`
+
+---
+
+### T51.3: Fix WebhookDispatcher Test - Duplicate Check Needs loadEndpoints [S - 15min]
+
+**Description**: To test duplicate rejection, use `loadEndpoints()` which preserves IDs.
+
+**Files**: `src/__tests__/services/WebhookDispatcher.test.ts`
+
+**Change**:
+```typescript
+// BEFORE (line 53-57)
+const endpoint = createEndpoint({ id: 'duplicate' });
+dispatcher.registerEndpoint(endpoint);
+expect(() => dispatcher.registerEndpoint(endpoint)).toThrow(); // ❌ Never throws
+
+// AFTER - use loadEndpoints to preserve IDs for duplicate check
+const endpoint = createEndpoint({ id: 'duplicate' });
+dispatcher.loadEndpoints([endpoint]); // Load with preserved ID
+const result = dispatcher.registerEndpoint(createEndpoint({ name: 'Another' }));
+// Or add duplicate detection to registerEndpoint based on URL
+```
+
+**Note**: May need to update test expectation - `registerEndpoint` doesn't check for duplicates because it always generates new IDs.
+
+**Validation**: `npm test -- --run WebhookDispatcher -- -t "throws on duplicate"`
+
+**Commit**: `fix(tests): adjust duplicate endpoint test expectations`
+
+---
+
+### T51.4: Fix WebhookDispatcher Test - getActiveEndpoints Uses Returned IDs [S - 15min]
+
+**Description**: Update test to verify active endpoints by returned IDs.
+
+**Files**: `src/__tests__/services/WebhookDispatcher.test.ts`
+
+**Change**:
+```typescript
+// BEFORE (line 182-188)
+dispatcher.registerEndpoint(createEndpoint({ id: 'e1', isActive: true }));
+dispatcher.registerEndpoint(createEndpoint({ id: 'e2', isActive: false }));
+expect(dispatcher.getActiveEndpoints()[0].id).toBe('e1'); // ❌ ID overwritten
+
+// AFTER
+const active = dispatcher.registerEndpoint(createEndpoint({ isActive: true }));
+dispatcher.registerEndpoint(createEndpoint({ isActive: false }));
+const activeEndpoints = dispatcher.getActiveEndpoints();
+expect(activeEndpoints).toHaveLength(1);
+expect(activeEndpoints[0].id).toBe(active.id); // ✅ Use returned ID
+```
+
+**Validation**: `npm test -- --run WebhookDispatcher -- -t "returns only active endpoints"`
+
+**Commit**: `fix(tests): use returned IDs in getActiveEndpoints test`
+
+---
+
+### T51.5: Implement Signature Header in WebhookDispatcher [M - 30min]
+
+**Description**: Add `x-webhook-signature` header when endpoint has secret configured.
+
+**Files**: `src/services/WebhookDispatcher.ts`
+
+**Change** (around line 200-220, in dispatch method):
+```typescript
+// Add signature to headers when secret is configured
+const headers: Record<string, string> = {
+  'Content-Type': 'application/json',
+  'User-Agent': 'FreightRoll-Webhook/1.0',
+  ...(endpoint.headers || {}),
+};
+
+if (endpoint.secret) {
+  const payloadString = JSON.stringify(payload);
+  headers['x-webhook-signature'] = this.generateSignature(payloadString, endpoint.secret);
+}
+```
+
+**Validation**: `npm test -- --run WebhookDispatcher -- -t "includes signature header"`
+
+**Commit**: `feat(webhook): add signature header when secret configured`
+
+---
+
+### T51.6: Implement Zapier Flattening in WebhookDispatcher [M - 30min]
+
+**Description**: When endpoint format is 'zapier', flatten nested data into underscore-separated keys.
+
+**Files**: `src/services/WebhookDispatcher.ts`
+
+**Add Helper Function**:
+```typescript
+/**
+ * Flatten nested object for Zapier compatibility
+ * { data: { prospect: { name: 'John' }}} → { data_prospect_name: 'John' }
+ */
+private flattenForZapier(obj: Record<string, unknown>, prefix = ''): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  
+  for (const [key, value] of Object.entries(obj)) {
+    const newKey = prefix ? `${prefix}_${key}` : key;
+    
+    if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+      Object.assign(result, this.flattenForZapier(value as Record<string, unknown>, newKey));
+    } else {
+      result[newKey] = value;
+    }
+  }
+  
+  return result;
+}
+```
+
+**Use in dispatch**:
+```typescript
+// In dispatchToEndpoint method
+const body = endpoint.format === 'zapier' 
+  ? this.flattenForZapier(payload as Record<string, unknown>)
+  : payload;
+```
+
+**Validation**: `npm test -- --run WebhookDispatcher -- -t "flattens nested data"`
+
+**Commit**: `feat(webhook): add Zapier payload flattening`
+
+---
+
+### T51.7: Run Full Test Suite - Identify Remaining Failures [S - 15min]
+
+**Description**: After fixes, run full suite to find any other failures.
+
+**Files**: None (investigation)
+
+**Validation**:
+```bash
+npm test -- --run 2>&1 | grep -E "FAIL|Test Files"
+# Target: "Test Files  X passed (X)" with 0 failed
+```
+
+**Commit**: None (investigation task)
+
+---
+
+### T51.8: Verify GitHub Actions Build Passes [S - 10min]
+
+**Description**: Push changes and verify CI passes.
+
+**Files**: None (verification)
+
+**Steps**:
+1. Commit all fixes: `git add -A && git commit -m "fix(tests): repair WebhookDispatcher tests"`
+2. Push: `git push origin main`
+3. Check: https://github.com/caseyglarkin2-png/GTM-YardFlow/actions
+4. Verify green checkmark
+
+**Validation**: GitHub Actions shows "build: passing"
+
+**Commit**: Accumulated from T51.1-T51.6
+
+---
+
+## Sprint 51 Demo Script
+
+```bash
+# 1. Local tests pass
+npm test -- --run 2>&1 | tail -5
+# Expected: "Test Files  X passed (X)" with 0 failed
+
+# 2. TypeScript compiles
+npx tsc --noEmit && echo "✅ TypeScript OK"
+
+# 3. GitHub Actions
+echo "Check: https://github.com/caseyglarkin2-png/GTM-YardFlow/actions"
+# Expected: Green checkmark
+```
+
+---
+
+# SPRINT 52: FreightRoll Brand Consistency [P0]
+
+**Goal**: Replace all "YardFlow" references with "FreightRoll" in user-facing content  
+**Demo**: AI-generated emails say "FreightRoll", not "YardFlow"  
+**Duration**: 2-3 hours  
+**Depends On**: S51 (build passing)  
+
+---
+
+## Scope Analysis
+
+**Files with "YardFlow" requiring update** (user-facing):
+
+| File | Line | Current | Fix |
+|------|------|---------|-----|
+| `src/services/ROICalculator.ts` | 355 | "facilities on YardFlow" | "facilities on FreightRoll" |
+| `src/services/CompanyResearchService.ts` | 268 | "YardFlow, a yard management software" | "FreightRoll, a yard management software" |
+| `src/services/AssetPromptBuilder.ts` | 15 | "B2B sales assistant for YardFlow" | "B2B sales assistant for FreightRoll" |
+| `src/services/WebhookDispatcher.ts` | 327, 423 | "YardFlow-Webhook/1.0" | "FreightRoll-Webhook/1.0" |
+| `src/services/SlackIntegration.ts` | 4, 96, 261 | "YardFlow Bot" | "FreightRoll Bot" |
+| `src/components/SettingsModal.tsx` | 28, 52 | "yardflow-prospects" | "freightroll-prospects" |
+| `src/hooks/useBulkActions.ts` | 245 | "yardflow-prospects" | "freightroll-prospects" |
+| `src/types/assets.ts` | 136 | "Jake at YardFlow" | "Jake at FreightRoll" |
+| `index.html` | 11 | meta keywords "YardFlow" | "FreightRoll" |
+
+**Files to KEEP as "YardFlow"** (internal/technical):
+- Repository name (GTM-YardFlow) - don't change
+- Sprint plan documentation - historical context
+- Test factories comments - internal
+
+---
+
+## Exit Criteria
+
+- [ ] `grep -r "YardFlow" src/ | grep -v "__tests__" | grep -v ".md"` returns 0 matches
+- [ ] AI-generated emails reference "FreightRoll"
+- [ ] Export filenames use "freightroll-prospects"
+- [ ] Slack messages show "FreightRoll Bot"
+- [ ] Manual test: Generate AI email, verify "FreightRoll" in content
+
+---
+
+### T52.1: Update ROICalculator Service [S - 5min]
+
+**Description**: Replace YardFlow with FreightRoll in ROI messaging.
+
+**Files**: `src/services/ROICalculator.ts`
+
+**Change** (line 355):
+```typescript
+// BEFORE
+return `With ${facilityCount} facilities on YardFlow, you'd see...`;
+
+// AFTER
+return `With ${facilityCount} facilities on FreightRoll, you'd see...`;
+```
+
+**Validation**: `grep -n "YardFlow" src/services/ROICalculator.ts` returns 0 matches
+
+**Commit**: `refactor(brand): update ROICalculator to FreightRoll`
+
+---
+
+### T52.2: Update CompanyResearchService Prompts [S - 5min]
+
+**Description**: Update AI research prompts to use FreightRoll branding.
+
+**Files**: `src/services/CompanyResearchService.ts`
+
+**Change** (line 268):
+```typescript
+// BEFORE
+return `You are a business research analyst helping qualify sales prospects for YardFlow, a yard management software company.`;
+
+// AFTER
+return `You are a business research analyst helping qualify sales prospects for FreightRoll, a yard management software company.`;
+```
+
+**Validation**: `grep -n "YardFlow" src/services/CompanyResearchService.ts` returns 0 matches
+
+**Commit**: `refactor(brand): update CompanyResearchService to FreightRoll`
+
+---
+
+### T52.3: Update AssetPromptBuilder [S - 5min]
+
+**Description**: Update asset generation prompts.
+
+**Files**: `src/services/AssetPromptBuilder.ts`
+
+**Change** (line 15):
+```typescript
+// BEFORE
+const SYSTEM_CONTEXT = `You are a B2B sales assistant for YardFlow, a yard management system...`;
+
+// AFTER
+const SYSTEM_CONTEXT = `You are a B2B sales assistant for FreightRoll, a yard management system...`;
+```
+
+**Validation**: `grep -n "YardFlow" src/services/AssetPromptBuilder.ts` returns 0 matches
+
+**Commit**: `refactor(brand): update AssetPromptBuilder to FreightRoll`
+
+---
+
+### T52.4: Update WebhookDispatcher User-Agent and Test Message [S - 5min]
+
+**Description**: Update webhook headers and test messages.
+
+**Files**: `src/services/WebhookDispatcher.ts`
+
+**Changes**:
+```typescript
+// Line 327: BEFORE
+'User-Agent': 'YardFlow-Webhook/1.0',
+// AFTER
+'User-Agent': 'FreightRoll-Webhook/1.0',
+
+// Line 423: BEFORE
+message: 'This is a test webhook from YardFlow'
+// AFTER
+message: 'This is a test webhook from FreightRoll'
+```
+
+**Validation**: `grep -n "YardFlow" src/services/WebhookDispatcher.ts` returns 0 matches
+
+**Commit**: `refactor(brand): update WebhookDispatcher to FreightRoll`
+
+---
+
+### T52.5: Update SlackIntegration Branding [S - 5min]
+
+**Description**: Update Slack bot name and summary titles.
+
+**Files**: `src/services/SlackIntegration.ts`
+
+**Changes**:
+```typescript
+// Line 4: Comment update
+* Rich Slack notifications for FreightRoll events
+
+// Line 96: BEFORE
+username: message.username || this.config.botName || 'YardFlow Bot',
+// AFTER
+username: message.username || this.config.botName || 'FreightRoll Bot',
+
+// Line 261: BEFORE
+text: { type: 'plain_text', text: '📊 Daily YardFlow Summary', emoji: true }
+// AFTER
+text: { type: 'plain_text', text: '📊 Daily FreightRoll Summary', emoji: true }
+```
+
+**Validation**: `grep -n "YardFlow" src/services/SlackIntegration.ts` returns 0 matches
+
+**Commit**: `refactor(brand): update SlackIntegration to FreightRoll`
+
+---
+
+### T52.6: Update SettingsModal Export Filenames [S - 5min]
+
+**Description**: Export filenames should use freightroll prefix.
+
+**Files**: `src/components/SettingsModal.tsx`
+
+**Changes** (lines 28, 52):
+```typescript
+// BEFORE
+a.download = `yardflow-prospects-${date}.json`;
+a.download = `yardflow-prospects-${date}.csv`;
+
+// AFTER
+a.download = `freightroll-prospects-${date}.json`;
+a.download = `freightroll-prospects-${date}.csv`;
+```
+
+**Validation**: `grep -n "yardflow" src/components/SettingsModal.tsx` returns 0 matches
+
+**Commit**: `refactor(brand): update SettingsModal exports to FreightRoll`
+
+---
+
+### T52.7: Update useBulkActions Export Filename [S - 5min]
+
+**Description**: Bulk export uses freightroll prefix.
+
+**Files**: `src/hooks/useBulkActions.ts`
+
+**Change** (line 245):
+```typescript
+// BEFORE
+`yardflow-prospects-${date}.csv`
+
+// AFTER
+`freightroll-prospects-${date}.csv`
+```
+
+**Validation**: `grep -n "yardflow" src/hooks/useBulkActions.ts` returns 0 matches
+
+**Commit**: `refactor(brand): update useBulkActions exports to FreightRoll`
+
+---
+
+### T52.8: Update Types Default Sender Name [S - 5min]
+
+**Description**: Default sender name in asset types.
+
+**Files**: `src/types/assets.ts`
+
+**Change** (line 136 or comment):
+```typescript
+// BEFORE
+fromName: string;         // Default: "Jake at YardFlow"
+
+// AFTER
+fromName: string;         // Default: "Jake at FreightRoll"
+```
+
+**Validation**: `grep -n "YardFlow" src/types/assets.ts` returns 0 matches
+
+**Commit**: `refactor(brand): update asset types comments to FreightRoll`
+
+---
+
+### T52.9: Update index.html Meta Keywords [S - 5min]
+
+**Description**: SEO keywords use FreightRoll.
+
+**Files**: `index.html`
+
+**Change** (line 11):
+```html
+<!-- BEFORE -->
+<meta name="keywords" content="YardFlow, GTM, sales pipeline..." />
+
+<!-- AFTER -->
+<meta name="keywords" content="FreightRoll, GTM, sales pipeline, Manifest 2026, HubSpot, CRM, outreach automation" />
+```
+
+**Validation**: `grep -n "YardFlow" index.html` returns 0 matches (outside comments)
+
+**Commit**: `refactor(brand): update index.html to FreightRoll`
+
+---
+
+### T52.10: Verify No YardFlow in src/ (Except Tests) [S - 10min]
+
+**Description**: Final verification sweep.
+
+**Files**: None (verification)
+
+**Validation**:
+```bash
+# Should return only test files and markdown
+grep -r "YardFlow" src/ | grep -v "__tests__" | grep -v ".md"
+# Expected: 0 matches
+
+# Also check index.html
+grep "YardFlow" index.html
+# Expected: 0 matches (or only in comments)
+```
+
+**Commit**: None (verification only)
+
+---
+
+### T52.11: Manual Test - AI Email Generation [S - 10min]
+
+**Description**: Generate AI email in production, verify FreightRoll branding.
+
+**Steps**:
+1. Open production app: https://gtm-yard-flow.vercel.app
+2. Select a prospect
+3. Open bulk email modal
+4. Click "AI Generate"
+5. Verify generated content says "FreightRoll" not "YardFlow"
+6. Screenshot for documentation
+
+**Validation**: AI content references FreightRoll
+
+**Commit**: None (manual test)
+
+---
+
+## Sprint 52 Demo Script
+
+```bash
+# 1. No YardFlow in source (except tests)
+grep -r "YardFlow" src/ | grep -v "__tests__" | wc -l
+# Expected: 0
+
+# 2. FreightRoll appears in prompts
+grep -l "FreightRoll" src/services/*.ts | wc -l
+# Expected: 5+
+
+# 3. Manual: Generate AI email
+# Open app → Select prospect → Generate AI content
+# Verify: "FreightRoll" in generated text
+```
+
+---
+
+# SPRINT 53: Production Environment & Email Activation [P0]
+
+**Goal**: Email sending works in production  
+**Demo**: Send real email from production, verify receipt  
+**Duration**: 1-2 hours  
+**Depends On**: S51 (build passing), S52 (branding correct)  
+
+---
+
+## Current Status
+
+Health check shows missing server-side vars:
+- `FIREBASE_PROJECT_ID` - ❌ Not configured
+- `FROM_EMAIL` - ❌ Not configured (should be `casey@freightroll.com`)
+
+---
+
+## Exit Criteria
+
+- [ ] `/api/health/config` returns `status: "healthy"`
+- [ ] All server vars show `configured: true`
+- [ ] Test email sent from production and received
+- [ ] Documentation updated with correct env var setup
+
+---
+
+### T53.1: Add FIREBASE_PROJECT_ID to Vercel [MANUAL - 2min]
+
+**Description**: Add server-side Firebase project ID.
+
+**Steps**:
+1. Go to Vercel → Settings → Environment Variables
+2. Add variable:
+   - Name: `FIREBASE_PROJECT_ID`
+   - Value: (same as `VITE_FIREBASE_PROJECT_ID`)
+   - Environment: Production, Preview, Development
+3. Click Save
+
+**Note**: Do NOT use `VITE_` prefix - this is server-side only.
+
+**Validation**: Variable appears in Vercel dashboard
+
+**Commit**: None (manual Vercel change)
+
+---
+
+### T53.2: Add FROM_EMAIL to Vercel [MANUAL - 2min]
+
+**Description**: Add sender email address.
+
+**Steps**:
+1. Go to Vercel → Settings → Environment Variables
+2. Add variable:
+   - Name: `FROM_EMAIL`
+   - Value: `casey@freightroll.com`
+   - Environment: Production, Preview, Development
+3. Click Save
+
+**Validation**: Variable appears in Vercel dashboard
+
+**Commit**: None (manual Vercel change)
+
+---
+
+### T53.3: Trigger Redeploy [MANUAL - 2min]
+
+**Description**: Env vars require redeploy to take effect.
+
+**Steps**:
+1. Go to Vercel → Deployments
+2. Click "..." on latest deployment
+3. Click "Redeploy"
+4. Wait for deployment to complete (~2 min)
+
+**Validation**: New deployment shows "Ready"
+
+**Commit**: None (manual action)
+
+---
+
+### T53.4: Verify Health Check Passes [S - 2min]
+
+**Description**: Confirm all env vars are configured.
+
+**Validation**:
+```bash
+curl -s https://gtm-yard-flow.vercel.app/api/health/config | jq .
+# Expected:
+# {
+#   "status": "healthy",
+#   "client": [all "configured": true],
+#   "server": [all "configured": true],
+#   "missingVars": []
+# }
+```
+
+**Commit**: None (verification)
+
+---
+
+### T53.5: Send Test Email from Production [MANUAL - 5min]
+
+**Description**: Complete E2E email test.
+
+**Steps**:
+1. Open https://gtm-yard-flow.vercel.app
+2. Sign in
+3. Select any prospect (or create test prospect with your email)
+4. Click Email action
+5. Compose email with subject "FreightRoll Test [DATE]"
+6. Click Send
+7. Wait for success toast
+8. Check inbox for email (within 2 minutes)
+
+**Validation**: Email received in inbox
+
+**Commit**: None (manual test)
+
+---
+
+### T53.6: Update docs/DEPLOYMENT.md with Env Var Reference [S - 15min]
+
+**Description**: Document all required env vars to prevent future issues.
+
+**Files**: `docs/DEPLOYMENT.md` (create or update)
+
+**Content**:
+```markdown
+# Deployment Guide
+
+## Required Environment Variables
+
+### Client-Side (VITE_ prefix REQUIRED)
+
+These are bundled into the client JavaScript and exposed to the browser.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_FIREBASE_API_KEY` | ✅ | Firebase web API key |
+| `VITE_FIREBASE_PROJECT_ID` | ✅ | Firebase project ID |
+| `VITE_FIREBASE_AUTH_DOMAIN` | ✅ | Auth domain |
+| `VITE_FIREBASE_APP_ID` | ✅ | Firebase app ID |
+| `VITE_FIREBASE_STORAGE_BUCKET` | ⚪ | Storage bucket |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | ⚪ | Messaging sender |
+| `VITE_RAILWAY_ENABLED` | ⚪ | Enable Railway backend |
+
+### Server-Side (NO VITE_ prefix)
+
+These are only available in Vercel Functions, never exposed to browser.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `FIREBASE_PROJECT_ID` | ✅ | For Firebase Admin SDK |
+| `FIREBASE_SERVICE_ACCOUNT_KEY` | ✅ | JSON service account |
+| `SENDGRID_API_KEY` | ✅ | SendGrid API key |
+| `FROM_EMAIL` | ✅ | Sender address (e.g., casey@freightroll.com) |
+| `RAILWAY_API_SECRET` | ⚪ | S2S auth with Railway |
+| `CRON_SECRET` | ⚪ | Cron job auth |
+
+### Important Notes
+
+1. **VITE_ prefix**: Client vars MUST have `VITE_` prefix
+2. **Server vars**: Server vars must NOT have `VITE_` prefix
+3. **Redeploy**: Changes require redeployment to take effect
+4. **Health check**: Verify at `/api/health/config`
+```
+
+**Validation**: File exists with complete env var reference
+
+**Commit**: `docs(deploy): add comprehensive env var documentation`
+
+---
+
+## Sprint 53 Demo Script
+
+```bash
+# 1. Health check passes
+curl -s https://gtm-yard-flow.vercel.app/api/health/config | jq '.status'
+# Expected: "healthy"
+
+# 2. All vars configured
+curl -s https://gtm-yard-flow.vercel.app/api/health/config | jq '.missingVars'
+# Expected: []
+
+# 3. Manual: Send email
+# Open app → Select prospect → Send email → Check inbox
+# Expected: Email arrives within 2 minutes
+```
+
+---
+
+# Summary: Sprint Execution Order
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              SPRINT 51: TEST SUITE REPAIR               │
+│              [P0-CRITICAL - BUILD BLOCKING]             │
+│  • Fix WebhookDispatcher tests (T51.1-T51.6)            │
+│  • Verify GitHub Actions passes (T51.8)                 │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│           SPRINT 52: FREIGHTROLL REBRAND                │
+│              [P0 - USER-VISIBLE BUG]                    │
+│  • Update all src/ files (T52.1-T52.9)                  │
+│  • Verify AI generates FreightRoll content (T52.11)     │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│       SPRINT 53: PRODUCTION EMAIL ACTIVATION            │
+│              [P0 - CORE FUNCTIONALITY]                  │
+│  • Add missing Vercel env vars (T53.1-T53.2)            │
+│  • Verify email sending works (T53.5)                   │
+│  • Document env vars (T53.6)                            │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+**END OF SPRINT PLAN V41 + V50-53 ADDENDUM**
