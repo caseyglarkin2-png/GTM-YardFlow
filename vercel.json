@@ -22,15 +22,8 @@
   ],
   "functions": {
     "api/**/*.ts": {
-      "includeFiles": "lib/**/*.ts,src/**/*.ts"
-    },
-    "api/railway/*.ts": {
-      "maxDuration": 30,
-      "includeFiles": "lib/**/*.ts,src/**/*.ts"
-    },
-    "api/email/webhook.ts": {
-      "maxDuration": 30,
-      "includeFiles": "lib/**/*.ts,src/**/*.ts"
+      "includeFiles": "lib/**/*.ts,src/**/*.ts",
+      "maxDuration": 30
     },
     "api/cron/*.ts": {
       "maxDuration": 60,
