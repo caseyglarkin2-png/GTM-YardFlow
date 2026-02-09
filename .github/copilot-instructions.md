@@ -1,8 +1,10 @@
-# Copilot Instructions — GTM-YardFlow
+# Copilot Instructions — FreightRoll (GTM-YardFlow)
 
 ## Purpose
 Sales automation platform: **enroll prospects → send tracked email sequences → book meetings**.
 Calendly handles scheduling — no calendar integration needed.
+
+> **Note**: Product was renamed from "YardFlow" to "FreightRoll" in Sprint 52. Code repo is still GTM-YardFlow.
 
 ## For AI Coding Agents (Quick Start)
 
@@ -27,15 +29,17 @@ Calendly handles scheduling — no calendar integration needed.
 
 | Sprint | Focus | Status |
 |--------|-------|--------|
-| 22A/B | Bulk Email + Sequence Fallback | ✅ Complete |
-| 23-24 | Railway S2S Auth + Email Activation | ✅ Complete |
-| 36 | HitList Filtering (S36A-E) | ✅ Complete |
-| **37** | **QA Gate & Email Integration** | 🚀 **ACTIVE** |
+| 51 | Test Suite Repair (4535 tests passing) | ✅ Complete |
+| 52 | FreightRoll Rebrand | ✅ Complete |
+| **53** | **Production Email Activation** | 🚀 **ACTIVE** |
 
-*Last updated: 2026-02-05*
+*Last updated: 2026-02-09*
 
-**Sprint 37 Focus** (see [SPRINT_PLAN_V37_QA_GATE.md](../SPRINT_PLAN_V37_QA_GATE.md)):
-- S37E: Integration Test Hardening → S37B: Railway Health → S37A: Manual E2E → S37C: Error Boundaries → S37D: Button Audit
+**Sprint 53 Focus**: Get email sending working in production
+- ✅ Fixed TypeScript errors in health config
+- ✅ Fixed SENDGRID_FROM_EMAIL env var naming
+- ⚠️ **BLOCKER**: Vercel function bundling doesn't include `lib/` and `src/` imports
+- Workaround: Use `/api/email/test-send` (no shared imports) for testing
 
 ## Architecture
 
@@ -584,6 +588,20 @@ npm run test:e2e      # Playwright
 npx tsc --noEmit      # Type check only
 \`\`\`
 
+## Known Issues (Sprint 53)
+
+### Vercel Function Bundling ⚠️
+API routes importing from `lib/` or `src/` crash with `Cannot find module` in production:
+```
+Cannot find module '/var/task/lib/firebaseAdmin' imported from /var/task/api/email/send.js
+```
+
+**Workaround endpoints that work** (no shared imports):
+- `/api/email/test-send` - Direct SendGrid send with service key auth
+- `/api/email/health` - Config check (no external imports)
+
+**Debug endpoint**: `/api/email/debug` shows which imports fail.
+
 ## Environment Variables
 | Variable | Purpose |
 |----------|---------|
@@ -595,6 +613,7 @@ npx tsc --noEmit      # Type check only
 | `SERVICE_TO_SERVICE_SECRET` | S2S auth (fallback for RAILWAY_API_SECRET) |
 | `CRON_SECRET` | Cron job auth (fallback for RAILWAY_API_SECRET) |
 | `SENDGRID_API_KEY` | Email sending |
+| `SENDGRID_FROM_EMAIL` | **Verified sender** (e.g., `casey@freightroll.com`) |
 | `SENDGRID_WEBHOOK_VERIFICATION_KEY` | Webhook signature verification |
 | `CALENDLY_WEBHOOK_SECRET` | Calendly webhook verification |
 | `ALERT_WEBHOOK_URL` | Slack/Teams webhook for alerts |
