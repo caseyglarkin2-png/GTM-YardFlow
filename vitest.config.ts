@@ -1,14 +1,15 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 export default defineConfig({
   // @ts-expect-error - vitest/vite version mismatch in types, works at runtime
   plugins: [react()],
   resolve: {
     alias: {
-      '@': '/workspaces/GTM-YardFlow/src',
-      'virtual:pwa-register': '/workspaces/GTM-YardFlow/src/__tests__/mocks/pwa-register.ts',
+      '@': path.resolve(__dirname, 'src'),
+      'virtual:pwa-register': path.resolve(__dirname, 'src/__tests__/mocks/pwa-register.ts'),
     },
   },
   test: {
