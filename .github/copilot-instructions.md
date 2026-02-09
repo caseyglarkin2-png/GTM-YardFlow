@@ -598,7 +598,6 @@ Cannot find module '/var/task/lib/firebaseAdmin' imported from /var/task/api/ema
 
 **Workaround endpoints that work** (no shared imports):
 - `/api/email/test-send` - Direct SendGrid send with service key auth
-- `/api/email/send-simple` - Simplified send endpoint for UI fallback
 - `/api/email/health` - Config check (no external imports)
 
 **Debug endpoint**: `/api/email/debug` shows which imports fail.
@@ -626,12 +625,6 @@ curl -X POST "https://gtm-yard-flow.vercel.app/api/email/test-send" \
   -H "Content-Type: application/json" \
   -H "x-service-key: YOUR_SERVICE_TO_SERVICE_SECRET" \
   -d '{"to": "casey@freightroll.com", "subject": "Test", "body": "Hello!"}'
-
-# Send via send-simple (supports Firebase token OR service key)
-curl -X POST "https://gtm-yard-flow.vercel.app/api/email/send-simple" \
-  -H "Content-Type: application/json" \
-  -H "x-service-key: YOUR_SERVICE_TO_SERVICE_SECRET" \
-  -d '{"to": "user@example.com", "subject": "Test", "html": "<p>Hello!</p>", "text": "Hello!"}'
 ```
 
 ## Environment Variables
