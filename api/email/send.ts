@@ -15,13 +15,14 @@ const PURIFY_CONFIG = {
   ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
 };
 
-// Lazy-loaded DOMPurify to avoid module init crashes
-let _purify: ReturnType<typeof import('dompurify')> | null = null;
-function getPurify(): ReturnType<typeof import('dompurify')> {
+// Lazy-loaded DOMPurify to avoid module init crashes (async for ESM compatibility)
+let _purify: any = null;
+async function getPurify(): Promise<any> {
   if (!_purify) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const createDOMPurify = require('dompurify');
-    const { JSDOM } = require('jsdom');
+    const [createDOMPurify, { JSDOM }] = await Promise.all([
+      import('dompurify').then(m => m.default),
+      import('jsdom'),
+    ]);
     const window = new JSDOM('').window;
     _purify = createDOMPurify(window as unknown as Window);
   }
@@ -107,7 +108,7 @@ async function enforceRateLimit(db: ReturnType<typeof getAdminDb>, userId: strin
   });
 }
 
-function parseMessage(req: VercelRequest): EmailMessage {
+async function parseMessage(req: VercelRequest): Promise<EmailMessage> {
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   // Validate with Zod schema
   const result = EmailMessageSchema.safeParse(body);
@@ -124,7 +125,8 @@ function parseMessage(req: VercelRequest): EmailMessage {
   
   // SECURITY: Sanitize HTML content to prevent XSS
   if (message.html) {
-    message.html = getPurify().sanitize(message.html, PURIFY_CONFIG);
+    const purify = await getPurify();
+    message.html = purify.sanitize(message.html, PURIFY_CONFIG);
   }
   
   return message;
@@ -205,7 +207,7 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
 
   let message: EmailMessage;
   try {
-    message = parseMessage(req);
+    message = await parseMessage(req);
   } catch (err) {
     userLog.warn('Invalid payload', { detail: (err as Error).message });
     res.status(400).json({ error: 'Invalid payload', detail: (err as Error).message });
