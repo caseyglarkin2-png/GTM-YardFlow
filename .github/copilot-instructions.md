@@ -598,9 +598,41 @@ Cannot find module '/var/task/lib/firebaseAdmin' imported from /var/task/api/ema
 
 **Workaround endpoints that work** (no shared imports):
 - `/api/email/test-send` - Direct SendGrid send with service key auth
+- `/api/email/send-simple` - Simplified send endpoint for UI fallback
 - `/api/email/health` - Config check (no external imports)
 
 **Debug endpoint**: `/api/email/debug` shows which imports fail.
+
+**Attempted fixes that did NOT work:**
+```json
+// vercel.json - includeFiles patterns tried but functions still fail
+"functions": {
+  "api/**/*.ts": {
+    "includeFiles": "lib/**/*.ts,src/**/*.ts"  // ❌ Doesn't bundle
+  }
+}
+```
+
+**Root cause**: Vercel's function compiler doesn't follow relative imports outside `api/` directory. The compiled `.js` files in `/var/task/` expect modules at paths like `/var/task/lib/` but those directories aren't created.
+
+**Current workaround**: Endpoints that need shared code must either:
+1. Inline all dependencies (like `api/email/test-send.ts`)
+2. Use only npm packages (no local `lib/` or `src/` imports)
+
+### Working Email Test Commands
+```bash
+# Send via test-send (uses service key auth)
+curl -X POST "https://gtm-yard-flow.vercel.app/api/email/test-send" \
+  -H "Content-Type: application/json" \
+  -H "x-service-key: YOUR_SERVICE_TO_SERVICE_SECRET" \
+  -d '{"to": "casey@freightroll.com", "subject": "Test", "body": "Hello!"}'
+
+# Send via send-simple (supports Firebase token OR service key)
+curl -X POST "https://gtm-yard-flow.vercel.app/api/email/send-simple" \
+  -H "Content-Type: application/json" \
+  -H "x-service-key: YOUR_SERVICE_TO_SERVICE_SECRET" \
+  -d '{"to": "user@example.com", "subject": "Test", "html": "<p>Hello!</p>", "text": "Hello!"}'
+```
 
 ## Environment Variables
 | Variable | Purpose |
