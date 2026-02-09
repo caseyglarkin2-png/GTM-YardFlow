@@ -24,7 +24,7 @@
     "api/**/*.ts": {
       "includeFiles": "lib/**/*.ts,src/**/*.ts"
     },
-    "api/railway/[...path].ts": {
+    "api/railway/*.ts": {
       "maxDuration": 30,
       "includeFiles": "lib/**/*.ts,src/**/*.ts"
     },
@@ -32,19 +32,7 @@
       "maxDuration": 30,
       "includeFiles": "lib/**/*.ts,src/**/*.ts"
     },
-    "api/cron/process-queue.ts": {
-      "maxDuration": 60,
-      "includeFiles": "lib/**/*.ts,src/**/*.ts"
-    },
-    "api/cron/execute-sequences.ts": {
-      "maxDuration": 60,
-      "includeFiles": "lib/**/*.ts,src/**/*.ts"
-    },
-    "api/cron/aggregate-reputation.ts": {
-      "maxDuration": 60,
-      "includeFiles": "lib/**/*.ts,src/**/*.ts"
-    },
-    "api/cron/sync-suppressions.ts": {
+    "api/cron/*.ts": {
       "maxDuration": 60,
       "includeFiles": "lib/**/*.ts,src/**/*.ts"
     }
