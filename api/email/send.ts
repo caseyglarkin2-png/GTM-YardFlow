@@ -1,16 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import DOMPurify from 'dompurify';
-import { JSDOM } from 'jsdom';
 import { getAdminAuth, getAdminDb } from '../../lib/firebaseAdmin';
 import { validateRequestOrigin } from '../../lib/validateOrigin';
 import { createLogger } from '../../lib/logger';
 
 const log = createLogger('email-send');
-
-// Server-side DOMPurify setup (requires JSDOM window)
-const window = new JSDOM('').window;
-const purify = DOMPurify(window as unknown as Window);
 
 // Configure DOMPurify with safe allowlist for emails
 const PURIFY_CONFIG = {
@@ -20,6 +14,19 @@ const PURIFY_CONFIG = {
   // Prevent javascript: URLs
   ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
 };
+
+// Lazy-loaded DOMPurify to avoid module init crashes
+let _purify: ReturnType<typeof import('dompurify')> | null = null;
+function getPurify(): ReturnType<typeof import('dompurify')> {
+  if (!_purify) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const createDOMPurify = require('dompurify');
+    const { JSDOM } = require('jsdom');
+    const window = new JSDOM('').window;
+    _purify = createDOMPurify(window as unknown as Window);
+  }
+  return _purify;
+}
 import { EmailQueueService } from '../../src/services/EmailQueueService';
 import { EmailComplianceService } from '../../src/services/EmailComplianceService';
 import { EmailWarmupService } from '../../src/services/EmailWarmupService';
@@ -117,7 +124,7 @@ function parseMessage(req: VercelRequest): EmailMessage {
   
   // SECURITY: Sanitize HTML content to prevent XSS
   if (message.html) {
-    message.html = purify.sanitize(message.html, PURIFY_CONFIG);
+    message.html = getPurify().sanitize(message.html, PURIFY_CONFIG);
   }
   
   return message;
