@@ -227,13 +227,13 @@ async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     userLog.warn('Email blocked by spam score', {
       score: spamResult.score,
       level: spamResult.level,
-      issues: spamResult.issues.map(i => i.message),
+      issues: spamResult.issues.map(i => i.description),
     });
     res.status(422).json({
       error: 'Email blocked — content flagged as high spam risk',
       score: spamResult.score,
       level: spamResult.level,
-      issues: spamResult.issues.map(i => ({ message: i.message, severity: i.severity })),
+      issues: spamResult.issues.map(i => ({ message: i.description, severity: i.severity })),
       suggestions: spamResult.suggestions,
       requestId,
     });
