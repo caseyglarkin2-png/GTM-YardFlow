@@ -22,31 +22,31 @@
   ],
   "functions": {
     "api/**/*.ts": {
-      "includeFiles": "lib/**,src/**"
+      "includeFiles": "lib/**/*.ts,src/**/*.ts"
     },
     "api/railway/[...path].ts": {
       "maxDuration": 30,
-      "includeFiles": "lib/**,src/**"
+      "includeFiles": "lib/**/*.ts,src/**/*.ts"
     },
     "api/email/webhook.ts": {
       "maxDuration": 30,
-      "includeFiles": "lib/**,src/**"
+      "includeFiles": "lib/**/*.ts,src/**/*.ts"
     },
     "api/cron/process-queue.ts": {
       "maxDuration": 60,
-      "includeFiles": "lib/**,src/**"
+      "includeFiles": "lib/**/*.ts,src/**/*.ts"
     },
     "api/cron/execute-sequences.ts": {
       "maxDuration": 60,
-      "includeFiles": "lib/**,src/**"
+      "includeFiles": "lib/**/*.ts,src/**/*.ts"
     },
     "api/cron/aggregate-reputation.ts": {
       "maxDuration": 60,
-      "includeFiles": "lib/**,src/**"
+      "includeFiles": "lib/**/*.ts,src/**/*.ts"
     },
     "api/cron/sync-suppressions.ts": {
       "maxDuration": 60,
-      "includeFiles": "lib/**,src/**"
+      "includeFiles": "lib/**/*.ts,src/**/*.ts"
     }
   },
   "headers": [
