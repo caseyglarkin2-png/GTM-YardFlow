@@ -46,7 +46,7 @@ export default function handler(
     'FIREBASE_PROJECT_ID',
     'FIREBASE_SERVICE_ACCOUNT_KEY',
     'SENDGRID_API_KEY',
-    'FROM_EMAIL',
+    'SENDGRID_FROM_EMAIL',
   ];
 
   // Optional variables (nice to have, not required)
