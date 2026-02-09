@@ -23,11 +23,7 @@
   "functions": {
     "api/**/*.ts": {
       "includeFiles": "lib/**/*.ts,src/**/*.ts",
-      "maxDuration": 30
-    },
-    "api/cron/*.ts": {
-      "maxDuration": 60,
-      "includeFiles": "lib/**/*.ts,src/**/*.ts"
+      "maxDuration": 60
     }
   },
   "headers": [
