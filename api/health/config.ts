@@ -24,7 +24,7 @@ interface HealthResponse {
 
 export default function handler(
   req: VercelRequest,
-  res: VercelResponse<HealthResponse>
+  res: VercelResponse
 ): void {
   // Only allow GET requests
   if (req.method !== 'GET') {
