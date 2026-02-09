@@ -49,7 +49,7 @@ describe('NavigationSidebar', () => {
     it('renders logo and title', () => {
       render(<NavigationSidebar {...defaultProps} />);
       
-      expect(screen.getByText('YardFlow')).toBeInTheDocument();
+      expect(screen.getByText('FreightRoll')).toBeInTheDocument();
       expect(screen.getByText('Hub')).toBeInTheDocument();
     });
     

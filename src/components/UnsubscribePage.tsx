@@ -201,7 +201,7 @@ export function UnsubscribePage({ token: propToken }: UnsubscribePageProps) {
 
         {/* Footer */}
         <div className="text-center mt-6 text-sm text-slate-500">
-          <p>© {new Date().getFullYear()} YardFlow. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} FreightRoll. All rights reserved.</p>
         </div>
       </div>
     </div>

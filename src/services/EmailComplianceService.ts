@@ -51,7 +51,7 @@ export class EmailComplianceService {
       missing.push('Unsubscribe link in body');
     }
 
-    const postalAddress = (process.env.COMPLIANCE_POSTAL_ADDRESS || 'YardFlow GTM Hub').toLowerCase();
+    const postalAddress = (process.env.COMPLIANCE_POSTAL_ADDRESS || 'FreightRoll GTM Hub').toLowerCase();
     if (postalAddress && !body.includes(postalAddress.toLowerCase())) {
       missing.push('Physical postal address');
     }

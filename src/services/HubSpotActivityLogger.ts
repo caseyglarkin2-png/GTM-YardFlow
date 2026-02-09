@@ -223,7 +223,7 @@ export function createActivityLogger(
     if (activity.metadata) {
       parts.push('');
       parts.push('---');
-      parts.push(`Source: YardFlow | ${new Date(activity.timestamp).toLocaleString()}`);
+      parts.push(`Source: FreightRoll | ${new Date(activity.timestamp).toLocaleString()}`);
     }
     
     return parts.join('\n');
@@ -249,14 +249,14 @@ export function createActivityLogger(
       switch (engagementType) {
         case 'EMAIL':
           engagement = await client.logEmail(activity.contactId, {
-            subject: activity.subject || `YardFlow: ${activity.type}`,
+            subject: activity.subject || `FreightRoll: ${activity.type}`,
             body: activity.body || formatActivityBody(activity),
           });
           break;
 
         case 'TASK':
           engagement = await client.createTask(activity.contactId, {
-            subject: activity.subject || `YardFlow: ${activity.type}`,
+            subject: activity.subject || `FreightRoll: ${activity.type}`,
             body: formatActivityBody(activity),
             priority: 'MEDIUM',
           });

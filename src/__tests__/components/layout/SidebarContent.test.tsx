@@ -49,9 +49,9 @@ describe('SidebarContent', () => {
       expect(screen.getByTestId('sidebar-content')).toBeInTheDocument();
     });
 
-    it('renders YardFlow branding', () => {
+    it('renders FreightRoll branding', () => {
       render(<SidebarContent {...defaultProps} />);
-      expect(screen.getByText('YardFlow')).toBeInTheDocument();
+      expect(screen.getByText('FreightRoll')).toBeInTheDocument();
       expect(screen.getByText('Hub')).toBeInTheDocument();
     });
 

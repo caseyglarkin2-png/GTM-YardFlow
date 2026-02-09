@@ -152,10 +152,10 @@ class ConversationManager {
    * Export chat history as markdown
    */
   exportAsMarkdown(): string {
-    const header = `# YardFlow Chat Export\n\nExported: ${new Date().toISOString()}\n\n---\n\n`;
+    const header = `# FreightRoll Chat Export\n\nExported: ${new Date().toISOString()}\n\n---\n\n`;
     
     const messages = this.messages.map(msg => {
-      const role = msg.role === 'user' ? '**You**' : '**YardFlow Brain**';
+      const role = msg.role === 'user' ? '**You**' : '**FreightRoll Brain**';
       const time = new Date(msg.timestamp).toLocaleString();
       return `${role} (${time}):\n\n${msg.content}\n`;
     }).join('\n---\n\n');

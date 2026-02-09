@@ -36,7 +36,7 @@ const ROICalculator = () => {
     <Card className="w-full max-w-4xl bg-slate-50">
       <CardHeader>
         <CardTitle className="text-2xl font-bold flex justify-between items-center">
-          <span>YardFlow Value Logic</span>
+          <span>FreightRoll Value Logic</span>
           <span className="text-emerald-600 text-3xl">
             {formatCurrency(totalROI)} <span className="text-sm text-slate-500 font-normal">/ yr</span>
           </span>

@@ -41,7 +41,7 @@ describe('ROICalculator', () => {
   it('renders initial state correctly', () => {
     render(<ROICalculator />);
     // Check for title
-    expect(screen.getByText(/YardFlow Value Logic/i)).toBeInTheDocument();
+    expect(screen.getByText(/FreightRoll Value Logic/i)).toBeInTheDocument();
     // Check for default facility count 50
     expect(screen.getByText('50')).toBeInTheDocument();
   });

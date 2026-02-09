@@ -209,7 +209,7 @@ export class PDFReportService {
     // Title
     doc.setFontSize(FONTS.header);
     doc.setTextColor(...COLORS.text);
-    doc.text(options.title || 'YardFlow Report', pageWidth / 2, y, { align: 'center' });
+    doc.text(options.title || 'FreightRoll Report', pageWidth / 2, y, { align: 'center' });
     y += 10;
 
     // Subtitle
@@ -253,7 +253,7 @@ export class PDFReportService {
       doc.text(`Generated: ${new Date().toLocaleString()}`, 15, pageHeight - 10);
 
       // Branding
-      doc.text('YardFlow GTM Hub', pageWidth - 15, pageHeight - 10, { align: 'right' });
+      doc.text('FreightRoll GTM Hub', pageWidth - 15, pageHeight - 10, { align: 'right' });
     }
   }
 

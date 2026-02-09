@@ -36,7 +36,7 @@ export function PWAInstallPrompt({ className = '' }: PWAInstallPromptProps): Rea
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0 text-2xl">📱</div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm">Install YardFlow</h3>
+          <h3 className="font-semibold text-sm">Install FreightRoll</h3>
           <p className="text-xs text-blue-100 mt-1">
             Install this app on your device for quick access and offline use.
           </p>

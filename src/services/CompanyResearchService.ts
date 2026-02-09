@@ -265,7 +265,7 @@ Known information about ${companyName}:
 - Max Revenue tier: ${existingData.maxRevenue || 'Unknown'}
 ` : '';
 
-  return `You are a business research analyst helping qualify sales prospects for YardFlow, a yard management software company.
+  return `You are a business research analyst helping qualify sales prospects for FreightRoll, a yard management software company.
 
 Research the following company and provide structured data for sales qualification:
 
@@ -303,7 +303,7 @@ Please research and provide the following information in JSON format:
 }
 \`\`\`
 
-**Important Context for YardFlow Qualification:**
+**Important Context for FreightRoll Qualification:**
 - We are looking for companies similar to Primo Brands (260 facilities, beverage industry, national footprint)
 - "Yard intensive" means: multiple distribution centers, high trailer/truck throughput, dock door operations
 - Industries like beverage, CPG, food manufacturing are high-value targets

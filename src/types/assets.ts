@@ -133,7 +133,7 @@ export interface EmailTemplate {
 }
 
 export interface EmailConfig {
-  fromName: string;         // Default: "Jake at YardFlow"
+  fromName: string;         // Default: "Jake at FreightRoll"
   replyToEmail: string;
   unsubscribeText: string;  // Default: "Reply STOP to unsubscribe"
   complianceFooter: string;

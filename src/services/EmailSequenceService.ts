@@ -57,7 +57,7 @@ export const SEQUENCE_TEMPLATES: SequenceTemplate[] = [
 
 Noticed {{company}} is running {{trailerCount}}+ trailers—curious if detention fees are eating into margins.
 
-YardFlow customers typically cut dwell time 40% and save $150+ per trailer annually.
+FreightRoll customers typically cut dwell time 40% and save $150+ per trailer annually.
 
 Worth a 15-min chat to see if this applies to your operation?
 
@@ -137,7 +137,7 @@ Quick question: Is {{company}} tracking the true cost of yard inefficiency?
 
 Companies with {{trailerCount}}+ trailers typically have $200K+ in hidden detention and dwell costs.
 
-YardFlow customers see 4.2× ROI in Year 1 with 6-month payback.
+FreightRoll customers see 4.2× ROI in Year 1 with 6-month payback.
 
 Worth 15 minutes to run the numbers for {{company}}?
 

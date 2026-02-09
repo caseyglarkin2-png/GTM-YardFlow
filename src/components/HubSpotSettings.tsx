@@ -409,8 +409,8 @@ export function HubSpotSettings({
                   ))}
                 </div>
                 <p className="mt-2 text-xs text-gray-500">
-                  {syncDirection === 'push' && 'Changes in YardFlow will sync to HubSpot.'}
-                  {syncDirection === 'pull' && 'Changes in HubSpot will sync to YardFlow.'}
+                  {syncDirection === 'push' && 'Changes in FreightRoll will sync to HubSpot.'}
+                  {syncDirection === 'pull' && 'Changes in HubSpot will sync to FreightRoll.'}
                   {syncDirection === 'bidirectional' && 'Changes sync both ways. Conflicts resolved by timestamp.'}
                 </p>
               </div>
@@ -522,7 +522,7 @@ export function HubSpotSettings({
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
                       <div className="bg-white p-2 rounded border">
-                        <span className="text-gray-500">YardFlow:</span>
+                        <span className="text-gray-500">FreightRoll:</span>
                         <span className="ml-2 font-mono">{conflict.localValue}</span>
                       </div>
                       <div className="bg-white p-2 rounded border">

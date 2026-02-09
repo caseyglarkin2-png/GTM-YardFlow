@@ -211,7 +211,7 @@ describe('Email infrastructure', () => {
       to: 'b@example.com', 
       from: 'noreply@test.com', 
       subject: 'Hi', 
-      html: '<p>hello</p><p>To unsubscribe, click here. YardFlow GTM Hub, 123 Main St</p>',
+      html: '<p>hello</p><p>To unsubscribe, click here. FreightRoll GTM Hub, 123 Main St</p>',
       headers: {
         'List-Unsubscribe': '<mailto:unsubscribe@test.com>',
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',

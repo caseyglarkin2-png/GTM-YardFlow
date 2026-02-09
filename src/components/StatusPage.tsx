@@ -110,7 +110,7 @@ export function StatusPage() {
 
         {/* Footer */}
         <div className="text-center text-sm text-gray-400 mt-8">
-          YardFlow System Status • <a href="/" className="text-blue-600 hover:underline">Return to App</a>
+          FreightRoll System Status • <a href="/" className="text-blue-600 hover:underline">Return to App</a>
         </div>
       </div>
     </div>

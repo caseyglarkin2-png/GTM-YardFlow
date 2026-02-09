@@ -324,7 +324,7 @@ export class WebhookDispatcher {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'User-Agent': 'YardFlow-Webhook/1.0',
+            'User-Agent': 'FreightRoll-Webhook/1.0',
             'X-Webhook-Event': event,
             'X-Webhook-Delivery': deliveryId,
             ...(signature && { 'X-Webhook-Signature': signature }),

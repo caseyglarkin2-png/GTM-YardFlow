@@ -93,7 +93,7 @@ export class SlackIntegration {
         body: JSON.stringify({
           ...message,
           channel: message.channel || this.config.channel,
-          username: message.username || this.config.botName || 'YardFlow Bot',
+          username: message.username || this.config.botName || 'FreightRoll Bot',
           icon_emoji: message.icon_emoji || this.config.iconEmoji || ':zap:'
         })
       });
@@ -258,7 +258,7 @@ export class SlackIntegration {
     const blocks: SlackBlock[] = [
       {
         type: 'header',
-        text: { type: 'plain_text', text: '📊 Daily YardFlow Summary', emoji: true }
+        text: { type: 'plain_text', text: '📊 Daily FreightRoll Summary', emoji: true }
       },
       {
         type: 'section',

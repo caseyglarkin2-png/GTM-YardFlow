@@ -227,38 +227,38 @@ export const STATUS_MAP_REVERSE: Record<string, string> = {
 export const CUSTOM_PROPERTIES = [
   {
     name: 'yardflow_segment',
-    label: 'YardFlow Segment',
+    label: 'FreightRoll Segment',
     type: 'string',
     groupName: 'contactinformation',
-    description: 'Segment assigned by YardFlow',
+    description: 'Segment assigned by FreightRoll',
   },
   {
     name: 'yardflow_source',
-    label: 'YardFlow Source',
+    label: 'FreightRoll Source',
     type: 'string',
     groupName: 'contactinformation',
-    description: 'Lead source from YardFlow',
+    description: 'Lead source from FreightRoll',
   },
   {
     name: 'yardflow_tags',
-    label: 'YardFlow Tags',
+    label: 'FreightRoll Tags',
     type: 'string',
     groupName: 'contactinformation',
-    description: 'Tags from YardFlow (semicolon separated)',
+    description: 'Tags from FreightRoll (semicolon separated)',
   },
   {
     name: 'yardflow_id',
-    label: 'YardFlow ID',
+    label: 'FreightRoll ID',
     type: 'string',
     groupName: 'contactinformation',
-    description: 'Internal YardFlow prospect ID for sync',
+    description: 'Internal FreightRoll prospect ID for sync',
   },
   {
     name: 'yardflow_last_sync',
-    label: 'YardFlow Last Sync',
+    label: 'FreightRoll Last Sync',
     type: 'datetime',
     groupName: 'contactinformation',
-    description: 'Last sync timestamp with YardFlow',
+    description: 'Last sync timestamp with FreightRoll',
   },
 ];
 

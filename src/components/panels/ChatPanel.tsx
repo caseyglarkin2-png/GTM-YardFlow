@@ -146,7 +146,7 @@ export function ChatPanel({
     if (persisted.length > 0) {
       return persisted.map(m => ({ role: m.role, text: m.content }));
     }
-    return [{ role: 'model', text: "I'm the YardFlow Brain. Loaded with Manifest strategy, Primo Brands case study ($1M+ margin per facility), and Network Effects framework. Ask me to draft messages, analyze prospects, or explain our value prop." }];
+    return [{ role: 'model', text: "I'm the FreightRoll Brain. Loaded with Manifest strategy, Primo Brands case study ($1M+ margin per facility), and Network Effects framework. Ask me to draft messages, analyze prospects, or explain our value prop." }];
   });
   const [isGenerating, setIsGenerating] = useState(false);
   // B2.5: Pending action for confirmation UI
@@ -299,7 +299,7 @@ export function ChatPanel({
 
   const handleClearHistory = useCallback(() => {
     conversationManager.clearHistory();
-    setChatHistory([{ role: 'model', text: "I'm the YardFlow Brain. I've been loaded with the Manifest strategy docs, RFQ decks, and the Hitlist logic. Ask me to draft emails, analyze prospects, or explain 'Reynolds Number'." }]);
+    setChatHistory([{ role: 'model', text: "I'm the FreightRoll Brain. I've been loaded with the Manifest strategy docs, RFQ decks, and the Hitlist logic. Ask me to draft emails, analyze prospects, or explain 'Reynolds Number'." }]);
   }, []);
 
   const handleExportChat = useCallback((format: 'md' | 'json') => {

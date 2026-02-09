@@ -33,7 +33,7 @@ export function SendTestEmail({
   className = '',
 }: SendTestEmailProps) {
   const [email, setEmail] = useState(defaultEmail);
-  const [subject, setSubject] = useState('YardFlow Test Email');
+  const [subject, setSubject] = useState('FreightRoll Test Email');
   const [isSending, setIsSending] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string; emailId?: string } | null>(null);
 
@@ -70,8 +70,8 @@ export function SendTestEmail({
           subject,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h1 style="color: #1e40af;">🎉 YardFlow Email Test Successful!</h1>
-              <p>This is a test email from YardFlow GTM Hub.</p>
+              <h1 style="color: #1e40af;">🎉 FreightRoll Email Test Successful!</h1>
+              <p>This is a test email from FreightRoll GTM Hub.</p>
               <p>If you're seeing this, your email infrastructure is working correctly.</p>
               <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
               <p style="font-size: 12px; color: #6b7280;">
@@ -80,7 +80,7 @@ export function SendTestEmail({
               </p>
             </div>
           `,
-          text: `YardFlow Email Test Successful!\n\nThis is a test email from YardFlow GTM Hub.\n\nIf you're seeing this, your email infrastructure is working correctly.\n\nSent at: ${new Date().toISOString()}\nEmail ID: ${testEmailId}`,
+          text: `FreightRoll Email Test Successful!\n\nThis is a test email from FreightRoll GTM Hub.\n\nIf you're seeing this, your email infrastructure is working correctly.\n\nSent at: ${new Date().toISOString()}\nEmail ID: ${testEmailId}`,
           metadata: {
             type: 'test',
             source: 'SendTestEmail',

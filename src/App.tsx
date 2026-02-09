@@ -745,7 +745,7 @@ export default function App() {
     if (persisted.length > 0) {
       return persisted.map(m => ({ role: m.role, text: m.content }));
     }
-    return [{ role: 'model', text: "I'm the YardFlow Brain. Loaded with Manifest strategy, Primo Brands case study ($1M+ margin per facility), and Network Effects framework. Ask me to draft messages, analyze prospects, or explain our value prop." }];
+    return [{ role: 'model', text: "I'm the FreightRoll Brain. Loaded with Manifest strategy, Primo Brands case study ($1M+ margin per facility), and Network Effects framework. Ask me to draft messages, analyze prospects, or explain our value prop." }];
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -927,7 +927,7 @@ export default function App() {
   // Clear chat history
   const handleClearHistory = useCallback(() => {
     conversationManager.clearHistory();
-    setChatHistory([{ role: 'model', text: "I'm the YardFlow Brain. I've been loaded with the Manifest strategy docs, RFQ decks, and the Hitlist logic. Ask me to draft emails, analyze prospects, or explain 'Reynolds Number'." }]);
+    setChatHistory([{ role: 'model', text: "I'm the FreightRoll Brain. I've been loaded with the Manifest strategy docs, RFQ decks, and the Hitlist logic. Ask me to draft emails, analyze prospects, or explain 'Reynolds Number'." }]);
   }, []);
 
   // Export chat history
@@ -1324,7 +1324,7 @@ export default function App() {
 
   // Send email to selected prospect
   // Sprint 101: Check feature flags to route email correctly
-  const sendEmailToProspect = async (templateId: string, body: string, subject: string = 'YardFlow Update') => {
+  const sendEmailToProspect = async (templateId: string, body: string, subject: string = 'FreightRoll Update') => {
     if (!selectedProspect) return;
     
     if (!selectedProspect.email) {
@@ -1478,7 +1478,7 @@ export default function App() {
           {
             id: 'nav-assistant',
             name: 'Go to AI Assistant',
-            description: 'Chat with YardFlow Brain',
+            description: 'Chat with FreightRoll Brain',
             category: 'Navigation',
             action: () => { setActiveTab('assistant'); commandPalette.close(); },
           },
@@ -1609,7 +1609,7 @@ export default function App() {
           <div className="h-7 w-7 bg-blue-600 rounded-lg flex items-center justify-center" aria-hidden="true">
             <Zap className="h-4 w-4 text-white" />
           </div>
-          <span className="font-bold text-base text-slate-800">YardFlow <span className="text-blue-600">Hub</span></span>
+          <span className="font-bold text-base text-slate-800">FreightRoll <span className="text-blue-600">Hub</span></span>
         </div>
         <button 
           onClick={() => setShowSettings(true)} 

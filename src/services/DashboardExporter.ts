@@ -150,7 +150,7 @@ export class DashboardExporter {
       let yOffset = 20;
       if (includeHeader) {
         pdf.setFontSize(16);
-        pdf.text('YardFlow Dashboard', 20, yOffset);
+        pdf.text('FreightRoll Dashboard', 20, yOffset);
         yOffset += 20;
 
         if (dateRange) {

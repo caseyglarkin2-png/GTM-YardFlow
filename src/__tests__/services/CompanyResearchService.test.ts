@@ -64,10 +64,10 @@ describe('CompanyResearchService', () => {
       expect(deepPrompt).toContain('in-depth research');
     });
 
-    it('should include YardFlow context', () => {
+    it('should include FreightRoll context', () => {
       const prompt = buildResearchPrompt({ companyName: 'Test' });
       
-      expect(prompt).toContain('YardFlow');
+      expect(prompt).toContain('FreightRoll');
       expect(prompt).toContain('Primo Brands');
       expect(prompt).toContain('yard management');
       expect(prompt).toContain('50+ facilities');

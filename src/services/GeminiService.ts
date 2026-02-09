@@ -112,7 +112,7 @@ function generateMockAssets(context: AssetContext): GeneratedAssets {
       {
         position: 3,
         delayDays: 5,
-        subject: `One more try - ${context.companyName} + YardFlow`,
+        subject: `One more try - ${context.companyName} + FreightRoll`,
         body: `Hi ${context.prospectName.split(' ')[0]},\n\nI'll keep this short - would a 15-minute demo of FreightRoll be useful?\n\nWe're helping companies like Primo Brands reduce detention charges and paper-based bottlenecks. Happy to show you exactly how it works.\n\nIf timing isn't right, no worries at all. Just let me know.\n\nBest,\nJake`,
         persona: context.isExec ? 'exec' : context.isOps ? 'ops' : 'all',
       },

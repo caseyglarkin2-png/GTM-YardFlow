@@ -318,7 +318,7 @@ export function SidebarContent({
               <Zap className="h-5 w-5 text-white" />
             </div>
             <h1 className="font-bold text-lg tracking-tight text-slate-800">
-              YardFlow <span className="text-blue-600">Hub</span>
+              FreightRoll <span className="text-blue-600">Hub</span>
             </h1>
           </div>
           

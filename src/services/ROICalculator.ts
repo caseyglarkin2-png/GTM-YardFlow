@@ -330,8 +330,8 @@ export function generateROIDMLine(
   const savings = formatCurrencyCompact(quickWin.totalAnnual);
   const companyRef = companyName ? `at ${companyName}` : 'at your facilities';
   
-  // Template: "Based on {volume}, YardFlow could save {company} ~{savings}/yr in detention + yard labor. Worth a 15-min demo?"
-  const line = `Based on your volume, YardFlow could save ${companyRef} ~${savings}/yr in detention + yard labor. Worth a 15-min demo?`;
+  // Template: "Based on {volume}, FreightRoll could save {company} ~{savings}/yr in detention + yard labor. Worth a 15-min demo?"
+  const line = `Based on your volume, FreightRoll could save ${companyRef} ~${savings}/yr in detention + yard labor. Worth a 15-min demo?`;
   
   // Ensure <= 250 chars
   if (line.length <= 250) {
@@ -339,7 +339,7 @@ export function generateROIDMLine(
   }
   
   // Fallback shorter version
-  return `YardFlow could save you ~${savings}/yr in detention + yard labor. Worth 15 mins?`;
+  return `FreightRoll could save you ~${savings}/yr in detention + yard labor. Worth 15 mins?`;
 }
 
 /**
@@ -352,5 +352,5 @@ export function generateNetworkDMLine(
   const totalValue = formatCurrencyCompact(networkEffects.totalNetworkValueAnnual);
   const multiplier = `${(networkEffects.networkMultiplier * 100 - 100).toFixed(0)}%`;
   
-  return `With ${facilityCount} facilities on YardFlow, you'd see a ${multiplier} network boost—that's ~${totalValue}/yr in total value. Let's map it out.`;
+  return `With ${facilityCount} facilities on FreightRoll, you'd see a ${multiplier} network boost—that's ~${totalValue}/yr in total value. Let's map it out.`;
 }
